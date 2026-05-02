@@ -131,6 +131,10 @@ function draw_pet()
 	print(pets[current_pet].name,50,20,7)
 	sspr(pets[current_pet].spr[1],pets[current_pet].spr[2],16,16,32,32,64,64)
 	pal()
+	fillp(█)
+	for i=1,#pets do
+	 circfill(71-7*#pets+14*(i-1),105,2,i==current_pet and 7 or 5)
+	end
 end
 
 function draw_game_select()
