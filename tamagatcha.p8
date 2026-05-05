@@ -4,7 +4,7 @@ __lua__
 function _init()
  hunger=100
  happiness=100
- tokens=0
+ tokens=10
  last_fed=time()
  icons={
   {name="food"   ,x=3  ,y=3  ,sprite=1},
@@ -22,13 +22,12 @@ function _init()
  current_icon=1
  screen=0
  clamp = mid
+ --general use timer
+ t = time()
 end
 
 function _update()
  update_hunger()
- if btnp(🅾️) then
-  screen=0
- end
  if screen==0 then
   check_player_inputs()
  elseif screen==1 then
@@ -37,6 +36,7 @@ function _update()
   --stats
  elseif screen==3 then
   --gatcha
+  update_gatcha()
  elseif screen==4 then
   --setting
  elseif screen==5 then
@@ -45,13 +45,21 @@ function _update()
   --pet collection
  elseif screen==9 then
   --adoption
+ elseif screen==10 then
+  --gatcha animation
+  update_gatcha_animation()
  end
 end
 
 
 function _draw()
  cls()
- print(icons[current_icon].name=="left")
+ --[[
+ print inventory for debugging
+ for i in all(inventory) do
+  print(i)
+ end
+ ]]
  if screen==0 then
   draw_icons()
   draw_pet()
@@ -76,6 +84,9 @@ function _draw()
  elseif screen==9 then
   --adoption
   draw_adoption()
+ elseif screen==10 then
+  --gatcha animation
+  draw_gatcha_animation()
  end
 end
 -->8
@@ -111,6 +122,7 @@ function check_player_inputs()
    current_pet=clamp(1,current_pet+1,#pets)
   else
    screen=current_icon-1
+   current_icon=1
   end
  end
 end
@@ -157,10 +169,6 @@ end
 
 function draw_snacks()
 	print("snacks menu in the works",10,40,7)
-end
-
-function draw_gacha()
-	print("gacha in the works",10,40,7)
 end
 
 function draw_collection()
@@ -224,12 +232,185 @@ function pet_not_mimikyu.new()
     return self
 end
 
+all_pets={pet_duck,
+ pet_cheeto,
+ pet_mimikyu,
+ pet_not_mimikyu}
+ 
+all_items={
+{spr = {0,16}},
+{spr = {8,16}},
+{spr = {16,16}},
+{spr = {24,16}},
+{spr = {32,16}}
+}
+
 inventory = {
 
 }
-pets = {pet_duck.new(), pet_cheeto.new(),pet_mimikyu.new(),pet_not_mimikyu.new()}
+
+pets = {pet_duck.new()}
 --1 based counting to access pet table
 current_pet = 1
+-->8
+--gatcha page and animation
+function update_gatcha()
+ if btnp(🅾️) then
+  screen=0
+ elseif current_icon==1and btnp(➡️) then
+  current_icon=2
+ elseif current_icon==2and btnp(⬅️) then
+  current_icon=1
+ elseif btnp(❎) then
+  if current_icon==1 and tokens>=1then
+   tokens-=1
+   screen=10
+   t=time()
+   gatcha_animation_init()
+  elseif tokens>=10 then
+   tokens-=10
+   screen=10
+   t=time()
+   gatcha_animation_init()
+  end
+ end
+end
+
+function draw_gacha()
+ cls()
+ --rectfill(0,0,128,128,15)
+ --tickets icon
+ spr(37,105,0)
+ print(tokens,115,2,9)
+ --1-pull choice
+ rectfill(3,49,62,79,4)
+ print("1-pull",5,51,7)
+ line(5,59,60,59)
+ print("20% chance for",5,63)
+ print("pet egg")
+ --10-pull choice
+ rectfill(66,49,125,79,9)
+ print("10-pull",68,51,7)
+ line(68,59,123,59)
+ print("guaranteed 3",68,63)
+ print("pet egg drop")
+ --selector
+ local l=63*(current_icon-1)
+ rect(l+3,49,l+62,79,10)
+ --back icon
+ print("🅾️ back",100,120,5)
+ if current_icon==1 and tokens<1 or current_icon==2 and tokens<10 then
+  print("not enough tokens",30,90,8)
+ end
+end
+
+--------------------------------
+--animation
+--------------------------------
+
+function gatcha_animation_init()
+ --one pull
+ if current_icon==1 then
+ 	draw_list={generate()}
+ --10 pull
+ elseif current_icon==2 then
+ 	draw_list={}
+ 	for i=1,10 do
+ 	 add(draw_list,generate())
+ 	end
+ end
+ --add inventory/pets list
+ for i in all(draw_list) do
+  if i.pet then
+   add(pets,i.obj)
+  else
+   add(inventory,i.obj)
+  end
+ end
+end
+
+function generate()
+ 	local l={true,false,false,false,false}
+ 	local s=rnd(l)
+ 	local pet_ = rnd(all_pets).new()
+ 	local item_ = rnd(all_items)
+ 	return {pet=s,obj=s and pet_ or item_}
+end
+
+function update_gatcha_animation()
+ --skip animation button
+ if btnp(🅾️) then
+  t-=3
+ end
+end
+
+function under(length)
+ return time()-t<=length
+end
+
+function draw_gatcha_animation()
+ cls()
+ --skip button
+ print("🅾️ skip",100,120,5)
+ print(draw_list[1].obj.spr)
+ --1 pull
+ if #draw_list==1 then
+	 if under(0.3) then
+	  print_item(draw_list[1],48,48,32)
+	 elseif under(0.6) then
+	  print_item(draw_list[1],47,48,32)
+	 elseif under(0.9) then
+	  print_item(draw_list[1],48,48,32)
+	 elseif under(1.2) then
+	  print_item(draw_list[1],49,48,32)
+	 elseif under(3) then
+	  print_item(draw_list[1],48,48,32)
+	 elseif under(6) then
+	  print_item(draw_list[1],48,48,32,true)
+	 else
+	  screen=0
+	 end
+ else
+  for i,j in pairs(draw_list) do
+   local ix=(i-1)%5*26+4
+   local iy=(i-1)\5*46+33
+   local shake=j.spr[1]/8%2*2-1
+	  if under(0.3) then
+		  print_item(j,ix,iy,16)
+		 elseif under(0.6) then
+		  print_item(j,ix+shake,iy,16)
+		 elseif under(0.9) then
+		  print_item(j,ix,iy,16)
+		 elseif under(1.2) then
+		  print_item(j,ix-shake,iy,16)
+		 elseif under(3) then
+		  print_item(j,ix,iy,16)
+		 elseif under(6) then
+		  print_item(j,ix,iy,16,true)
+		 else
+	   screen=0
+		 end
+  end
+ end
+end
+
+function print_item(item,x,y,size,open)
+ if item.pet and open then
+  item_size=16
+ else
+  item_size=8
+ end
+ if open then 
+  item_location=item.obj.spr
+ elseif item.pet then
+  item_location={0,24}
+ else
+  item_location={8,24}
+ end
+ palt(0b0000000000010000)
+ sspr(item_location[1],item_location[2],item_size,item_size,x,y,size,size)
+ pal()
+end
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbb0000000000000000
 0000000000009900056776500bbbb7700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000b0000000000000000
@@ -247,3 +428,19 @@ a000000a00eee20077777777777777770077006000655500bb444499944444bbbb777794999bb99b
 a000000a0662200007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbb0000000000000000
 a000000a0060000000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbb0000000000000000
 aaaaaaaa0000000000070000000070000000000000000000bbbbbbbbbbbbbbbbb977949999999bbbbb00000000000bbbbb00d0d00d000bbb0000000000000000
+00000000000000000011111000011000001001100000a00000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0011100000001000011000110110110001100100000a9a0000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001011000001100001000001010001001000100000a999a000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01000100000100000000001000001000100010110a99a99a00000000000000000000000000000000000000000000000000000000000000000000000000000000
+0100110000010000000011000011110011111100a9a999a000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01011000001000000001000000000110001100000a9a9a0000000000000000000000000000000000000000000000000000000000000000000000000000000000
+011100000010000000100000100001000010000000a9a00000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000100000001111101111110001000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000000770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00777700007887000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00777700077228700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07777770078877600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07777770077776600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07777770077766600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07777770077766600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00777700007766000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
