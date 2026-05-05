@@ -2,235 +2,249 @@ pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
 function _init()
- hunger=100
- happiness=100
- tokens=0
- last_fed=time()
- icons={
-  {name="food"   ,x=3  ,y=3  ,sprite=1},
-  {name="game"   ,x=31 ,y=3  ,sprite=2},
-  {name="stats"  ,x=60 ,y=3  ,sprite=3},
-  {name="gacha"  ,x=89 ,y=3  ,sprite=4},
-  {name="setting",x=117,y=3  ,sprite=5},
-  
-  {name="snack"  ,x=3  ,y=117,sprite=17},
-  {name="left"   ,x=31 ,y=117,sprite=18},
-  {name="right"  ,x=60 ,y=117,sprite=19},
-  {name="pets"   ,x=89 ,y=117,sprite=20},
-  {name="adopt"  ,x=117,y=117,sprite=21}
- }
- current_icon=1
- screen=0
- clamp = mid
+    hunger = 100
+    happiness = 100
+    tokens = 0
+    last_fed = time()
+    icons = {
+        { name = "food", x = 3, y = 3, sprite = 1 },
+        { name = "game", x = 31, y = 3, sprite = 2 },
+        { name = "stats", x = 60, y = 3, sprite = 3 },
+        { name = "gacha", x = 89, y = 3, sprite = 4 },
+        { name = "setting", x = 117, y = 3, sprite = 5 },
+
+        { name = "snack", x = 3, y = 117, sprite = 17 },
+        { name = "left", x = 31, y = 117, sprite = 18 },
+        { name = "right", x = 60, y = 117, sprite = 19 },
+        { name = "pets", x = 89, y = 117, sprite = 20 },
+        { name = "adopt", x = 117, y = 117, sprite = 21 }
+    }
+    current_icon = 1
+    screen = 0
+    clamp = mid
 end
 
 function _update()
- update_hunger()
- if btnp(🅾️) then
-  screen=0
- end
- if screen==0 then
-  check_player_inputs()
- elseif screen==1 then
-  --game
- elseif screen==2 then
-  --stats
- elseif screen==3 then
-  --gatcha
- elseif screen==4 then
-  --setting
- elseif screen==5 then
-  --snack
- elseif screen==8 then
-  --pet collection
- elseif screen==9 then
-  --adoption
- end
+    update_hunger()
+    if btnp(🅾️) then
+        screen = 0
+    end
+    if screen == 0 then
+        check_player_inputs()
+    elseif screen == 1 then
+        --game
+    elseif screen == 2 then
+        --stats
+    elseif screen == 3 then
+        --gatcha
+    elseif screen == 4 then
+        --setting
+    elseif screen == 5 then
+        --snack
+    elseif screen == 8 then
+        --pet collection
+    elseif screen == 9 then
+        --adoption
+    end
 end
 
-
 function _draw()
- cls()
- print(icons[current_icon].name=="left")
- if screen==0 then
-  draw_icons()
-  draw_pet()
- elseif screen==1 then
-  --game
-  draw_game_select()
- elseif screen==2 then
-  --stats
-  draw_stats()
- elseif screen==3 then
-  --gatcha
-  draw_gacha()
- elseif screen==4 then
-  --setting
-  draw_settings()
- elseif screen==5 then
-  --snack
-  draw_snacks()
- elseif screen==8 then
-  --pet collection
-  draw_collection()
- elseif screen==9 then
-  --adoption
-  draw_adoption()
- end
+    cls()
+    print(icons[current_icon].name == "left")
+    if screen == 0 then
+        draw_icons()
+        draw_pet()
+    elseif screen == 1 then
+        --game
+        draw_game_select()
+    elseif screen == 2 then
+        --stats
+        draw_stats()
+    elseif screen == 3 then
+        --gatcha
+        draw_gacha()
+    elseif screen == 4 then
+        --setting
+        draw_settings()
+    elseif screen == 5 then
+        --snack
+        draw_snacks()
+    elseif screen == 8 then
+        --pet collection
+        draw_collection()
+    elseif screen == 9 then
+        --adoption
+        draw_adoption()
+    end
 end
 -->8
 function update_hunger()
- if time()-last_fed>2 then
-  last_fed=time()
-  --do this for all pets later
-  pets[current_pet].hunger-=1
-  if (pets[current_pet].hunger<0) pets[current_pet].hunger=0
- end
+    if time() - last_fed > 2 then
+        last_fed = time()
+        --do this for all pets later
+        pets[current_pet].hunger -= 1
+        if (pets[current_pet].hunger < 0) pets[current_pet].hunger = 0
+    end
 end
 
 function add_hunger()
- hunger=hunger+1
- if (hunger>15) hunger=15
+    hunger = hunger + 1
+    if (hunger > 15) hunger = 15
 end
 
 function check_player_inputs()
- if btnp(⬅️) then
-  current_icon=clamp(1,current_icon-1,#icons)
- elseif btnp(➡️) then
-  current_icon=clamp(1,current_icon+1,#icons)
- elseif btnp(⬇️) and current_icon<6 then
-  current_icon=current_icon+5
- elseif btnp(⬆️) and current_icon>5 then
-  current_icon=current_icon-5
- elseif btnp(❎) then
-  if icons[current_icon].name=="food" then
-   add_hunger()
-  elseif icons[current_icon].name=="left" then
-   current_pet=clamp(1,current_pet-1,#pets)
-  elseif icons[current_icon].name=="right" then
-   current_pet=clamp(1,current_pet+1,#pets)
-  else
-   screen=current_icon-1
-  end
- end
+    if btnp(⬅️) then
+        current_icon = clamp(1, current_icon - 1, #icons)
+    elseif btnp(➡️) then
+        current_icon = clamp(1, current_icon + 1, #icons)
+    elseif btnp(⬇️) and current_icon < 6 then
+        current_icon = current_icon + 5
+    elseif btnp(⬆️) and current_icon > 5 then
+        current_icon = current_icon - 5
+    elseif btnp(❎) then
+        if icons[current_icon].name == "food" then
+            add_hunger()
+        elseif icons[current_icon].name == "left" then
+            current_pet = clamp(1, current_pet - 1, #pets)
+        elseif icons[current_icon].name == "right" then
+            current_pet = clamp(1, current_pet + 1, #pets)
+        else
+            screen = current_icon - 1
+        end
+    end
 end
 
 function draw_icons()
-	for i in all(icons) do
-	 spr(i.sprite,i.x,i.y)
-	end
-	local curr_icon = icons[current_icon]
-	-- spr(16,curr_icon.x,curr_icon.y)
-    rect(curr_icon.x-1,curr_icon.y-1,curr_icon.x+8,curr_icon.y+8,10)
+    for i in all(icons) do
+        spr(i.sprite, i.x, i.y)
+    end
+    local curr_icon = icons[current_icon]
+    -- spr(16,curr_icon.x,curr_icon.y)
+    rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
 end
 
 function draw_pet()
-	fillp(★)
-	circfill(64,64,44,3)
-	--set gray to not draw
-	palt(0b0000000000010000)
-	print(pets[current_pet].name,50,20,7)
-	sspr(pets[current_pet].spr[1],pets[current_pet].spr[2],16,16,32,32,64,64)
-	pal()
-	fillp(█)
-	for i=1,#pets do
-	 circfill(71-7*#pets+14*(i-1),105,2,i==current_pet and 7 or 5)
-	end
+    fillp(★)
+    circfill(64, 64, 44, 3)
+    --set gray to not draw
+    palt(0b0000000000010000)
+    pet = pets[current_pet]
+    print(pet.name, 50, 20, 7)
+    pet:draw_scaled(32,32,4)
+    pal()
+    fillp(█)
+    for i = 1, #pets do
+        circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
+    end
 end
 
 function draw_game_select()
-	print("games in the works",10,40,7)
+    print("games in the works", 10, 40, 7)
 end
 
 function draw_stats()
-	print(pets[current_pet].name,20,40,7)
- fillp(█)
- --hunger bar
- print("hunger",20,52,7)
- rectfill(20,60,108,65,5)
- rectfill(20,60,20+5.87*pets[current_pet].hunger,65,11)
- --happy bar
+    print(pets[current_pet].name, 20, 40, 7)
+    fillp(█)
+    --hunger bar
+    print("hunger", 20, 52, 7)
+    rectfill(20, 60, 108, 65, 5)
+    rectfill(20, 60, 20 + 5.87 * pets[current_pet].hunger, 65, 11)
+    --happy bar
 end
 
 function draw_settings()
-	print("settings in the works",10,40,7)
+    print("settings in the works", 10, 40, 7)
 end
 
 function draw_snacks()
-	print("snacks menu in the works",10,40,7)
+    print("snacks menu in the works", 10, 40, 7)
 end
 
 function draw_gacha()
-	print("gacha in the works",10,40,7)
+    print("gacha in the works", 10, 40, 7)
 end
 
 function draw_collection()
-	print("collections in the works",10,40,7)
+    print("collections in the works", 10, 40, 7)
 end
 
 function draw_adoption()
-	print("killing menu in the works",10,40,7)
+    print("killing menu in the works", 10, 40, 7)
 end
 
-
 -->8
-pet_struct = { immortal = false }
+pet_struct = {
+    name = "default",
+    immortal = false,
+    sprite = 0,
+    sprite_width = 2,
+    sprite_height = 2,
+}
 pet_struct.__index = pet_struct
 
 function pet_struct.new()
     local self = setmetatable({}, pet_struct)
-    self.name = "default"
     self.hunger = 15
     self.happiness = 15
-    self.spr = {0,0}
     return self
 end
 
-pet_duck = setmetatable({}, pet_struct)
+function pet_struct:draw(x,y)
+    spr(self.sprite,x,y,self.sprite_width,self.sprite_height)
+end
+function pet_struct:draw_scaled(x,y,scale)
+    scale=scale or 1
+    sx = pet.sprite%16*8
+    sy = pet.sprite\16*8
+    sspr(
+     sx,sy,
+     self.sprite_width*8,self.sprite_height*8,
+     x,y,
+     self.sprite_width*8*scale,self.sprite_height*8*scale)
+end
+pet_duck = setmetatable(
+    {name = "arb duck",sprite=6},
+    pet_struct
+)
 pet_duck.__index = pet_duck
 function pet_duck.new()
     local self = setmetatable(pet_struct.new(), pet_duck)
-    self.name = "arb duck"
-    self.spr = {48,0}
     return self
 end
 
 pet_cheeto = setmetatable(
-    { immortal = true },
+    {name = "cheeto",immortal = true,sprite=8},
     pet_struct
 )
 pet_cheeto.__index = pet_cheeto
 function pet_cheeto.new()
     local self = setmetatable(pet_struct.new(), pet_cheeto)
-    self.name = "cheeto"
-    self.spr = {64,0}
     return self
 end
 
-pet_mimikyu = setmetatable({}, pet_struct)
+pet_mimikyu = setmetatable(
+    {name = "mimikyu",sprite=10},
+     pet_struct)
 pet_mimikyu.__index = pet_mimikyu
 function pet_mimikyu.new()
     local self = setmetatable(pet_struct.new(), pet_mimikyu)
-    self.name = "mimikyu"
-    self.spr = {80,0}
     return self
 end
 
-pet_not_mimikyu = setmetatable({}, pet_struct)
+pet_not_mimikyu = setmetatable(
+    {name = "not mimikyu",sprite=12},
+    pet_struct)
 pet_not_mimikyu.__index = pet_not_mimikyu
 function pet_not_mimikyu.new()
     local self = setmetatable(pet_struct.new(), pet_not_mimikyu)
-    self.name = "not mimikyu"
-    self.spr = {96,0}
     return self
 end
 
-inventory = {
-
-}
-pets = {pet_duck.new(), pet_cheeto.new(),pet_mimikyu.new(),pet_not_mimikyu.new()}
+inventory = {}
+pets = { pet_duck.new(), pet_cheeto.new(), pet_mimikyu.new(), pet_not_mimikyu.new() }
 --1 based counting to access pet table
 current_pet = 1
+
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbb0000000000000000
 0000000000009900056776500bbbb7700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000b0000000000000000
