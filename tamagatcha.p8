@@ -374,7 +374,7 @@ function draw_gatcha_animation()
   for i,j in pairs(draw_list) do
    local ix=(i-1)%5*26+4
    local iy=(i-1)\5*46+33
-   local shake=j.spr[1]/8%2*2-1
+   local shake=j.obj.spr[1]/8%2*2-1
 	  if under(0.3) then
 		  print_item(j,ix,iy,16)
 		 elseif under(0.6) then
