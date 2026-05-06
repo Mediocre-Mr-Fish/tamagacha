@@ -2,10 +2,9 @@ pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
 function _init()
- hunger = 100
- happiness = 100
  tokens = 10
  last_fed = time()
+ last_play= time()
  icons = {
   { name = "food", x = 3, y = 3, sprite = 1 },
   { name = "game", x = 31, y = 3, sprite = 2 },
@@ -28,6 +27,7 @@ end
 
 function _update()
  update_hunger()
+ update_happiness()
  if btnp(🅾️) and screen !=10then
   screen = 0
  end
@@ -117,10 +117,25 @@ function update_hunger()
  end
 end
 
-function add_hunger()
- hunger = hunger + 1
- if (hunger > 15) hunger = 15
+function update_happiness()
+ if time() - last_play > 4 then
+  last_play = time()
+  --do this for all pets later
+  pets[current_pet].happiness -= 1
+  if (pets[current_pet].happiness < 0) pets[current_pet].happiness = 0
+ end
 end
+
+function add_hunger()
+ pets[current_pet].hunger = pets[current_pet].hunger + 1
+ if (pets[current_pet].hunger > 15) pets[current_pet].hunger = 15
+end
+
+function add_happiness()
+ pets[current_pet].happiness = pets[current_pet].happiness + 1
+ if (pets[current_pet].happiness > 15) pets[current_pet].happiness = 15
+end
+
 
 function check_player_inputs()
  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
@@ -146,6 +161,16 @@ function draw_icons()
  local curr_icon = icons[current_icon]
  -- spr(16,curr_icon.x,curr_icon.y)
  rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
+ --stats icon reflecting pet status
+ fillp(█)
+ local hunger_x = pets[current_pet].hunger/15*6
+ local happy_x = pets[current_pet].happiness/15*6
+ if hunger_x>1 then
+  rectfill(61,4,60+hunger_x,4,hunger_x>3 and 11 or 8)
+ end
+ if happy_x>1 then
+  rectfill(61,6,60+happy_x,6,happy_x>3 and 11 or 8)
+ end
 end
 
 function draw_pet()
@@ -175,6 +200,10 @@ function draw_stats()
  rectfill(20, 60, 108, 65, 5)
  rectfill(20, 60, 20 + 5.87 * pets[current_pet].hunger, 65, 11)
  --happy bar
+ print("happiness", 20, 72, 7)
+ rectfill(20, 80, 108, 85, 5)
+ rectfill(20, 80, 20 + 5.87 * pets[current_pet].happiness, 85, 11)
+ 
 end
 
 function draw_settings()
@@ -480,11 +509,11 @@ end
 
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bb
-0000000000009900056776500bbbb7700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
+000000000000990005677650077777700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
 007007000009979007777770000000000777705006777750bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0999bbb4aaa550bb0eeebbb5fff220b6bb5bbbb6666556
-0007700000999940078775700bbbb0000777705077700776bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb499aa44aa00bbbbb4eeff55ff00bbbbb666bbbb6665555
+000770000099994007877570077777700777705077700776bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb499aa44aa00bbbbb4eeff55ff00bbbbb666bbbb6665555
 000770000069440007777770000000000944455067700777bb3333bbbbbbbbbbb9bbbbb9bbbbbbbbbbb4aaaaaa0bbbb0bbb57ff7ff0bbbbbb60766bbb6665bb5
-007007000675000006755760087777000444400005777760bb33303bbbbbbbbbb99bbb99bbbbbbbbbb4a0aa0aaa4bb04bb5f2ff2fff5bbbb660066bbb666bbbb
+0070070006750000067557600bbbb0000444400005777760bb33303bbbbbbbbbb99bbb99bbbbbbbbbb4a0aa0aaa4bb04bb5f2ff2fff5bbbb660066bbb666bbbb
 000000000700000000600600000000000444400007677570b999333bbbbbbbbbb9999999bbbbbbbbbb49aaaa99a0b444bb4effffeef0bbbbf66666bbb6666bbb
 000000000000000000000000000000000000000000076000b999333bbbbbbb7bb9099099bbb9bbbbbb40a0a099a0b440bb42f2f2eef0bbbbb6666566bb6665bb
 000000000000000000000000000000000000000000000000bb33333bbbbb777bb9999999bbb999bbbbb40a0aaa0b440bbbb42f2fff0bbbbbbb5556666b66665b
