@@ -1,7 +1,9 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+is_runtime = false
 function _init()
+ is_runtime = true
  hunger = 100
  happiness = 100
  tokens = 10
@@ -195,107 +197,58 @@ function draw_adoption()
 end
 
 -->8
-pet_struct = {
+-- structs
+
+-- a function to create pet classes
+function classfactory(static_vars, parent, class_list)
+ assert(not is_runtime, "classfactory should not be called at runtime.")
+
+ local class = parent and setmetatable(static_vars, parent) or static_vars
+ class.__index = class
+ if class_list then
+  add(class_list, class)
+ end
+ -- blank new() function
+ -- override if instance variables are needed
+ class.new = function()
+  return setmetatable(parent and parent.new() or {}, class)
+ end
+
+ return class
+end
+
+all_pets = {}
+function classfactory__pet(static_vars, parent)
+ return classfactory(static_vars, parent or pet_struct, all_pets)
+end
+
+pet_struct = classfactory({
  name = "default",
  immortal = false,
  sprite = 0,
  sprite_width = 2,
  sprite_height = 2
-}
-pet_struct.__index = pet_struct
-
+})
 function pet_struct.new()
  local self = setmetatable({}, pet_struct)
  self.hunger = 15
  self.happiness = 15
  return self
 end
-
 function pet_struct:spr(x, y)
  spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
 end
 function pet_struct:spr_scaled(x, y, scale)
  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
 end
-pet_duck = setmetatable(
- { name = "arb duck", sprite = 6 },
- pet_struct
-)
-pet_duck.__index = pet_duck
-function pet_duck.new()
- local self = setmetatable(pet_struct.new(), pet_duck)
- return self
-end
 
-pet_cheeto = setmetatable(
- { name = "cheeto", immortal = true, sprite = 8 },
- pet_struct
-)
-pet_cheeto.__index = pet_cheeto
-function pet_cheeto.new()
- local self = setmetatable(pet_struct.new(), pet_cheeto)
- return self
-end
-
-pet_mimikyu = setmetatable(
- { name = "mimikyu", sprite = 10 },
- pet_struct
-)
-pet_mimikyu.__index = pet_mimikyu
-function pet_mimikyu.new()
- local self = setmetatable(pet_struct.new(), pet_mimikyu)
- return self
-end
-
-pet_not_mimikyu = setmetatable(
- { name = "not mimikyu", sprite = 12 },
- pet_struct
-)
-pet_not_mimikyu.__index = pet_not_mimikyu
-function pet_not_mimikyu.new()
- local self = setmetatable(pet_struct.new(), pet_not_mimikyu)
- return self
-end
-
-pet_squirrel = setmetatable(
- { name = "squirrel", sprite = 14 },
- pet_struct
-)
-pet_squirrel.__index = pet_squirrel
-function pet_squirrel.new()
- local self = setmetatable(pet_struct.new(), pet_squirrel)
- return self
-end
-
-pet_turkey = setmetatable(
- { name = "turkey", sprite = 38 },
- pet_struct
-)
-pet_turkey.__index = pet_turkey
-function pet_turkey.new()
- local self = setmetatable(pet_struct.new(), pet_turkey)
- return self
-end
-
-pet_owl = setmetatable(
- { name = "owl", sprite = 40 },
- pet_struct
-)
-pet_owl.__index = pet_owl
-function pet_owl.new()
- local self = setmetatable(pet_struct.new(), pet_owl)
- return self
-end
-
-all_pets = {
- pet_duck,
- pet_cheeto,
- pet_mimikyu,
- pet_not_mimikyu,
- pet_squirrel,
- pet_turkey,
- pet_owl
-}
+pet_duck = classfactory__pet({ name = "arb duck", sprite = 6 })
+pet_cheeto = classfactory__pet({ name = "cheeto", immortal = true, sprite = 8 })
+pet_mimikyu = classfactory__pet({ name = "mimikyu", sprite = 10 })
+pet_not_mimikyu = classfactory__pet({ name = "not mimikyu", sprite = 12 })
+pet_squirrel = classfactory__pet({ name = "squirrel", sprite = 14 })
+pet_turkey = classfactory__pet({ name = "turkey", sprite = 38 })
+pet_owl = classfactory__pet({ name = "owl", sprite = 40 })
 
 all_items = {
  { sprite = 32 },
