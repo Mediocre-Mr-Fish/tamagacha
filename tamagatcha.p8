@@ -78,6 +78,21 @@ function _draw()
  end
 end
 -->8
+function mod(a, b)
+ return (a - 1) % b + 1
+end
+
+function btnp_axis(neg, pos)
+ if (btnp(neg) ~= btnp(pos)) return btnp(pos) and 1 or -1
+ return 0
+end
+
+function grid_wrap(val, dx, dy, width, height)
+ row = ((val - 1) \ width + dy) % height
+ col = ((val - 1) % width + dx) % width
+ return row * width + col + 1
+end
+
 function update_hunger()
  if time() - last_fed > 2 then
   last_fed = time()
@@ -93,15 +108,9 @@ function add_hunger()
 end
 
 function check_player_inputs()
- if btnp(⬅️) then
-  current_icon = clamp(1, current_icon - 1, #icons)
- elseif btnp(➡️) then
-  current_icon = clamp(1, current_icon + 1, #icons)
- elseif btnp(⬇️) and current_icon < 6 then
-  current_icon = current_icon + 5
- elseif btnp(⬆️) and current_icon > 5 then
-  current_icon = current_icon - 5
- elseif btnp(❎) then
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
+
+ if btnp(❎) then
   if icons[current_icon].name == "food" then
    add_hunger()
   elseif icons[current_icon].name == "left" then
