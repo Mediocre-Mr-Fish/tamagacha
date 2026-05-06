@@ -219,26 +219,26 @@ end
 
 all_pets = {}
 function classfactory__pet(static_vars, parent)
- return classfactory(static_vars, parent or pet_struct, all_pets)
+ return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
-pet_struct = classfactory({
+class__pet = classfactory({
  name = "default",
  immortal = false,
  sprite = 0,
  sprite_width = 2,
  sprite_height = 2
 })
-function pet_struct.new()
- local self = setmetatable({}, pet_struct)
+function class__pet.new()
+ local self = setmetatable({}, class__pet)
  self.hunger = 15
  self.happiness = 15
  return self
 end
-function pet_struct:spr(x, y)
+function class__pet:spr(x, y)
  spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
 end
-function pet_struct:spr_scaled(x, y, scale)
+function class__pet:spr_scaled(x, y, scale)
  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
 end
 
