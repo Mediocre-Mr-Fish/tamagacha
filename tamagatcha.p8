@@ -397,7 +397,7 @@ function draw_gacha()
 end
 
 --------------------------------
---animation
+--animation and selection
 --------------------------------
 
 function gatcha_animation_init()
@@ -411,14 +411,7 @@ function gatcha_animation_init()
    add(draw_list, generate())
   end
  end
- --add inventory/pets list
- for i in all(draw_list) do
-  if i.pet then
-   add(pets, i.obj.new())
-  else
-   add(inventory, i.obj)
-  end
- end
+ current_icon = 1
 end
 
 function generate()
@@ -426,13 +419,34 @@ function generate()
  local s = rnd(l)
  local pet_ = rnd(all_pets)
  local item_ = rnd(all_items)
- return { pet = s, obj = s and pet_ or item_ }
+ return { pet = s, obj = s and pet_ or item_, delete=false}
 end
 
 function update_gatcha_animation()
  --skip animation button
- if btnp(🅾️) then
+ if btnp(🅾️) and under(6) then
   t -= 3
+ elseif btnp(🅾️) then
+  --add inventory/pets list
+	 for i in all(draw_list) do
+	  if i.pet and not i.delete then
+	   add(pets, i.obj.new())
+	  elseif not i.delete then
+	   add(inventory, i.obj)
+	  end
+	 end
+  screen = 0
+ end
+ if btnp(❎) then
+  --mark obj for deletion
+  draw_list[current_icon].delete = true
+  if #draw_list == 1 then
+   --start blender animation
+   screen = 0
+  end
+ end
+ if #draw_list ~= 1 and not under(6) then
+  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
  end
 end
 
@@ -443,7 +457,9 @@ end
 function draw_gatcha_animation()
  cls()
  --skip button
- print("🅾️ skip", 100, 120, 5)
+ if under(6) then
+  print("🅾️ skip", 100, 120, 5)
+ end
  --1 pull
  if #draw_list == 1 then
   if under(0.3) then
@@ -459,7 +475,7 @@ function draw_gatcha_animation()
   elseif under(6) then
    print_item(draw_list[1], 48, 48, 4, true)
   else
-   screen = 0
+   print_item(draw_list[1], 48, 48, 4, true)
   end
  else
   for i, j in pairs(draw_list) do
@@ -479,9 +495,23 @@ function draw_gatcha_animation()
    elseif under(6) then
     print_item(j, ix        , iy, 2, true)
    else
-    screen = 0
+    print_item(j, ix        , iy, 2, true)
+    --draw selector
+    if current_icon == i then
+     rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
+    end
+    if j.delete then
+     line(ix - 1, iy - 1, ix + 16, iy + 16, 8)
+     line(ix - 1, iy + 16, ix + 16, iy - 1, 8)
+     --thicker lines
+     line(ix - 2, iy - 1, ix + 15, iy + 16, 8)
+     line(ix - 2, iy + 16, ix + 15, iy - 1, 8)
+    end
    end
   end
+ end
+ if not under(6) then
+  print("❎ trash  🅾️ exit",30,110,7)
  end
 end
 
