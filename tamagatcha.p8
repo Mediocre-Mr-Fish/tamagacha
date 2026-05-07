@@ -292,6 +292,20 @@ function classfactory(static_vars, parent, class_list)
  return class
 end
 
+-- function to check of an object the specifed class or a subclass of it
+function is_instance(object, class)
+ local metatable = getmetatable(object)
+
+ -- follow the metatable heirarcy
+ -- assumes there are no inheritance loops
+ while metatable do
+  if metatable == class then return true end
+  metatable = getmetatable(metatable)
+ end
+
+ return false
+end
+
 all_pets = {}
 function classfactory__pet(static_vars, parent)
  return classfactory(static_vars, parent or class__pet, all_pets)
