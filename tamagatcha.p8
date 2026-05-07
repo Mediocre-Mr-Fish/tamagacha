@@ -4,10 +4,12 @@ __lua__
 is_runtime = false
 function _init()
  is_runtime = true
- hunger = 100
- happiness = 100
  tokens = 10
  last_fed = time()
+ last_play= time()
+ --general use timer
+ t = time()
+ 
  icons = {
   { name = "food", x = 3, y = 3, sprite = 1 },
   { name = "game", x = 31, y = 3, sprite = 2 },
@@ -23,14 +25,19 @@ function _init()
  }
  current_icon = 1
  screen = 0
+ --allows for the use of clamp function
  clamp = mid
- --general use timer
- t = time()
+ 
+ --optional turn sound off
+ mute = false
+ --optionally reveal the blender heh
+ grim = false
 end
 
 function _update()
  update_hunger()
- if btnp(🅾️) then
+ update_happiness()
+ if btnp(🅾️) and screen !=10then
   screen = 0
  end
  if screen == 0 then
@@ -44,6 +51,7 @@ function _update()
   update_gatcha()
  elseif screen == 4 then
   --setting
+  update_settings()
  elseif screen == 5 then
   --snack
  elseif screen == 8 then
@@ -58,7 +66,6 @@ end
 
 function _draw()
  cls()
- print(icons[current_icon].name == "left")
  if screen == 0 then
   draw_icons()
   draw_pet()
@@ -89,7 +96,6 @@ function _draw()
  end
 end
 -->8
-
 function mod(a, b)
  return (a - 1) % b + 1
 end
@@ -115,15 +121,34 @@ function update_hunger()
  if time() - last_fed > 2 then
   last_fed = time()
   --do this for all pets later
-  pets[current_pet].hunger -= 1
-  if (pets[current_pet].hunger < 0) pets[current_pet].hunger = 0
+  for i in all(pets) do
+   i.hunger -= 1
+   if (i.hunger < 0) i.hunger = 0
+  end
+ end
+end
+
+function update_happiness()
+ if time() - last_play > 4 then
+  last_play = time()
+  --do this for all pets later
+  for i in all(pets) do
+   i.happiness -= 1
+   if (i.happiness < 0) i.happiness = 0
+  end
  end
 end
 
 function add_hunger()
- hunger = hunger + 1
- if (hunger > 15) hunger = 15
+ pets[current_pet].hunger = pets[current_pet].hunger + 1
+ if (pets[current_pet].hunger > 15) pets[current_pet].hunger = 15
 end
+
+function add_happiness()
+ pets[current_pet].happiness = pets[current_pet].happiness + 1
+ if (pets[current_pet].happiness > 15) pets[current_pet].happiness = 15
+end
+
 
 function check_player_inputs()
  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
@@ -149,6 +174,16 @@ function draw_icons()
  local curr_icon = icons[current_icon]
  -- spr(16,curr_icon.x,curr_icon.y)
  rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
+ --stats icon reflecting pet status
+ fillp(█)
+ local hunger_x = pets[current_pet].hunger/15*6
+ local happy_x = pets[current_pet].happiness/15*6
+ if hunger_x>1 then
+  rectfill(61,4,60+hunger_x,4,hunger_x>3 and 11 or 8)
+ end
+ if happy_x>1 then
+  rectfill(61,6,60+happy_x,6,happy_x>3 and 11 or 8)
+ end
 end
 
 function draw_pet()
@@ -178,10 +213,52 @@ function draw_stats()
  rectfill(20, 60, 108, 65, 5)
  rectfill(20, 60, 20 + 5.87 * pets[current_pet].hunger, 65, 11)
  --happy bar
+ print("happiness", 20, 72, 7)
+ rectfill(20, 80, 108, 85, 5)
+ rectfill(20, 80, 20 + 5.87 * pets[current_pet].happiness, 85, 11)
+ 
+end
+
+function update_settings()
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
+ if btnp(❎) then
+  if current_icon == 1 then
+   --sound
+   mute = not mute
+  elseif current_icon == 2 then
+   --grim mode
+   grim = not grim
+  end
+ end
 end
 
 function draw_settings()
- print("settings in the works", 10, 40, 7)
+ print("sound", 20, 20, current_icon == 1 and 10 or 7)
+ spr_scaled(16, 40, 30, 2, 1, 1)
+ rect(20, 34, 28, 42, 7)
+ if mute then
+  print("🐱", 21, 36, 8)
+  line(53, 35, 59, 41)
+  line(53, 41, 59, 35)
+ else
+  line(54, 35, 54, 41)
+  line(57, 32, 57, 44)
+ end
+ 
+ print("grim mode", 20, 60, current_icon == 2 and 10 or 7)
+ rect(20, 74, 28, 82, 7)
+ if grim then
+  print("🐱", 21, 76, 8)
+  pal(6, 8)
+  print("✽", 43, 81, 8)
+  print("★", 47, 78, 2)
+  spr_scaled(50, 40, 70, 2, 1, 1)
+  pal()
+ else
+  spr_scaled(50, 40, 70, 2, 1, 1)
+ end
+ 
+ print("❎ select  🅾️ exit",20,110,5)
 end
 
 function draw_snacks()
@@ -322,7 +399,7 @@ function draw_gacha()
 end
 
 --------------------------------
---animation
+--animation and selection
 --------------------------------
 
 function gatcha_animation_init()
@@ -336,28 +413,42 @@ function gatcha_animation_init()
    add(draw_list, generate())
   end
  end
- --add inventory/pets list
- for i in all(draw_list) do
-  if i.pet then
-   add(pets, i.obj)
-  else
-   add(inventory, i.obj)
-  end
- end
+ current_icon = 1
 end
 
 function generate()
  local l = { true, false, false, false, false }
  local s = rnd(l)
- local pet_ = rnd(all_pets).new()
+ local pet_ = rnd(all_pets)
  local item_ = rnd(all_items)
- return { pet = s, obj = s and pet_ or item_ }
+ return { pet = s, obj = s and pet_ or item_, delete=false}
 end
 
 function update_gatcha_animation()
  --skip animation button
- if btnp(🅾️) then
+ if btnp(🅾️) and under(6) then
   t -= 3
+ elseif btnp(🅾️) then
+  --add inventory/pets list
+	 for i in all(draw_list) do
+	  if i.pet and not i.delete then
+	   add(pets, i.obj.new())
+	  elseif not i.delete then
+	   add(inventory, i.obj)
+	  end
+	 end
+  screen = 0
+ end
+ if btnp(❎) then
+  --mark obj for deletion
+  draw_list[current_icon].delete = true
+  if #draw_list == 1 then
+   --start blender animation
+   screen = 0
+  end
+ end
+ if #draw_list ~= 1 and not under(6) then
+  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
  end
 end
 
@@ -368,51 +459,68 @@ end
 function draw_gatcha_animation()
  cls()
  --skip button
- print("🅾️ skip", 100, 120, 5)
+ if under(6) then
+  print("🅾️ skip", 100, 120, 5)
+ end
  --1 pull
  if #draw_list == 1 then
   if under(0.3) then
-   print_item(draw_list[1], 48, 48, 32)
+   print_item(draw_list[1], 48, 48, 4)
   elseif under(0.6) then
-   print_item(draw_list[1], 47, 48, 32)
+   print_item(draw_list[1], 47, 48, 4)
   elseif under(0.9) then
-   print_item(draw_list[1], 48, 48, 32)
+   print_item(draw_list[1], 48, 48, 4)
   elseif under(1.2) then
-   print_item(draw_list[1], 49, 48, 32)
+   print_item(draw_list[1], 49, 48, 4)
   elseif under(3) then
-   print_item(draw_list[1], 48, 48, 32)
+   print_item(draw_list[1], 48, 48, 4)
   elseif under(6) then
-   print_item(draw_list[1], 48, 48, 32, true)
+   print_item(draw_list[1], 48, 48, 4, true)
   else
-   screen = 0
+   print_item(draw_list[1], 48, 48, 4, true)
   end
  else
   for i, j in pairs(draw_list) do
    local ix = (i - 1) % 5 * 26 + 4
    local iy = (i - 1) \ 5 * 46 + 33
-   local shake = j.obj.spr[1] / 8 % 2 * 2 - 1
+   local shake = j.obj.sprite % 2 * 2 - 1
    if under(0.3) then
-    print_item(j, ix, iy, 16)
+    print_item(j, ix        , iy, 2)
    elseif under(0.6) then
-    print_item(j, ix + shake, iy, 16)
+    print_item(j, ix + shake, iy, 2)
    elseif under(0.9) then
-    print_item(j, ix, iy, 16)
+    print_item(j, ix        , iy, 2)
    elseif under(1.2) then
-    print_item(j, ix - shake, iy, 16)
+    print_item(j, ix - shake, iy, 2)
    elseif under(3) then
-    print_item(j, ix, iy, 16)
+    print_item(j, ix        , iy, 2)
    elseif under(6) then
-    print_item(j, ix, iy, 16, true)
+    print_item(j, ix        , iy, 2, true)
    else
-    screen = 0
+    print_item(j, ix        , iy, 2, true)
+    --draw selector
+    if current_icon == i then
+     rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
+    end
+    if j.delete then
+     line(ix - 1, iy - 1, ix + 16, iy + 16, 8)
+     line(ix - 1, iy + 16, ix + 16, iy - 1, 8)
+     --thicker lines
+     line(ix - 2, iy - 1, ix + 15, iy + 16, 8)
+     line(ix - 2, iy + 16, ix + 15, iy - 1, 8)
+    end
    end
   end
+ end
+ if not under(6) then
+  print("❎ trash  🅾️ exit",30,110,7)
  end
 end
 
 function print_item(item, x, y, size, open)
  if item.pet and open then
   item_size = 2
+  size/=2
  else
   item_size = 1
  end
@@ -422,32 +530,32 @@ function print_item(item, x, y, size, open)
  elseif item.pet then
   sprite = 48 --egg
  else
-  sprite = 49 --bloody egg
+  sprite = 49 --present box 
  end
  palt(0b0000000000010000)
  -- MARK: SPRITE
  -- sspr(item_location[1], item_location[2], item_size, item_size, x, y, size, size)
- spr_scaled(sprite, x, y, size / 8, item_size, item_size)
+ spr_scaled(sprite, x, y, size, item_size, item_size)
  pal()
 end
 
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bb
-0000000000009900056776500bbbb7700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
+000000000000990005677650077777700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
 007007000009979007777770000000000777705006777750bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0999bbb4aaa550bb0eeebbb5fff220b6bb5bbbb6666556
-0007700000999940078775700bbbb0000777705077700776bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb499aa44aa00bbbbb4eeff55ff00bbbbb666bbbb6665555
+000770000099994007877570077777700777705077700776bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb499aa44aa00bbbbb4eeff55ff00bbbbb666bbbb6665555
 000770000069440007777770000000000944455067700777bb3333bbbbbbbbbbb9bbbbb9bbbbbbbbbbb4aaaaaa0bbbb0bbb57ff7ff0bbbbbb60766bbb6665bb5
-007007000675000006755760087777000444400005777760bb33303bbbbbbbbbb99bbb99bbbbbbbbbb4a0aa0aaa4bb04bb5f2ff2fff5bbbb660066bbb666bbbb
+0070070006750000067557600bbbb0000444400005777760bb33303bbbbbbbbbb99bbb99bbbbbbbbbb4a0aa0aaa4bb04bb5f2ff2fff5bbbb660066bbb666bbbb
 000000000700000000600600000000000444400007677570b999333bbbbbbbbbb9999999bbbbbbbbbb49aaaa99a0b444bb4effffeef0bbbbf66666bbb6666bbb
 000000000000000000000000000000000000000000076000b999333bbbbbbb7bb9099099bbb9bbbbbb40a0a099a0b440bb42f2f2eef0bbbbb6666566bb6665bb
-aaaaaaaa0000000000000000000000000000000000000000bb33333bbbbb777bb9999999bbb999bbbbb40a0aaa0b440bbbb42f2fff0bbbbbbb5556666b66665b
-a000000a00000600000700000000700007007000000d1000bb3333444444477bb99999999bbbb99bbbbb4aaaa0b44bbbbbbb4ffff0bbbbbbbbbd666666b6655b
-a000000a0007e66000770000000077000777700000d11100bb4444444444444bbb9979999bbbbb9bbbbbb4aa0bb044bbbbbbb4ff0bbbbbbbbb5dd56666bb655b
-a000000a00eeee000777777777777770067760600dd11110bb444444999444bbbb977794499bbb9bbbbb40a0a4bb0440bbbb45f5f4bbbbbbbbbd566666b655bb
-a000000a00eee20077777777777777770077006000655500bb444499944444bbbb777794999bb99bbbb4a0a0aa00440bbbb4f5f5ff0bbbbbbbbbd66666655bbb
-a000000a0662200007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbbbbbb6666655bbbbb
-a000000a0060000000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbbbb55bb666bbbbbbb
-aaaaaaaa0000000000070000000070000000000000000000bbbbbbbbbbbbbbbbb977949999999bbbbb00000000000bbbbb00d0d00d000bbbbbbbb55bbbbbbbbb
+000077000000000000000000000000000000000000000000bb33333bbbbb777bb9999999bbb999bbbbb40a0aaa0b440bbbb42f2fff0bbbbbbb5556666b66665b
+0007770000000600000700000000700007007000000d1000bb3333444444477bb99999999bbbb99bbbbb4aaaa0b44bbbbbbb4ffff0bbbbbbbbbd666666b6655b
+777777000007e66000770000000077000777700000d11100bb4444444444444bbb9979999bbbbb9bbbbbb4aa0bb044bbbbbbb4ff0bbbbbbbbb5dd56666bb655b
+7777770000eeee000777777777777770067760600dd11110bb444444999444bbbb977794499bbb9bbbbb40a0a4bb0440bbbb45f5f4bbbbbbbbbd566666b655bb
+7777770000eee20077777777777777770077006000655500bb444499944444bbbb777794999bb99bbbb4a0a0aa00440bbbb4f5f5ff0bbbbbbbbbd66666655bbb
+777777000662200007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbbbbbb6666655bbbbb
+000777000060000000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbbbb55bb666bbbbbbb
+000077000000000000070000000070000000000000000000bbbbbbbbbbbbbbbbb977949999999bbbbb00000000000bbbbb00d0d00d000bbbbbbbb55bbbbbbbbb
 00000000000000000011111000011000001001100000a000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
 0011100000001000011000110110110001100100000a9a00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
 001011000001100001000001010001001000100000a999a0bbbbbbbbbbbbbbbbbbb44bbbbbb44bbb000000000000000000000000000000000000000000000000
@@ -456,11 +564,11 @@ aaaaaaaa0000000000070000000070000000000000000000bbbbbbbbbbbbbbbbb977949999999bbb
 01011000001000000001000000000110001100000a9a9a00bbbbbb4994444bbbbbb4444444444bbb000000000000000000000000000000000000000000000000
 011100000010000000100000100001000010000000a9a000bb44bb499449944bbbb4444444444bbb000000000000000000000000000000000000000000000000
 0000000000100000001111101111110001000000000a0000bb044b449499444bbbb4004440044bbb000000000000000000000000000000000000000000000000
-000770000007700000000000000000000000000000000000b8444b44999444bbbbb4444444444bbb000000000000000000000000000000000000000000000000
-007777000078870000000000000000000000000000000000b8b99444994499bbbbb4449994444bbb000000000000000000000000000000000000000000000000
-007777000772287000000000000000000000000000000000bbb9994449994bbbbbb4449994444bbb000000000000000000000000000000000000000000000000
-077777700788776000000000000000000000000000000000bbb999999994bbbbbbb4444944444bbb000000000000000000000000000000000000000000000000
-077777700777766000000000000000000000000000000000bbb4444444bbbbbbbbb444444444bbbb000000000000000000000000000000000000000000000000
-077777700777666000000000000000000000000000000000bbbbb4444bbbbbbbbbbb44bbbb4bbbbb000000000000000000000000000000000000000000000000
-077777700777666000000000000000000000000000000000bbbbbb4bbbbbbbbbbbbbb4bbbb4bbbbb000000000000000000000000000000000000000000000000
+000770000007700000777700000000000000000000000000b8444b44999444bbbbb4444444444bbb000000000000000000000000000000000000000000000000
+007777000078870007777770000000000000000000000000b8b99444994499bbbbb4449994444bbb000000000000000000000000000000000000000000000000
+007777000772287005565570000000000000000000000000bbb9994449994bbbbbb4449994444bbb000000000000000000000000000000000000000000000000
+077777700788776005575560000000000000000000000000bbb999999994bbbbbbb4444944444bbb000000000000000000000000000000000000000000000000
+077777700777766007657760000000000000000000000000bbb4444444bbbbbbbbb444444444bbbb000000000000000000000000000000000000000000000000
+077777700777666006777600000000000000000000000000bbbbb4444bbbbbbbbbbb44bbbb4bbbbb000000000000000000000000000000000000000000000000
+077777700777666005656500000000000000000000000000bbbbbb4bbbbbbbbbbbbbb4bbbb4bbbbb000000000000000000000000000000000000000000000000
 007777000077660000000000000000000000000000000000bbbbb444bbbbbbbbbbbb444bb444bbbb000000000000000000000000000000000000000000000000
