@@ -156,9 +156,9 @@ function check_player_inputs()
   if icons[current_icon].name == "food" then
    add_hunger()
   elseif icons[current_icon].name == "left" then
-   current_pet = clamp(1, current_pet - 1, #pets)
+   current_pet = mod(current_pet - 1, #pets)
   elseif icons[current_icon].name == "right" then
-   current_pet = clamp(1, current_pet + 1, #pets)
+   current_pet = mod(current_pet + 1, #pets)
   else
    screen = current_icon - 1
    current_icon = 1
