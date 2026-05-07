@@ -6,10 +6,10 @@ function _init()
  is_runtime = true
  tokens = 10
  last_fed = time()
- last_play= time()
+ last_play = time()
  --general use timer
  t = time()
- 
+
  icons = {
   { name = "food", x = 3, y = 3, sprite = 1 },
   { name = "game", x = 31, y = 3, sprite = 2 },
@@ -27,7 +27,7 @@ function _init()
  screen = 0
  --allows for the use of clamp function
  clamp = mid
- 
+
  --optional turn sound off
  mute = false
  --optionally reveal the blender heh
@@ -37,7 +37,7 @@ end
 function _update()
  update_hunger()
  update_happiness()
- if btnp(🅾️) and screen !=10then
+ if btnp(🅾️) and screen != 10 then
   screen = 0
  end
  if screen == 0 then
@@ -149,7 +149,6 @@ function add_happiness()
  if (pets[current_pet].happiness > 15) pets[current_pet].happiness = 15
 end
 
-
 function check_player_inputs()
  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
 
@@ -176,13 +175,13 @@ function draw_icons()
  rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
  --stats icon reflecting pet status
  fillp(█)
- local hunger_x = pets[current_pet].hunger/15*6
- local happy_x = pets[current_pet].happiness/15*6
- if hunger_x>1 then
-  rectfill(61,4,60+hunger_x,4,hunger_x>3 and 11 or 8)
+ local hunger_x = pets[current_pet].hunger / 15 * 6
+ local happy_x = pets[current_pet].happiness / 15 * 6
+ if hunger_x > 1 then
+  rectfill(61, 4, 60 + hunger_x, 4, hunger_x > 3 and 11 or 8)
  end
- if happy_x>1 then
-  rectfill(61,6,60+happy_x,6,happy_x>3 and 11 or 8)
+ if happy_x > 1 then
+  rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
  end
 end
 
@@ -216,7 +215,6 @@ function draw_stats()
  print("happiness", 20, 72, 7)
  rectfill(20, 80, 108, 85, 5)
  rectfill(20, 80, 20 + 5.87 * pets[current_pet].happiness, 85, 11)
- 
 end
 
 function update_settings()
@@ -244,7 +242,7 @@ function draw_settings()
   line(54, 35, 54, 41)
   line(57, 32, 57, 44)
  end
- 
+
  print("grim mode", 20, 60, current_icon == 2 and 10 or 7)
  rect(20, 74, 28, 82, 7)
  if grim then
@@ -257,8 +255,8 @@ function draw_settings()
  else
   spr_scaled(50, 40, 70, 2, 1, 1)
  end
- 
- print("❎ select  🅾️ exit",20,110,5)
+
+ print("❎ select  🅾️ exit", 20, 110, 5)
 end
 
 function draw_snacks()
@@ -421,7 +419,7 @@ function generate()
  local s = rnd(l)
  local pet_ = rnd(all_pets)
  local item_ = rnd(all_items)
- return { pet = s, obj = s and pet_ or item_, delete=false}
+ return { pet = s, obj = s and pet_ or item_, delete = false }
 end
 
 function update_gatcha_animation()
@@ -430,13 +428,13 @@ function update_gatcha_animation()
   t -= 3
  elseif btnp(🅾️) then
   --add inventory/pets list
-	 for i in all(draw_list) do
-	  if i.pet and not i.delete then
-	   add(pets, i.obj.new())
-	  elseif not i.delete then
-	   add(inventory, i.obj)
-	  end
-	 end
+  for i in all(draw_list) do
+   if i.pet and not i.delete then
+    add(pets, i.obj.new())
+   elseif not i.delete then
+    add(inventory, i.obj)
+   end
+  end
   screen = 0
  end
  if btnp(❎) then
@@ -485,19 +483,19 @@ function draw_gatcha_animation()
    local iy = (i - 1) \ 5 * 46 + 33
    local shake = j.obj.sprite % 2 * 2 - 1
    if under(0.3) then
-    print_item(j, ix        , iy, 2)
+    print_item(j, ix, iy, 2)
    elseif under(0.6) then
     print_item(j, ix + shake, iy, 2)
    elseif under(0.9) then
-    print_item(j, ix        , iy, 2)
+    print_item(j, ix, iy, 2)
    elseif under(1.2) then
     print_item(j, ix - shake, iy, 2)
    elseif under(3) then
-    print_item(j, ix        , iy, 2)
+    print_item(j, ix, iy, 2)
    elseif under(6) then
-    print_item(j, ix        , iy, 2, true)
+    print_item(j, ix, iy, 2, true)
    else
-    print_item(j, ix        , iy, 2, true)
+    print_item(j, ix, iy, 2, true)
     --draw selector
     if current_icon == i then
      rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
@@ -513,14 +511,14 @@ function draw_gatcha_animation()
   end
  end
  if not under(6) then
-  print("❎ trash  🅾️ exit",30,110,7)
+  print("❎ trash  🅾️ exit", 30, 110, 7)
  end
 end
 
 function print_item(item, x, y, size, open)
  if item.pet and open then
   item_size = 2
-  size/=2
+  size /= 2
  else
   item_size = 1
  end
@@ -530,7 +528,7 @@ function print_item(item, x, y, size, open)
  elseif item.pet then
   sprite = 48 --egg
  else
-  sprite = 49 --present box 
+  sprite = 49 --present box
  end
  palt(0b0000000000010000)
  -- MARK: SPRITE
