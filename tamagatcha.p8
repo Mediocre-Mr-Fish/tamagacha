@@ -308,6 +308,7 @@ end
 
 all_pets = {}
 function classfactory__pet(static_vars, parent)
+ static_vars.id = #all_pets + 1
  return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
@@ -357,6 +358,62 @@ pets = {
 }
 --1 based counting to access pet table
 current_pet = 1
+max_pets = 16
+
+-- username_title_version
+cartdata("real-fancy-fire_tamagacha_0-1")
+function load_data()
+ local addr = 0x5e00
+
+ -- user data
+ local user_data = peek(addr)
+ --data exists
+ mute = user_data & 0x1 ~= 0
+ grim = user_data & 0x2 ~= 0
+ addr += 1
+
+ -- pets
+ for i = 1, max_pets do
+  local id, _, hunger, happiness = peek(addr, 4)
+  if all_pets[id] then
+   local pet = all_pets[id].new()
+   pet.hunger = hunger
+   pet.happiness = happiness
+   pets[i] = pet
+  end
+  addr += 4
+ end
+end
+
+function save_data()
+ local addr = 0x5e00
+
+ -- user settings
+ poke(
+  addr,
+  (mute and 0x1 or 0)
+    + (grim and 0x2 or 0)
+    + 0
+    + 0
+ )
+ addr += 1
+
+ -- pets
+ for i = 1, max_pets do
+  local pet = pets[i]
+
+  if pet then
+   poke(addr, pet.id, 0, pet.hunger, pet.happiness)
+  else
+   poke(addr, 0, 0, 0, 0)
+  end
+
+  addr += 4
+ end
+end
+
+-- save_data()
+-- load_data()
 
 -->8
 --gatcha page and animation
