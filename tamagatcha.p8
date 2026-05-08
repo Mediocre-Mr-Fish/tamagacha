@@ -347,8 +347,14 @@ all_items = {
  { sprite = 35 },
  { sprite = 36 }
 }
+num_item_types = 16
 
 inventory = {}
+for i = 1, num_item_types do
+ if (all_items[i]) all_items[i].id = i inventory[i] = 0
+end
+max_item_stack = 0xff
+
 pets = {
  pet_duck.new(),
  pet_cheeto.new(),
@@ -383,6 +389,12 @@ function load_data()
   end
   addr += 4
  end
+
+ -- items
+ for i = 1, num_item_types do
+  inventory[i] = peek2(addr)
+  addr += 2
+ end
 end
 
 function save_data()
@@ -409,6 +421,12 @@ function save_data()
   end
 
   addr += 4
+ end
+
+ -- items
+ for i = 1, num_item_types do
+  poke2(addr, inventory[i])
+  addr += 2
  end
 end
 
@@ -503,7 +521,9 @@ function update_gatcha_animation()
    if i.pet and not i.delete then
     add(pets, i.obj.new())
    elseif not i.delete then
-    add(inventory, i.obj)
+    -- MARK: ToDo- Rework items
+    -- add(inventory, i.obj)
+    inventory[i.obj.id] += 1
    end
   end
   screen = 0
@@ -602,8 +622,6 @@ function print_item(item, x, y, size, open)
   sprite = 49 --present box
  end
  palt(0b0000000000010000)
- -- MARK: SPRITE
- -- sspr(item_location[1], item_location[2], item_size, item_size, x, y, size, size)
  spr_scaled(sprite, x, y, size, item_size, item_size)
  pal()
 end
