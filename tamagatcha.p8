@@ -189,7 +189,6 @@ function draw_pet()
  fillp(★)
  circfill(64, 64, 44, 3)
  --set gray to not draw
- palt(0b0000000000010000)
  pet = pets[current_pet]
  print(pet.name, 50, 20, 7)
  pet:spr_scaled(32, 32, 4)
@@ -317,26 +316,57 @@ class__pet = classfactory({
  immortal = false,
  sprite = 0,
  sprite_width = 2,
- sprite_height = 2
+ sprite_height = 2,
+ transparent = 11, --lime
+ color_variants = {}
 })
 function class__pet.new()
  local self = setmetatable({}, class__pet)
  self.hunger = 15
  self.happiness = 15
+ self.color_variant = 0
  return self
 end
-function class__pet:spr(x, y)
- spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
+
+-- set the color variant
+-- set 0 for default variant, set nil for random
+function class__pet:set_color(int_or_nil)
+ self.color_variant = int_or_nil or flr(rnd(#self.color_variants + 1))
+ return self
 end
+
+-- set the pet-specific palette
+-- make sure to reset afterwards
+function class__pet:pal()
+ palt(0, false)
+ palt(self.transparent, true)
+ if self.color_variant ~= 0 then
+  pal(self.color_variants[self.color_variant])
+ end
+end
+
+-- draw the pet's sprite
 function class__pet:spr_scaled(x, y, scale)
- spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
+ self:pal()
+
+ if not scale or scale == 1 then
+  spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
+ else
+  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
+ end
+
+ pal()
 end
 
 pet_duck = classfactory__pet({ name = "arb duck", sprite = 6 })
 pet_cheeto = classfactory__pet({ name = "cheeto", immortal = true, sprite = 8 })
 pet_mimikyu = classfactory__pet({ name = "mimikyu", sprite = 10 })
 pet_not_mimikyu = classfactory__pet({ name = "not mimikyu", sprite = 12 })
-pet_squirrel = classfactory__pet({ name = "squirrel", sprite = 14 })
+pet_squirrel = classfactory__pet({
+ name = "squirrel", sprite = 14, color_variants = {
+  { [6] = 9, [5] = 4 }
+ }
+})
 pet_turkey = classfactory__pet({ name = "turkey", sprite = 38 })
 pet_owl = classfactory__pet({ name = "owl", sprite = 40 })
 
@@ -360,7 +390,7 @@ pets = {
  pet_cheeto.new(),
  pet_mimikyu.new(),
  pet_not_mimikyu.new(),
- pet_squirrel.new()
+ pet_squirrel.new():set_color()
 }
 --1 based counting to access pet table
 current_pet = 1
@@ -380,9 +410,10 @@ function load_data()
 
  -- pets
  for i = 1, max_pets do
-  local id, _, hunger, happiness = peek(addr, 4)
+  local id, color_variant, hunger, happiness = peek(addr, 4)
   if all_pets[id] then
    local pet = all_pets[id].new()
+   pet.color_variant = color_variant
    pet.hunger = hunger
    pet.happiness = happiness
    pets[i] = pet
@@ -415,7 +446,7 @@ function save_data()
   local pet = pets[i]
 
   if pet then
-   poke(addr, pet.id, 0, pet.hunger, pet.happiness)
+   poke(addr, pet.id, pet.color_variant, pet.hunger, pet.happiness)
   else
    poke(addr, 0, 0, 0, 0)
   end
