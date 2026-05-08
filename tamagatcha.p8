@@ -98,13 +98,13 @@ function _draw()
 end
 
 function switch_screen(new)
- current_icon = screen+1
- if screen>=10 then 
+ current_icon = screen + 1
+ if screen >= 10 then
   --takes into account game screens
   --and animation screens
-  current_icon=1
+  current_icon = 1
  end
- screen=new
+ screen = new
 end
 -->8
 function mod(a, b)
@@ -264,7 +264,7 @@ function draw_settings()
   line(76, 35, 76, 41)
   line(79, 32, 79, 44)
  end
- 
+
  print_centered("grim mode", 64, 60, current_icon == 2 and 10 or 7)
  rect(45, 74, 53, 82, 7)
  if grim then
@@ -277,8 +277,8 @@ function draw_settings()
  else
   spr_scaled(50, 64, 70, 2, 1, 1)
  end
- 
- print_centered("❎ select  🅾️ exit",64,110,5)
+
+ print_centered("❎ select  🅾️ exit", 64, 110, 5)
 end
 
 function draw_snacks()
@@ -295,35 +295,35 @@ end
 
 function draw_collection()
  --draw all pets
- for i,j in pairs(all_pets) do
-  local sx = 8+(i-1)%4*32
-  local sy = 8+(i-1)\4*32
-  if i==current_icon then
-    rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
+ for i, j in pairs(all_pets) do
+  local sx = 8 + (i - 1) % 4 * 32
+  local sy = 8 + (i - 1) \ 4 * 32
+  if i == current_icon then
+   rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
   end
   if table_search(discovered_pets, j) then
    --draw normal
    palt(0b0000000000010000)
-   if i==current_icon then
+   if i == current_icon then
     print_centered(j.name, 64, 100, 7)
    end
   else
    --draw grayed out
    palt(0b0000000000010000)
-   for i=0,10 do
-    pal(i,5)
+   for i = 0, 10 do
+    pal(i, 5)
    end
-   for i=12,15 do
-    pal(i,5)
+   for i = 12, 15 do
+    pal(i, 5)
    end
-   if i==current_icon then
+   if i == current_icon then
     print_centered("???", 64, 100, 7)
    end
   end
   spr_scaled(j.sprite, sx, sy, 1, 2, 2)
   pal()
  end
- print_centered("🅾️ exit",64,110,5)
+ print_centered("🅾️ exit", 64, 110, 5)
 end
 
 function draw_adoption()
@@ -574,7 +574,7 @@ function draw_gacha()
  local l = 63 * (current_icon - 1)
  rect(l + 3, 49, l + 62, 79, 10)
  --back icon
- print_centered("🅾️ back",64,110,5)
+ print_centered("🅾️ back", 64, 110, 5)
  if current_icon == 1 and tokens < 1 or current_icon == 2 and tokens < 10 then
   print("not enough tokens", 30, 90, 8)
  end
@@ -615,7 +615,7 @@ function update_gatcha_animation()
   for i in all(draw_list) do
    if i.pet and not i.delete then
     add(pets, i.obj.new())
-	   add(discovered_pets, i.obj)
+    add(discovered_pets, i.obj)
    elseif not i.delete then
     -- MARK: ToDo- Rework items
     -- add(inventory, i.obj)
@@ -645,7 +645,7 @@ function draw_gatcha_animation()
  cls()
  --skip button
  if under(6) then
-  print_centered("🅾️ skip",64,110,5)
+  print_centered("🅾️ skip", 64, 110, 5)
  end
  --1 pull
  if #draw_list == 1 then
@@ -698,7 +698,7 @@ function draw_gatcha_animation()
   end
  end
  if not under(6) then
-  print_centered("❎ trash  🅾️ exit",64,110,7)
+  print_centered("❎ trash  🅾️ exit", 64, 110, 7)
  end
 end
 
