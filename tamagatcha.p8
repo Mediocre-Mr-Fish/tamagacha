@@ -1,6 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+-- MARK: main loop
 is_runtime = false
 function _init()
  is_runtime = true
@@ -106,7 +107,10 @@ function switch_screen(new)
  end
  screen = new
 end
+
 -->8
+-- MARK: helper functions
+
 function mod(a, b)
  return (a - 1) % b + 1
 end
@@ -303,25 +307,18 @@ function draw_collection()
   end
   if table_search(discovered_pets, j) then
    --draw normal
-   palt(0b0000000000010000)
    if i == current_icon then
     print_centered(j.name, 64, 100, 7)
    end
+   j:spr_scaled(sx, sy, 1)
   else
    --draw grayed out
-   palt(0b0000000000010000)
-   for i = 0, 10 do
-    pal(i, 5)
-   end
-   for i = 12, 15 do
-    pal(i, 5)
-   end
    if i == current_icon then
     print_centered("???", 64, 100, 7)
    end
+   j:pal(true)
+   j:spr_scaled(sx, sy, 1, true)
   end
-  spr_scaled(j.sprite, sx, sy, 1, 2, 2)
-  pal()
  end
  print_centered("🅾️ exit", 64, 110, 5)
 end
@@ -331,7 +328,7 @@ function draw_adoption()
 end
 
 -->8
--- structs
+-- MARK: structs
 
 -- a function to create pet classes
 function classfactory(static_vars, parent, class_list)
@@ -397,17 +394,26 @@ end
 
 -- set the pet-specific palette
 -- make sure to reset afterwards
-function class__pet:pal()
+function class__pet:pal(obscured)
+ pal()
+
+ if obscured then
+  for i = 0, 15 do
+   pal(i, 5)
+  end
+ else
+  if self.color_variant ~= 0 then
+   pal(self.color_variants[self.color_variant])
+  end
+ end
+
  palt(0, false)
  palt(self.transparent, true)
- if self.color_variant ~= 0 then
-  pal(self.color_variants[self.color_variant])
- end
 end
 
 -- draw the pet's sprite
-function class__pet:spr_scaled(x, y, scale)
- self:pal()
+function class__pet:spr_scaled(x, y, scale, no_pal)
+ if not no_pal then self:pal() end
 
  if not scale or scale == 1 then
   spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
@@ -459,6 +465,8 @@ pets = {
 --1 based counting to access pet table
 current_pet = 1
 max_pets = 16
+
+-- MARK: save data
 
 -- username_title_version
 cartdata("real-fancy-fire_tamagacha_0-1")
@@ -529,7 +537,7 @@ end
 -- load_data()
 
 -->8
---gatcha page and animation
+--MARK: gatcha page and animation
 function update_gatcha()
  if btnp(🅾️) then
   screen = 0
