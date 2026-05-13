@@ -1,6 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+-- MARK: main loop
 is_runtime = false
 function _init()
  is_runtime = true
@@ -38,7 +39,7 @@ function _update()
  update_hunger()
  update_happiness()
  if btnp(🅾️) and screen != 10 then
-  screen = 0
+  switch_screen(0)
  end
  if screen == 0 then
   check_player_inputs()
@@ -56,6 +57,7 @@ function _update()
   --snack
  elseif screen == 8 then
   --pet collection
+  update_collection()
  elseif screen == 9 then
   --adoption
  elseif screen == 10 then
@@ -95,7 +97,20 @@ function _draw()
   draw_gatcha_animation()
  end
 end
+
+function switch_screen(new)
+ current_icon = screen + 1
+ if screen >= 10 then
+  --takes into account game screens
+  --and animation screens
+  current_icon = 1
+ end
+ screen = new
+end
+
 -->8
+-- MARK: helper functions
+
 function mod(a, b)
  return (a - 1) % b + 1
 end
@@ -117,13 +132,45 @@ function spr_scaled(n, x, y, scale, sw, sh)
  sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale)
 end
 
+-- encode a bool array as an integer
+-- big-endian
+function encode_bitfield(bool_array)
+ local ret = 0
+ for i in all(bool_array) do
+  ret = ret << 1
+  if (i) ret += 1
+ end
+ return ret
+end
+-- decode an integer as a bool array
+-- big-endian
+function decode_bitfield(integer, length)
+ local ret = {}
+ for _ = 1, length do
+  add(ret, integer & 1, 0)
+  integer = integer >> 1
+ end
+ return ret
+end
+
+-- function table_search(table, item)
+--  for i in all(table) do
+--   if i == item then
+--    return true
+--   end
+--  end
+-- end
+
+function print_centered(text, x, y, color)
+ print(text, x - print(text, 0, -8) / 2, y, color)
+end
+
 function update_hunger()
  if time() - last_fed > 2 then
   last_fed = time()
   --do this for all pets later
-  for i in all(pets) do
-   i.hunger -= 1
-   if (i.hunger < 0) i.hunger = 0
+  for pet in all(pets) do
+   pet.hunger = max(pet.hunger - 1, 0)
   end
  end
 end
@@ -132,9 +179,8 @@ function update_happiness()
  if time() - last_play > 4 then
   last_play = time()
   --do this for all pets later
-  for i in all(pets) do
-   i.happiness -= 1
-   if (i.happiness < 0) i.happiness = 0
+  for pet in all(pets) do
+   pet.happiness = max(pet.happiness - 1, 0)
   end
  end
 end
@@ -156,11 +202,11 @@ function check_player_inputs()
   if icons[current_icon].name == "food" then
    add_hunger()
   elseif icons[current_icon].name == "left" then
-   current_pet = clamp(1, current_pet - 1, #pets)
+   current_pet = mod(current_pet - 1, #pets)
   elseif icons[current_icon].name == "right" then
-   current_pet = clamp(1, current_pet + 1, #pets)
+   current_pet = mod(current_pet + 1, #pets)
   else
-   screen = current_icon - 1
+   switch_screen(current_icon - 1)
    current_icon = 1
   end
  end
@@ -189,9 +235,8 @@ function draw_pet()
  fillp(★)
  circfill(64, 64, 44, 3)
  --set gray to not draw
- palt(0b0000000000010000)
  pet = pets[current_pet]
- print(pet.name, 50, 20, 7)
+ print_centered(pet.name, 64, 20, 7)
  pet:spr_scaled(32, 32, 4)
  pal()
  fillp(█)
@@ -231,40 +276,70 @@ function update_settings()
 end
 
 function draw_settings()
- print("sound", 20, 20, current_icon == 1 and 10 or 7)
- spr_scaled(16, 40, 30, 2, 1, 1)
- rect(20, 34, 28, 42, 7)
+ print_centered("sound", 64, 20, current_icon == 1 and 10 or 7)
+ spr_scaled(16, 62, 30, 2, 1, 1)
+ rect(45, 34, 53, 42, 7)
  if mute then
-  print("🐱", 21, 36, 8)
-  line(53, 35, 59, 41)
-  line(53, 41, 59, 35)
+  print("🐱", 46, 36, 8)
+  line(75, 35, 81, 41)
+  line(75, 41, 81, 35)
  else
-  line(54, 35, 54, 41)
-  line(57, 32, 57, 44)
+  line(76, 35, 76, 41)
+  line(79, 32, 79, 44)
  end
 
- print("grim mode", 20, 60, current_icon == 2 and 10 or 7)
- rect(20, 74, 28, 82, 7)
+ print_centered("grim mode", 64, 60, current_icon == 2 and 10 or 7)
+ rect(45, 74, 53, 82, 7)
  if grim then
-  print("🐱", 21, 76, 8)
+  print("🐱", 46, 76, 8)
   pal(6, 8)
-  print("✽", 43, 81, 8)
-  print("★", 47, 78, 2)
-  spr_scaled(50, 40, 70, 2, 1, 1)
+  print("✽", 67, 81, 8)
+  print("★", 71, 78, 2)
+  spr_scaled(50, 64, 70, 2, 1, 1)
   pal()
  else
-  spr_scaled(50, 40, 70, 2, 1, 1)
+  spr_scaled(50, 64, 70, 2, 1, 1)
  end
 
- print("❎ select  🅾️ exit", 20, 110, 5)
+ print_centered("❎ select  🅾️ exit", 64, 110, 5)
 end
 
 function draw_snacks()
  print("snacks menu in the works", 10, 40, 7)
 end
 
+function update_collection()
+ local last_icon = current_icon
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2)
+ if current_icon == 8 then
+  current_icon = last_icon
+ end
+end
+
 function draw_collection()
- print("collections in the works", 10, 40, 7)
+ --draw all pets
+ for i, pet_cls in pairs(all_pets) do
+  local sx = 8 + (i - 1) % 4 * 32
+  local sy = 8 + (i - 1) \ 4 * 32
+  if i == current_icon then
+   rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
+  end
+  if discovered_pets[pet_cls.id] then
+   --draw normal
+   if i == current_icon then
+    print_centered(pet_cls.name, 64, 100, 7)
+   end
+   pet_cls:spr_scaled(sx, sy, 1)
+  else
+   --draw grayed out
+   if i == current_icon then
+    print_centered("???", 64, 100, 7)
+   end
+   pet_cls:pal(true)
+   pet_cls:spr_scaled(sx, sy, 1, true)
+  end
+ end
+ print_centered("🅾️ exit", 64, 110, 5)
 end
 
 function draw_adoption()
@@ -272,7 +347,7 @@ function draw_adoption()
 end
 
 -->8
--- structs
+-- MARK: structs
 
 -- a function to create pet classes
 function classfactory(static_vars, parent, class_list)
@@ -292,8 +367,26 @@ function classfactory(static_vars, parent, class_list)
  return class
 end
 
+-- function to check of an object the specifed class or a subclass of it
+function is_instance(object, class)
+ if object == class then return true end
+ local metatable = getmetatable(object)
+
+ -- follow the metatable heirarcy
+ -- assumes there are no inheritance loops
+ while metatable do
+  if metatable == class then return true end
+  metatable = getmetatable(metatable)
+ end
+
+ return false
+end
+
 all_pets = {}
+num_pet_types = 15
 function classfactory__pet(static_vars, parent)
+ static_vars.id = #all_pets + 1
+ assert(static_vars.id <= num_pet_types, "too many pet types!")
  return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
@@ -302,28 +395,77 @@ class__pet = classfactory({
  immortal = false,
  sprite = 0,
  sprite_width = 2,
- sprite_height = 2
+ sprite_height = 2,
+ transparent = 11, --lime
+ color_variants = {}
 })
 function class__pet.new()
  local self = setmetatable({}, class__pet)
  self.hunger = 15
  self.happiness = 15
+ self.color_variant = 0
  return self
 end
-function class__pet:spr(x, y)
- spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
+
+-- set the color variant
+-- set 0 for default variant, set nil for random
+function class__pet:set_color(int_or_nil)
+ self.color_variant = int_or_nil or flr(rnd(#self.color_variants + 1))
+ return self
 end
-function class__pet:spr_scaled(x, y, scale)
- spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
+
+-- set the pet-specific palette
+-- make sure to reset afterwards
+function class__pet:pal(obscured)
+ pal()
+
+ if obscured then
+  for i = 0, 15 do
+   pal(i, 5)
+  end
+ else
+  if self.color_variant ~= 0 then
+   pal(self.color_variants[self.color_variant])
+  end
+ end
+
+ palt(0, false)
+ palt(self.transparent, true)
+end
+
+-- draw the pet's sprite
+function class__pet:spr_scaled(x, y, scale, no_pal)
+ if not no_pal then self:pal() end
+
+ if not scale or scale == 1 then
+  spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
+ else
+  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
+ end
+
+ pal()
 end
 
 pet_duck = classfactory__pet({ name = "arb duck", sprite = 6 })
 pet_cheeto = classfactory__pet({ name = "cheeto", immortal = true, sprite = 8 })
 pet_mimikyu = classfactory__pet({ name = "mimikyu", sprite = 10 })
 pet_not_mimikyu = classfactory__pet({ name = "not mimikyu", sprite = 12 })
-pet_squirrel = classfactory__pet({ name = "squirrel", sprite = 14 })
+pet_squirrel = classfactory__pet({
+ name = "squirrel", sprite = 14, color_variants = {
+  { [6] = 9, [5] = 4 }
+ }
+})
 pet_turkey = classfactory__pet({ name = "turkey", sprite = 38 })
 pet_owl = classfactory__pet({ name = "owl", sprite = 40 })
+
+-- map integer pet.id to bool
+discovered_pets = {}
+for i = 1, num_pet_types do
+ local pet = all_pets[i]
+ if (pet) discovered_pets[i] = false
+end
+
+discovered_pets[pet_duck.id] = true
 
 all_items = {
  { sprite = 32 },
@@ -332,20 +474,106 @@ all_items = {
  { sprite = 35 },
  { sprite = 36 }
 }
+num_item_types = 16
 
 inventory = {}
+for i = 1, num_item_types do
+ local item = all_items[i]
+ if item then
+  all_items[i].id = i
+  inventory[i] = 0
+ end
+end
+max_item_stack = 0xff
+
 pets = {
  pet_duck.new(),
  pet_cheeto.new(),
  pet_mimikyu.new(),
  pet_not_mimikyu.new(),
- pet_squirrel.new()
+ pet_squirrel.new():set_color()
 }
 --1 based counting to access pet table
 current_pet = 1
+max_pets = 16
+
+-- MARK: save data
+
+-- username_title_version
+cartdata("real-fancy-fire_tamagacha_0-2")
+function load_data()
+ local addr = 0x5e00
+
+ -- user data
+ mute, grim, _, _ = decode_bitfield(peek(addr), 4)
+ addr += 1
+
+ -- discovered pets
+ discovered_pets = decode_bitfield(peek(addr), num_pet_types)
+ addr += 4
+
+ -- pets
+ for i = 1, max_pets do
+  local id, color_variant, hunger, happiness = peek(addr, 4)
+  if all_pets[id] then
+   local pet = all_pets[id].new()
+   pet.color_variant = color_variant
+   pet.hunger = hunger
+   pet.happiness = happiness
+   pets[i] = pet
+  end
+  addr += 4
+ end
+
+ -- items
+ for i = 1, num_item_types do
+  inventory[i] = peek2(addr)
+  addr += 2
+ end
+end
+
+function save_data()
+ local addr = 0x5e00
+
+ -- user settings
+ poke(
+  addr, encode_bitfield({
+   mute, grim, false, false,
+   false, false, false, false
+  })
+ )
+ addr += 1
+
+ -- discovered pets
+ poke4(addr, encode_bitfield(discovered_pets))
+ addr += 2
+
+ -- pets
+ for i = 1, max_pets do
+  local pet = pets[i]
+
+  if pet then
+   poke(addr, pet.id, pet.color_variant, pet.hunger, pet.happiness)
+  else
+   poke(addr, 0, 0, 0, 0)
+  end
+
+  addr += 4
+ end
+
+ -- items
+ for i = 1, num_item_types do
+  poke2(addr, inventory[i])
+  addr += 2
+ end
+ printh("data saved")
+end
+
+save_data()
+-- load_data()
 
 -->8
---gatcha page and animation
+--MARK: gatcha page and animation
 function update_gatcha()
  if btnp(🅾️) then
   screen = 0
@@ -390,7 +618,7 @@ function draw_gacha()
  local l = 63 * (current_icon - 1)
  rect(l + 3, 49, l + 62, 79, 10)
  --back icon
- print("🅾️ back", 100, 120, 5)
+ print_centered("🅾️ back", 64, 110, 5)
  if current_icon == 1 and tokens < 1 or current_icon == 2 and tokens < 10 then
   print("not enough tokens", 30, 90, 8)
  end
@@ -401,25 +629,24 @@ end
 --------------------------------
 
 function gatcha_animation_init()
+ prizes_to_delete = {}
+
  --one pull
  if current_icon == 1 then
-  draw_list = { generate() }
+  draw_list = { pull_gatcha() }
   --10 pull
  elseif current_icon == 2 then
   draw_list = {}
   for i = 1, 10 do
-   add(draw_list, generate())
+   add(draw_list, pull_gatcha())
   end
  end
  current_icon = 1
 end
 
-function generate()
- local l = { true, false, false, false, false }
- local s = rnd(l)
- local pet_ = rnd(all_pets)
- local item_ = rnd(all_items)
- return { pet = s, obj = s and pet_ or item_, delete = false }
+function pull_gatcha()
+ local rolled_pet = rnd(1) < 0.2
+ return rolled_pet and rnd(all_pets) or rnd(all_items)
 end
 
 function update_gatcha_animation()
@@ -427,24 +654,32 @@ function update_gatcha_animation()
  if btnp(🅾️) and under(6) then
   t -= 3
  elseif btnp(🅾️) then
+  -- exit the screen
   --add inventory/pets list
-  for i in all(draw_list) do
-   if i.pet and not i.delete then
-    add(pets, i.obj.new())
-   elseif not i.delete then
-    add(inventory, i.obj)
+  for i, prize in pairs(draw_list) do
+   if prizes_to_delete[i] then
+    -- MARK: ToDo add food system
+   elseif is_instance(prize, class__pet) then
+    add(pets, prize.new())
+    discovered_pets[prize.id] = true
+   else
+    -- MARK: ToDo make item class
+    inventory[prize.id] += 1
    end
   end
-  screen = 0
+  switch_screen(0)
  end
+
  if btnp(❎) then
   --mark obj for deletion
-  draw_list[current_icon].delete = true
+  -- draw_list[current_icon].delete = true
+  prizes_to_delete[current_icon] = true
   if #draw_list == 1 then
    --start blender animation
-   screen = 0
+   switch_screen(0)
   end
  end
+
  if #draw_list ~= 1 and not under(6) then
   current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
  end
@@ -458,7 +693,7 @@ function draw_gatcha_animation()
  cls()
  --skip button
  if under(6) then
-  print("🅾️ skip", 100, 120, 5)
+  print_centered("🅾️ skip", 64, 110, 5)
  end
  --1 pull
  if #draw_list == 1 then
@@ -478,29 +713,29 @@ function draw_gatcha_animation()
    print_item(draw_list[1], 48, 48, 4, true)
   end
  else
-  for i, j in pairs(draw_list) do
+  for i, prize in pairs(draw_list) do
    local ix = (i - 1) % 5 * 26 + 4
    local iy = (i - 1) \ 5 * 46 + 33
-   local shake = j.obj.sprite % 2 * 2 - 1
+   local shake = prize.sprite % 2 * 2 - 1
    if under(0.3) then
-    print_item(j, ix, iy, 2)
+    print_item(prize, ix, iy, 2)
    elseif under(0.6) then
-    print_item(j, ix + shake, iy, 2)
+    print_item(prize, ix + shake, iy, 2)
    elseif under(0.9) then
-    print_item(j, ix, iy, 2)
+    print_item(prize, ix, iy, 2)
    elseif under(1.2) then
-    print_item(j, ix - shake, iy, 2)
+    print_item(prize, ix - shake, iy, 2)
    elseif under(3) then
-    print_item(j, ix, iy, 2)
+    print_item(prize, ix, iy, 2)
    elseif under(6) then
-    print_item(j, ix, iy, 2, true)
+    print_item(prize, ix, iy, 2, true)
    else
-    print_item(j, ix, iy, 2, true)
+    print_item(prize, ix, iy, 2, true)
     --draw selector
     if current_icon == i then
      rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
     end
-    if j.delete then
+    if prizes_to_delete[i] then
      line(ix - 1, iy - 1, ix + 16, iy + 16, 8)
      line(ix - 1, iy + 16, ix + 16, iy - 1, 8)
      --thicker lines
@@ -511,12 +746,12 @@ function draw_gatcha_animation()
   end
  end
  if not under(6) then
-  print("❎ trash  🅾️ exit", 30, 110, 7)
+  print_centered("❎ trash  🅾️ exit", 64, 110, 7)
  end
 end
 
 function print_item(item, x, y, size, open)
- if item.pet and open then
+ if is_instance(item, class__pet) and open then
   item_size = 2
   size /= 2
  else
@@ -524,15 +759,13 @@ function print_item(item, x, y, size, open)
  end
 
  if open then
-  sprite = item.obj.sprite
+  sprite = item.sprite
  elseif item.pet then
   sprite = 48 --egg
  else
   sprite = 49 --present box
  end
  palt(0b0000000000010000)
- -- MARK: SPRITE
- -- sspr(item_location[1], item_location[2], item_size, item_size, x, y, size, size)
  spr_scaled(sprite, x, y, size, item_size, item_size)
  pal()
 end
