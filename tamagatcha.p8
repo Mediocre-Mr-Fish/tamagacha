@@ -169,9 +169,8 @@ function update_hunger()
  if time() - last_fed > 2 then
   last_fed = time()
   --do this for all pets later
-  for i in all(pets) do
-   i.hunger -= 1
-   if (i.hunger < 0) i.hunger = 0
+  for pet in all(pets) do
+   pet.hunger = max(pet.hunger - 1, 0)
   end
  end
 end
@@ -180,9 +179,8 @@ function update_happiness()
  if time() - last_play > 4 then
   last_play = time()
   --do this for all pets later
-  for i in all(pets) do
-   i.happiness -= 1
-   if (i.happiness < 0) i.happiness = 0
+  for pet in all(pets) do
+   pet.happiness = max(pet.happiness - 1, 0)
   end
  end
 end
@@ -655,12 +653,16 @@ function update_gatcha_animation()
  if btnp(🅾️) and under(6) then
   t -= 3
  elseif btnp(🅾️) then
+  -- exit the screen
   --add inventory/pets list
   for i, prize in pairs(draw_list) do
-   if is_instance(prize, class__pet) then
-    add(pets, prize)
+   if prizes_to_delete[i] then
+    -- MARK: ToDo add food system
+   elseif is_instance(prize, class__pet) then
+    add(pets, prize.new())
     discovered_pets[prize.id] = true
-   elseif prizes_to_delete[i] then
+   else
+    -- MARK: ToDo make item class
     inventory[prize.id] += 1
    end
   end
