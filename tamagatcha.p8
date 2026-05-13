@@ -132,6 +132,27 @@ function spr_scaled(n, x, y, scale, sw, sh)
  sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale)
 end
 
+-- encode a bool array as an integer
+-- big-endian
+function encode_bitfield(bool_array)
+ local ret = 0
+ for i in all(bool_array) do
+  ret = ret << 1
+  if (i) ret += 1
+ end
+ return ret
+end
+-- decode an integer as a bool array
+-- big-endian
+function decode_bitfield(integer, length)
+ local ret = {}
+ for _ = 1, length do
+  add(ret, integer & 1, 0)
+  integer = integer >> 1
+ end
+ return ret
+end
+
 function table_search(table, item)
  for i in all(table) do
   if i == item then
@@ -299,25 +320,25 @@ end
 
 function draw_collection()
  --draw all pets
- for i, j in pairs(all_pets) do
+ for i, pet_cls in pairs(all_pets) do
   local sx = 8 + (i - 1) % 4 * 32
   local sy = 8 + (i - 1) \ 4 * 32
   if i == current_icon then
    rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
   end
-  if table_search(discovered_pets, j) then
+  if discovered_pets[pet_cls.id] then
    --draw normal
    if i == current_icon then
-    print_centered(j.name, 64, 100, 7)
+    print_centered(pet_cls.name, 64, 100, 7)
    end
-   j:spr_scaled(sx, sy, 1)
+   pet_cls:spr_scaled(sx, sy, 1)
   else
    --draw grayed out
    if i == current_icon then
     print_centered("???", 64, 100, 7)
    end
-   j:pal(true)
-   j:spr_scaled(sx, sy, 1, true)
+   pet_cls:pal(true)
+   pet_cls:spr_scaled(sx, sy, 1, true)
   end
  end
  print_centered("🅾️ exit", 64, 110, 5)
@@ -350,6 +371,7 @@ end
 
 -- function to check of an object the specifed class or a subclass of it
 function is_instance(object, class)
+ if object == class then return true end
  local metatable = getmetatable(object)
 
  -- follow the metatable heirarcy
@@ -363,8 +385,10 @@ function is_instance(object, class)
 end
 
 all_pets = {}
+num_pet_types = 15
 function classfactory__pet(static_vars, parent)
  static_vars.id = #all_pets + 1
+ assert(static_vars.id <= num_pet_types, "too many pet types!")
  return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
@@ -436,9 +460,14 @@ pet_squirrel = classfactory__pet({
 pet_turkey = classfactory__pet({ name = "turkey", sprite = 38 })
 pet_owl = classfactory__pet({ name = "owl", sprite = 40 })
 
-discovered_pets = {
- pet_duck
-}
+-- map integer pet.id to bool
+discovered_pets = {}
+for i = 1, num_pet_types do
+ local pet = all_pets[i]
+ if (pet) discovered_pets[i] = false
+end
+
+discovered_pets[pet_duck.id] = true
 
 all_items = {
  { sprite = 32 },
@@ -451,7 +480,11 @@ num_item_types = 16
 
 inventory = {}
 for i = 1, num_item_types do
- if (all_items[i]) all_items[i].id = i inventory[i] = 0
+ local item = all_items[i]
+ if item then
+  all_items[i].id = i
+  inventory[i] = 0
+ end
 end
 max_item_stack = 0xff
 
@@ -469,16 +502,17 @@ max_pets = 16
 -- MARK: save data
 
 -- username_title_version
-cartdata("real-fancy-fire_tamagacha_0-1")
+cartdata("real-fancy-fire_tamagacha_0-2")
 function load_data()
  local addr = 0x5e00
 
  -- user data
- local user_data = peek(addr)
- --data exists
- mute = user_data & 0x1 ~= 0
- grim = user_data & 0x2 ~= 0
+ mute, grim, _, _ = decode_bitfield(peek(addr), 4)
  addr += 1
+
+ -- discovered pets
+ discovered_pets = decode_bitfield(peek(addr), num_pet_types)
+ addr += 4
 
  -- pets
  for i = 1, max_pets do
@@ -505,13 +539,16 @@ function save_data()
 
  -- user settings
  poke(
-  addr,
-  (mute and 0x1 or 0)
-    + (grim and 0x2 or 0)
-    + 0
-    + 0
+  addr, encode_bitfield({
+   mute, grim, false, false,
+   false, false, false, false
+  })
  )
  addr += 1
+
+ -- discovered pets
+ poke4(addr, encode_bitfield(discovered_pets))
+ addr += 2
 
  -- pets
  for i = 1, max_pets do
@@ -531,9 +568,10 @@ function save_data()
   poke2(addr, inventory[i])
   addr += 2
  end
+ printh("data saved")
 end
 
--- save_data()
+save_data()
 -- load_data()
 
 -->8
@@ -595,23 +633,21 @@ end
 function gatcha_animation_init()
  --one pull
  if current_icon == 1 then
-  draw_list = { generate() }
+  draw_list = { pull_gatcha() }
   --10 pull
  elseif current_icon == 2 then
   draw_list = {}
+  prizes_to_delete = {}
   for i = 1, 10 do
-   add(draw_list, generate())
+   add(draw_list, pull_gatcha())
   end
  end
  current_icon = 1
 end
 
-function generate()
- local l = { true, false, false, false, false }
- local s = rnd(l)
- local pet_ = rnd(all_pets)
- local item_ = rnd(all_items)
- return { pet = s, obj = s and pet_ or item_, delete = false }
+function pull_gatcha()
+ local rolled_pet = rnd(1) < 0.2
+ return rolled_pet and rnd(all_pets) or rnd(all_items)
 end
 
 function update_gatcha_animation()
@@ -620,21 +656,20 @@ function update_gatcha_animation()
   t -= 3
  elseif btnp(🅾️) then
   --add inventory/pets list
-  for i in all(draw_list) do
-   if i.pet and not i.delete then
-    add(pets, i.obj.new())
-    add(discovered_pets, i.obj)
-   elseif not i.delete then
-    -- MARK: ToDo- Rework items
-    -- add(inventory, i.obj)
-    inventory[i.obj.id] += 1
+  for i, prize in pairs(draw_list) do
+   if is_instance(prize, class__pet) then
+    add(pets, prize)
+    discovered_pets[prize.id] = true
+   elseif prizes_to_delete[i] then
+    inventory[prize.id] += 1
    end
   end
   switch_screen(0)
  end
  if btnp(❎) then
   --mark obj for deletion
-  draw_list[current_icon].delete = true
+  -- draw_list[current_icon].delete = true
+  prizes_to_delete[current_icon] = true
   if #draw_list == 1 then
    --start blender animation
    switch_screen(0)
@@ -673,29 +708,29 @@ function draw_gatcha_animation()
    print_item(draw_list[1], 48, 48, 4, true)
   end
  else
-  for i, j in pairs(draw_list) do
+  for i, prize in pairs(draw_list) do
    local ix = (i - 1) % 5 * 26 + 4
    local iy = (i - 1) \ 5 * 46 + 33
-   local shake = j.obj.sprite % 2 * 2 - 1
+   local shake = prize.sprite % 2 * 2 - 1
    if under(0.3) then
-    print_item(j, ix, iy, 2)
+    print_item(prize, ix, iy, 2)
    elseif under(0.6) then
-    print_item(j, ix + shake, iy, 2)
+    print_item(prize, ix + shake, iy, 2)
    elseif under(0.9) then
-    print_item(j, ix, iy, 2)
+    print_item(prize, ix, iy, 2)
    elseif under(1.2) then
-    print_item(j, ix - shake, iy, 2)
+    print_item(prize, ix - shake, iy, 2)
    elseif under(3) then
-    print_item(j, ix, iy, 2)
+    print_item(prize, ix, iy, 2)
    elseif under(6) then
-    print_item(j, ix, iy, 2, true)
+    print_item(prize, ix, iy, 2, true)
    else
-    print_item(j, ix, iy, 2, true)
+    print_item(prize, ix, iy, 2, true)
     --draw selector
     if current_icon == i then
      rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
     end
-    if j.delete then
+    if prizes_to_delete[i] then
      line(ix - 1, iy - 1, ix + 16, iy + 16, 8)
      line(ix - 1, iy + 16, ix + 16, iy - 1, 8)
      --thicker lines
@@ -711,7 +746,7 @@ function draw_gatcha_animation()
 end
 
 function print_item(item, x, y, size, open)
- if item.pet and open then
+ if is_instance(item, class__pet) and open then
   item_size = 2
   size /= 2
  else
@@ -719,7 +754,7 @@ function print_item(item, x, y, size, open)
  end
 
  if open then
-  sprite = item.obj.sprite
+  sprite = item.sprite
  elseif item.pet then
   sprite = 48 --egg
  else
