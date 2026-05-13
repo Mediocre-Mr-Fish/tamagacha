@@ -153,13 +153,13 @@ function decode_bitfield(integer, length)
  return ret
 end
 
-function table_search(table, item)
- for i in all(table) do
-  if i == item then
-   return true
-  end
- end
-end
+-- function table_search(table, item)
+--  for i in all(table) do
+--   if i == item then
+--    return true
+--   end
+--  end
+-- end
 
 function print_centered(text, x, y, color)
  print(text, x - print(text, 0, -8) / 2, y, color)
@@ -629,13 +629,14 @@ end
 --------------------------------
 
 function gatcha_animation_init()
+ prizes_to_delete = {}
+
  --one pull
  if current_icon == 1 then
   draw_list = { pull_gatcha() }
   --10 pull
  elseif current_icon == 2 then
   draw_list = {}
-  prizes_to_delete = {}
   for i = 1, 10 do
    add(draw_list, pull_gatcha())
   end
@@ -668,6 +669,7 @@ function update_gatcha_animation()
   end
   switch_screen(0)
  end
+
  if btnp(❎) then
   --mark obj for deletion
   -- draw_list[current_icon].delete = true
@@ -677,6 +679,7 @@ function update_gatcha_animation()
    switch_screen(0)
   end
  end
+
  if #draw_list ~= 1 and not under(6) then
   current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
  end
