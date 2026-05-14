@@ -392,7 +392,7 @@ max_pets = 16
 -- MARK: save data
 
 -- username_title_version
-cartdata("real-fancy-fire_tamagatcha_0-3")
+cartdata("real-fancy-fire_tama-gatcha_1-0")
 function load_data()
  local addr = 0x5e00
 
