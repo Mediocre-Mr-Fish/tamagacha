@@ -28,7 +28,7 @@ function _init()
 
   { name = "snack", x = 3, y = 117, sprite = 17 },
   { name = "left", x = 31, y = 117, sprite = 18 },
-  { name = "right", x = 60, y = 117, sprite = 18 },
+  { name = "right", x = 60, y = 117, sprite = 19 },
   { name = "pets", x = 89, y = 117, sprite = 20 },
   { name = "adopt", x = 117, y = 117, sprite = 21 }
  }
@@ -142,7 +142,6 @@ function switch_screen(new)
   current_icon = 0
  end
  screen = new
- save_data()
 end
 
 -->8
@@ -184,7 +183,7 @@ end
 function decode_bitfield(integer, length)
  local ret = {}
  for _ = 1, length do
-  add(ret, integer & 1, 1)
+  add(ret, integer & 1, 0)
   integer = integer >> 1
  end
  return ret
@@ -404,16 +403,6 @@ function load_data()
  discovered_pets = decode_bitfield(peek(addr), num_pet_types)
  addr += 4
 
- -- food
- food = peek2(addr)
- addr += 2
-
- -- items
- for i = 1, num_item_types do
-  inventory[i] = peek2(addr)
-  addr += 2
- end
-
  -- pets
  for i = 1, max_pets do
   local id, color_variant, hunger, happiness = peek(addr, 4)
@@ -427,7 +416,11 @@ function load_data()
   addr += 4
  end
 
- printh("data loaded")
+ -- items
+ for i = 1, num_item_types do
+  inventory[i] = peek2(addr)
+  addr += 2
+ end
 end
 
 function save_data()
@@ -446,16 +439,6 @@ function save_data()
  poke4(addr, encode_bitfield(discovered_pets))
  addr += 2
 
- -- food
- poke2(addr, food)
- addr += 2
-
- -- items
- for i = 1, num_item_types do
-  poke2(addr, inventory[i])
-  addr += 2
- end
-
  -- pets
  for i = 1, max_pets do
   local pet = pets[i]
@@ -469,10 +452,16 @@ function save_data()
   addr += 4
  end
 
+ -- items
+ for i = 1, num_item_types do
+  poke2(addr, inventory[i])
+  addr += 2
+ end
  printh("data saved")
 end
 
-load_data()
+save_data()
+-- load_data()
 
 -->8
 -- MARK: screens
@@ -509,20 +498,8 @@ function screens.home.update()
  end
 end
 function screens.home.draw()
- for i,icon in pairs(icons) do
-  if i == 7 and current_pet == 1 then
-   pal(7, 5)
-   spr(icon.sprite, icon.x, icon.y)
-   pal()
-  elseif i == 8 then
-   if current_pet == #pets then
-    pal(7, 5)
-   end
-   spr(icon.sprite, icon.x, icon.y, 1, 1, true, false)
-   pal()
-  else
-   spr(icon.sprite, icon.x, icon.y)
-  end
+ for i in all(icons) do
+  spr(i.sprite, i.x, i.y)
  end
  local curr_icon = icons[current_icon]
  rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
@@ -557,17 +534,7 @@ function screens.home.draw()
  pal()
  fillp(█)
  for i = 1, #pets do
-  local circle_color = 5
-  if i == current_pet then
-   circle_color = 7
-  end
-  if is_dead(pets[i]) then
-   circle_color = 2
-   if i == current_pet then
-    circle_color = 8
-   end
-  end
-  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, circle_color) 
+  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
  end
 end
 
