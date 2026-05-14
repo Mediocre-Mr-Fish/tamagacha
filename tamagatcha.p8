@@ -33,6 +33,8 @@ function _init()
  mute = false
  --optionally reveal the blender heh
  grim = false
+ --progress of minigames
+ grim_progress = 0
 end
 
 function _update()
@@ -45,6 +47,7 @@ function _update()
   check_player_inputs()
  elseif screen == 1 then
   --game
+  update_game_select()
  elseif screen == 2 then
   --stats
  elseif screen == 3 then
@@ -64,6 +67,15 @@ function _update()
  elseif screen == 10 then
   --gatcha animation
   update_gatcha_animation()
+ elseif screen == 11 then
+  --game 1 math
+  update_math_game()
+ elseif screen == 12 then
+  --game 2 maze
+ elseif screen == 13 then
+  --game 3 idk
+ elseif screen == 14 then
+  --game 4 in progress
  end
 end
 
@@ -96,6 +108,15 @@ function _draw()
  elseif screen == 10 then
   --gatcha animation
   draw_gatcha_animation()
+ elseif screen == 11 then
+  --game 1 math
+  draw_math_game()
+ elseif screen == 12 then
+  --game 2 maze
+ elseif screen == 13 then
+  --game 3 idk
+ elseif screen == 14 then
+  --game 4 in progress
  end
 end
 
@@ -105,6 +126,11 @@ function switch_screen(new)
   --takes into account game screens
   --and animation screens
   current_icon = 1
+  --init game 1
+ end
+ if new == 11 then
+  setup_question()
+  current_icon = 0
  end
  screen = new
 end
@@ -246,8 +272,31 @@ function draw_pet()
  end
 end
 
+function update_game_select()
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
+ if btnp(❎) then
+  switch_screen(current_icon + 10)
+ end
+end
+
 function draw_game_select()
- print("games in the works", 10, 40, 7)
+ fillp(█)
+ rectfill(8 , 8 , 60 , 60 , 3)
+ print_centered("math",34,31,7)
+ rectfill(68, 8 , 120, 60 , 3)
+ print_centered("maze",94,31,7)
+ rectfill(8 , 68, 60 , 120, 3)
+ print_centered("idk yet",34,91,7)
+ rectfill(68, 68, 120, 120, grim and 3 or 5)
+ if grim then
+  print_centered(grim_progress.."/3",94,91,7)
+ else
+  print_centered("tbd",94,91,7)
+ end
+ --selector
+ local x = 8 + (current_icon - 1) % 2 * 60
+ local y = 8 + (current_icon - 1) \ 2 * 60
+ rect(x, y, x + 52, y + 52, 10)
 end
 
 function draw_stats()
@@ -798,6 +847,83 @@ function print_item(item, x, y, size, open)
  pal()
 end
 
+-->8
+--MARK: games
+function finish_game()
+ tokens += 2
+ switch_screen(0)
+ pets[current_pet].happiness = 15
+end
+
+function in_options(this)
+ for option in all(options) do
+  if this == option then
+   return true
+  end
+ end
+end
+
+function get_str()
+ local operation = {"+" ,"-" ,"*"}
+ return num1..operation[i]..num2
+end
+
+function draw_triangle(a,b,c,d,e,f)
+ line(a,b,c,d)
+ line(c,d,e,f)
+ line(e,f,a,b)
+end
+
+function setup_question()
+ num1 = flr( rnd(10) )
+ num2 = flr( rnd(10) )
+ i = flr( rnd(3) ) + 1
+ ans_index = flr( rnd(4) )
+ algs = {num1 + num2, num1 - num2, num1 * num2}
+ ans = algs[i]
+ options = {}
+ --make sure no overlap answers
+ add(options, ans)
+ repeat
+  new = ans + flr( rnd(6) ) - 2
+  if not in_options(new) then
+   add(options, new)
+  end
+ until #options == 4
+ del(options, ans)
+ add(options, ans, ans_index + 1)
+end
+
+function update_math_game()
+ if btnp(ans_index) then
+  current_icon += 1
+  setup_question()
+  if current_icon == 5 then
+   --finished game
+   finish_game()
+  end
+ elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
+  current_icon = clamp(0, current_icon-1, 5)
+  setup_question()
+ end
+end
+
+function draw_math_game()
+ print(current_icon.."/5",110,3,7)
+ 
+ print_centered(get_str() , 64, 61, 7)
+ print_centered(options[1], 34, 61, 7)
+ draw_triangle(22, 63, 40, 77, 40, 49)
+ 
+ print_centered(options[2], 94, 61, 7)
+ draw_triangle(104, 63, 86, 77, 86, 49)
+ 
+ print_centered(options[3], 64, 31, 7)
+ draw_triangle(63, 104, 77, 86, 49, 86)
+ 
+ print_centered(options[4], 64, 91, 7)
+ draw_triangle(63, 22, 77, 40, 49, 40)
+end
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bb
 000000000000990005677650077777700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
