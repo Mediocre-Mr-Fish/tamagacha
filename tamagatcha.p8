@@ -11,8 +11,9 @@ function _init()
  --equation in get_penalty_mult
  swarm_penalty = 0.1
  --baseline of when to decrease vars (sec)
- hunger_tick = 0.1--5
- happiness_tick = 0.1--7
+ hunger_tick = 5
+ happiness_tick = 7
+
  last_fed = time()
  last_play = time()
  --general use timer
@@ -47,33 +48,35 @@ end
 function _update()
  update_hunger()
  update_happiness()
+
  if btnp(🅾️) and screen != 10 then
   switch_screen(0)
  end
+
  if screen == 0 then
-  check_player_inputs()
+  screens.home.update()
  elseif screen == 1 then
   --game
-  update_game_select()
+  screens.game_select.update()
  elseif screen == 2 then
   --stats
  elseif screen == 3 then
-  --gatcha
-  update_gatcha()
+  --gacha
+  screens.gacha.update()
  elseif screen == 4 then
   --setting
-  update_settings()
+  screens.settings.update()
  elseif screen == 5 then
   --snack
-  update_snacks()
+  screens.snacks.update()
  elseif screen == 8 then
   --pet collection
-  update_collection()
+  screens.collection.update()
  elseif screen == 9 then
   --adoption
  elseif screen == 10 then
-  --gatcha animation
-  update_gatcha_animation()
+  --gacha animation
+  screens.gacha_anim.update()
  elseif screen == 11 then
   --game 1 math
   update_math_game()
@@ -89,31 +92,31 @@ end
 function _draw()
  cls()
  if screen == 0 then
-  screen_home_draw()
+  screens.home.draw()
  elseif screen == 1 then
   --game
-  draw_game_select()
+  screens.game_select.draw()
  elseif screen == 2 then
   --stats
-  draw_stats()
+  screens.stats.draw()
  elseif screen == 3 then
-  --gatcha
-  draw_gacha()
+  --gacha
+  screens.gacha.draw()
  elseif screen == 4 then
   --setting
-  draw_settings()
+  screens.settings.draw()
  elseif screen == 5 then
   --snack
-  draw_snacks()
+  screens.snacks.draw()
  elseif screen == 8 then
   --pet collection
-  draw_collection()
+  screens.collection.draw()
  elseif screen == 9 then
   --adoption
-  draw_adoption()
+  screens.adoption.draw()
  elseif screen == 10 then
-  --gatcha animation
-  draw_gatcha_animation()
+  --gacha animation
+  screens.gacha_anim.draw()
  elseif screen == 11 then
   --game 1 math
   draw_math_game()
@@ -234,221 +237,6 @@ end
 
 function is_dead(pet)
  return not pet.immortal and pet.hunger == 0 and pet.happiness == 0
-end
-
-function check_player_inputs()
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
-
- if btnp(❎) then
-  --disallows feeding or playing after death to prevent revives
-  if is_dead(pets[current_pet]) and (current_icon == 1 or current_icon == 2) then
-    return
-  end
-  if icons[current_icon].name == "food" then
-   add_hunger()
-  elseif icons[current_icon].name == "left" then
-   current_pet = mod(current_pet - 1, #pets)
-  elseif icons[current_icon].name == "right" then
-   current_pet = mod(current_pet + 1, #pets)
-  else
-   switch_screen(current_icon - 1)
-   current_icon = 1
-  end
- end
-end
-
-function screen_home_draw()
- for i in all(icons) do
-  spr(i.sprite, i.x, i.y)
- end
- local curr_icon = icons[current_icon]
- rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
-
- print_centered(curr_icon.name, 64, 110, 7)
-
- --stats icon reflecting pet status
- fillp(█)
- local hunger_x = pets[current_pet].hunger / 15 * 6
- local happy_x = pets[current_pet].happiness / 15 * 6
- if hunger_x > 1 then
-  rectfill(61, 4, 60 + hunger_x, 4, hunger_x > 3 and 11 or 8)
- end
- if happy_x > 1 then
-  rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
- end
- 
- --print food counter
- print(food, 3, 13, 7)
- 
- --draw current pet
- fillp(★)
- circfill(64, 64, 44, 3)
- pet = pets[current_pet]
- print_centered(pet.name, 64, 20, 7)
- if is_dead(pet) then
-  spr_scaled(50, 52, 62, 4)
- else
-  pet:spr_scaled(32, 32, 4)
- end
- --draw number of pets and current pet indicator
- pal()
- fillp(█)
- for i = 1, #pets do
-  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
- end
-end
-
-function update_game_select()
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
- if btnp(❎) then
-  switch_screen(current_icon + 10)
- end
-end
-
-function draw_game_select()
- fillp(█)
- rectfill(8, 8, 60, 60, 3)
- print_centered("math", 34, 31, 7)
- rectfill(68, 8, 120, 60, 3)
- print_centered("maze", 94, 31, 7)
- rectfill(8, 68, 60, 120, 3)
- print_centered("idk yet", 34, 91, 7)
- rectfill(68, 68, 120, 120, grim and 3 or 5)
- if grim then
-  print_centered(grim_progress .. "/3", 94, 91, 7)
- else
-  print_centered("tbd", 94, 91, 7)
- end
- --selector
- local x = 8 + (current_icon - 1) % 2 * 60
- local y = 8 + (current_icon - 1) \ 2 * 60
- rect(x, y, x + 52, y + 52, 10)
-end
-
-function draw_stats()
- print(pets[current_pet].name, 20, 40, 7)
- fillp(█)
- --hunger bar
- print("hunger", 20, 52, 7)
- rectfill(20, 60, 108, 65, 5)
- rectfill(20, 60, 20 + 5.87 * pets[current_pet].hunger, 65, 11)
- --happy bar
- print("happiness", 20, 72, 7)
- rectfill(20, 80, 108, 85, 5)
- rectfill(20, 80, 20 + 5.87 * pets[current_pet].happiness, 85, 11)
-end
-
-function update_settings()
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
- if btnp(❎) then
-  if current_icon == 1 then
-   --sound
-   mute = not mute
-  elseif current_icon == 2 then
-   --grim mode
-   grim = not grim
-  end
- end
-end
-
-function draw_settings()
- print_centered("sound", 64, 20, current_icon == 1 and 10 or 7)
- spr_scaled(16, 62, 30, 2, 1, 1)
- rect(45, 34, 53, 42, 7)
- if mute then
-  print("🐱", 46, 36, 8)
-  line(75, 35, 81, 41)
-  line(75, 41, 81, 35)
- else
-  line(76, 35, 76, 41)
-  line(79, 32, 79, 44)
- end
-
- print_centered("grim mode", 64, 60, current_icon == 2 and 10 or 7)
- rect(45, 74, 53, 82, 7)
- if grim then
-  print("🐱", 46, 76, 8)
-  pal(6, 8)
-  print("✽", 67, 81, 8)
-  print("★", 71, 78, 2)
-  spr_scaled(50, 64, 70, 2, 1, 1)
-  pal()
- else
-  spr_scaled(50, 64, 70, 2, 1, 1)
- end
-
- print_centered("❎ select  🅾️ exit", 64, 110, 5)
-end
-
-function update_snacks()
- local last_icon = current_icon
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 3, 2)
- if btnp(❎) and inventory[current_icon] ~= 0 then
-  if x_pressed and inventory[current_icon] > 0 then
-   inventory[current_icon] -= 1
-   x_pressed = false
-   --give pet status or ailment
-  else
-   x_pressed = true
-  end
- end
-end
-
-function draw_snacks()
- for i, item_amount in pairs(inventory) do
-  local sx = 8 + (i - 1) % 3 * 44
-  local sy = 8 + (i - 1) \ 3 * 44
-  spr_scaled(all_items[i].sprite, sx, sy, 3)
-  print_centered(item_amount, sx - 5, sy, 7)
-  if i == current_icon then
-   rect(sx - 1, sy - 1, sx + 24, sy + 24, 10)
-  end
- end
- if x_pressed then
-  print_centered("🅾️ return    ❎ use", 64, 110, 5)
- else
-  print_centered("🅾️ exit", 64, 110, 5)
- end
-end
-
-function update_collection()
- local last_icon = current_icon
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2)
- --there is no 8-th pet rn
- --deny access to 8th tile in grid
- if current_icon == 8 then
-  current_icon = last_icon
- end
-end
-
-function draw_collection()
- --draw all pets
- for i, pet_cls in pairs(all_pets) do
-  local sx = 8 + (i - 1) % 4 * 32
-  local sy = 8 + (i - 1) \ 4 * 32
-  if i == current_icon then
-   rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
-  end
-  if discovered_pets[pet_cls.id] then
-   --draw normal
-   if i == current_icon then
-    print_centered(pet_cls.name, 64, 100, 7)
-   end
-   pet_cls:spr_scaled(sx, sy, 1)
-  else
-   --draw grayed out
-   if i == current_icon then
-    print_centered("???", 64, 100, 7)
-   end
-   pet_cls:pal(true)
-   pet_cls:spr_scaled(sx, sy, 1, true)
-  end
- end
- print_centered("🅾️ exit", 64, 110, 5)
-end
-
-function draw_adoption()
- print("killing menu in the works", 10, 40, 7)
 end
 
 -->8
@@ -603,7 +391,7 @@ max_pets = 16
 -- MARK: save data
 
 -- username_title_version
-cartdata("real-fancy-fire_tamagacha_0-2")
+cartdata("real-fancy-fire_tamagatcha_0-2")
 function load_data()
  local addr = 0x5e00
 
@@ -676,8 +464,238 @@ save_data()
 -- load_data()
 
 -->8
---MARK: gatcha page and animation
-function update_gatcha()
+-- MARK: screens
+screens = {
+ home = {},
+ game_select = {},
+ stats = {},
+ settings = {},
+ snacks = {},
+ collection = {},
+ adoption = {},
+ gacha = {},
+ gacha_anim = {}
+}
+
+function screens.home.update()
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
+
+ if btnp(❎) then
+  --disallows feeding or playing after death to prevent revives
+  if is_dead(pets[current_pet]) and (current_icon == 1 or current_icon == 2) then
+   return
+  end
+  if icons[current_icon].name == "food" then
+   add_hunger()
+  elseif icons[current_icon].name == "left" then
+   current_pet = mod(current_pet - 1, #pets)
+  elseif icons[current_icon].name == "right" then
+   current_pet = mod(current_pet + 1, #pets)
+  else
+   switch_screen(current_icon - 1)
+   current_icon = 1
+  end
+ end
+end
+function screens.home.draw()
+ for i in all(icons) do
+  spr(i.sprite, i.x, i.y)
+ end
+ local curr_icon = icons[current_icon]
+ rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
+
+ print_centered(curr_icon.name, 64, 110, 7)
+
+ --stats icon reflecting pet status
+ fillp(█)
+ local hunger_x = pets[current_pet].hunger / 15 * 6
+ local happy_x = pets[current_pet].happiness / 15 * 6
+ if hunger_x > 1 then
+  rectfill(61, 4, 60 + hunger_x, 4, hunger_x > 3 and 11 or 8)
+ end
+ if happy_x > 1 then
+  rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
+ end
+
+ --print food counter
+ print(food, 3, 13, 7)
+
+ --draw current pet
+ fillp(★)
+ circfill(64, 64, 44, 3)
+ pet = pets[current_pet]
+ print_centered(pet.name, 64, 20, 7)
+ if is_dead(pet) then
+  spr_scaled(50, 52, 62, 4)
+ else
+  pet:spr_scaled(32, 32, 4)
+ end
+ --draw number of pets and current pet indicator
+ pal()
+ fillp(█)
+ for i = 1, #pets do
+  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
+ end
+end
+
+function screens.game_select.update()
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
+ if btnp(❎) then
+  switch_screen(current_icon + 10)
+ end
+end
+function screens.game_select.draw()
+ fillp(█)
+ rectfill(8, 8, 60, 60, 3)
+ print_centered("math", 34, 31, 7)
+ rectfill(68, 8, 120, 60, 3)
+ print_centered("maze", 94, 31, 7)
+ rectfill(8, 68, 60, 120, 3)
+ print_centered("idk yet", 34, 91, 7)
+ rectfill(68, 68, 120, 120, grim and 3 or 5)
+ if grim then
+  print_centered(grim_progress .. "/3", 94, 91, 7)
+ else
+  print_centered("tbd", 94, 91, 7)
+ end
+ --selector
+ local x = 8 + (current_icon - 1) % 2 * 60
+ local y = 8 + (current_icon - 1) \ 2 * 60
+ rect(x, y, x + 52, y + 52, 10)
+end
+
+function screens.stats.update()
+ -- do nothing
+end
+function screens.stats.draw()
+ print(pets[current_pet].name, 20, 40, 7)
+ fillp(█)
+ --hunger bar
+ print("hunger", 20, 52, 7)
+ rectfill(20, 60, 108, 65, 5)
+ rectfill(20, 60, 20 + 5.87 * pets[current_pet].hunger, 65, 11)
+ --happy bar
+ print("happiness", 20, 72, 7)
+ rectfill(20, 80, 108, 85, 5)
+ rectfill(20, 80, 20 + 5.87 * pets[current_pet].happiness, 85, 11)
+end
+
+function screens.settings.update()
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
+ if btnp(❎) then
+  if current_icon == 1 then
+   --sound
+   mute = not mute
+  elseif current_icon == 2 then
+   --grim mode
+   grim = not grim
+  end
+ end
+end
+function screens.settings.draw()
+ print_centered("sound", 64, 20, current_icon == 1 and 10 or 7)
+ spr_scaled(16, 62, 30, 2, 1, 1)
+ rect(45, 34, 53, 42, 7)
+ if mute then
+  print("🐱", 46, 36, 8)
+  line(75, 35, 81, 41)
+  line(75, 41, 81, 35)
+ else
+  line(76, 35, 76, 41)
+  line(79, 32, 79, 44)
+ end
+
+ print_centered("grim mode", 64, 60, current_icon == 2 and 10 or 7)
+ rect(45, 74, 53, 82, 7)
+ if grim then
+  print("🐱", 46, 76, 8)
+  pal(6, 8)
+  print("✽", 67, 81, 8)
+  print("★", 71, 78, 2)
+  spr_scaled(50, 64, 70, 2, 1, 1)
+  pal()
+ else
+  spr_scaled(50, 64, 70, 2, 1, 1)
+ end
+
+ print_centered("❎ select  🅾️ exit", 64, 110, 5)
+end
+
+function screens.snacks.update()
+ local last_icon = current_icon
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 3, 2)
+ if btnp(❎) and inventory[current_icon] ~= 0 then
+  if x_pressed and inventory[current_icon] > 0 then
+   inventory[current_icon] -= 1
+   x_pressed = false
+   --give pet status or ailment
+  else
+   x_pressed = true
+  end
+ end
+end
+function screens.snacks.draw()
+ for i, item_amount in pairs(inventory) do
+  local sx = 8 + (i - 1) % 3 * 44
+  local sy = 8 + (i - 1) \ 3 * 44
+  spr_scaled(all_items[i].sprite, sx, sy, 3)
+  print_centered(item_amount, sx - 5, sy, 7)
+  if i == current_icon then
+   rect(sx - 1, sy - 1, sx + 24, sy + 24, 10)
+  end
+ end
+ if x_pressed then
+  print_centered("🅾️ return    ❎ use", 64, 110, 5)
+ else
+  print_centered("🅾️ exit", 64, 110, 5)
+ end
+end
+
+function screens.collection.update()
+ local last_icon = current_icon
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2)
+ --there is no 8-th pet rn
+ --deny access to 8th tile in grid
+ if current_icon == 8 then
+  current_icon = last_icon
+ end
+end
+function screens.collection.draw()
+ --draw all pets
+ for i, pet_cls in pairs(all_pets) do
+  local sx = 8 + (i - 1) % 4 * 32
+  local sy = 8 + (i - 1) \ 4 * 32
+  if i == current_icon then
+   rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
+  end
+  if discovered_pets[pet_cls.id] then
+   --draw normal
+   if i == current_icon then
+    print_centered(pet_cls.name, 64, 100, 7)
+   end
+   pet_cls:spr_scaled(sx, sy, 1)
+  else
+   --draw grayed out
+   if i == current_icon then
+    print_centered("???", 64, 100, 7)
+   end
+   pet_cls:pal(true)
+   pet_cls:spr_scaled(sx, sy, 1, true)
+  end
+ end
+ print_centered("🅾️ exit", 64, 110, 5)
+end
+
+function screens.adoption.update()
+ -- do nothing
+end
+function screens.adoption.draw()
+ print("killing menu in the works", 10, 40, 7)
+end
+
+-->8
+--MARK: gacha page and animation
+function screens.gacha.update()
  if btnp(🅾️) then
   screen = 0
  elseif current_icon == 1 and btnp(➡️) then
@@ -689,17 +707,16 @@ function update_gatcha()
    tokens -= 1
    screen = 10
    t = time()
-   gatcha_animation_init()
+   gacha_animation_init()
   elseif tokens >= 10 then
    tokens -= 10
    screen = 10
    t = time()
-   gatcha_animation_init()
+   gacha_animation_init()
   end
  end
 end
-
-function draw_gacha()
+function screens.gacha.draw()
  cls()
  --rectfill(0,0,128,128,15)
  --tickets icon
@@ -731,28 +748,28 @@ end
 --animation and selection
 --------------------------------
 
-function gatcha_animation_init()
+function gacha_animation_init()
  prizes_to_delete = {}
 
  --one pull
  if current_icon == 1 then
-  draw_list = { pull_gatcha() }
+  draw_list = { pull_gacha() }
   --10 pull
  elseif current_icon == 2 then
   draw_list = {}
   for i = 1, 10 do
-   add(draw_list, pull_gatcha())
+   add(draw_list, pull_gacha())
   end
  end
  current_icon = 1
 end
 
-function pull_gatcha()
+function pull_gacha()
  local rolled_pet = rnd(1) < 0.2
  return rolled_pet and rnd(all_pets) or rnd(all_items)
 end
 
-function update_gatcha_animation()
+function screens.gacha_anim.update()
  --skip animation button
  if btnp(🅾️) and under(6) then
   t -= 3
@@ -792,7 +809,7 @@ function under(length)
  return time() - t <= length
 end
 
-function draw_gatcha_animation()
+function screens.gacha_anim.draw()
  cls()
  --skip button
  if under(6) then
