@@ -188,8 +188,16 @@ end
 --  end
 -- end
 
-function print_centered(text, x, y, color)
- print(text, x - print(text, 0, -8) / 2, y, color)
+function print_centered(text, x, y, col)
+ if (col) color(col)
+ print(text, x - print(text, 0, -8) / 2, y)
+end
+
+function draw_triangle(x1, y1, x2, y2, x3, y3, col)
+ if (col) color(col)
+ line(x1, y1, x2, y2)
+ line(x3, y3)
+ line(x1, y1)
 end
 
 function update_hunger()
@@ -868,12 +876,6 @@ function get_str()
  return num1 .. operation[i] .. num2
 end
 
-function draw_triangle(a, b, c, d, e, f)
- line(a, b, c, d)
- line(c, d, e, f)
- line(e, f, a, b)
-end
-
 function setup_question()
  num1 = flr(rnd(10))
  num2 = flr(rnd(10))
@@ -911,17 +913,17 @@ end
 function draw_math_game()
  print(current_icon .. "/5", 110, 3, 7)
 
- print_centered(get_str(), 64, 61, 7)
- print_centered(options[1], 34, 61, 7)
+ print_centered(get_str(), 64, 61)
+ print_centered(options[1], 34, 61)
  draw_triangle(22, 63, 40, 77, 40, 49)
 
- print_centered(options[2], 94, 61, 7)
+ print_centered(options[2], 94, 61)
  draw_triangle(104, 63, 86, 77, 86, 49)
 
- print_centered(options[3], 64, 31, 7)
+ print_centered(options[3], 64, 31)
  draw_triangle(63, 104, 77, 86, 49, 86)
 
- print_centered(options[4], 64, 91, 7)
+ print_centered(options[4], 64, 91)
  draw_triangle(63, 22, 77, 40, 49, 40)
 end
 
