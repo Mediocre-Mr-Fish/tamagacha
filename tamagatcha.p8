@@ -6,6 +6,13 @@ is_runtime = false
 function _init()
  is_runtime = true
  tokens = 10
+ food = 1
+ --multiplier for too many pets
+ --equation in get_penalty_mult
+ swarm_penalty = 0.1
+ --baseline of when to decrease vars (sec)
+ hunger_tick = 0.1--5
+ happiness_tick = 0.1--7
  last_fed = time()
  last_play = time()
  --general use timer
@@ -191,8 +198,12 @@ function draw_triangle(x1, y1, x2, y2, x3, y3, col)
  line(x1, y1)
 end
 
+function get_penalty_mult()
+ return #pets * swarm_penalty + 1
+end
+
 function update_hunger()
- if time() - last_fed > 2 then
+ if time() - last_fed > hunger_tick / get_penalty_mult() then
   last_fed = time()
   --do this for all pets later
   for pet in all(pets) do
@@ -202,7 +213,7 @@ function update_hunger()
 end
 
 function update_happiness()
- if time() - last_play > 4 then
+ if time() - last_play > happiness_tick / get_penalty_mult() then
   last_play = time()
   --do this for all pets later
   for pet in all(pets) do
@@ -212,19 +223,27 @@ function update_happiness()
 end
 
 function add_hunger()
- pets[current_pet].hunger = pets[current_pet].hunger + 1
- if (pets[current_pet].hunger > 15) pets[current_pet].hunger = 15
+ if (food == 0) return
+ pets[current_pet].hunger = min(pets[current_pet].hunger + 2, 15)
+ food -= 1
 end
 
 function add_happiness()
- pets[current_pet].happiness = pets[current_pet].happiness + 1
- if (pets[current_pet].happiness > 15) pets[current_pet].happiness = 15
+ pets[current_pet].happiness = min(pets[current_pet].happiness + 2, 15)
+end
+
+function is_dead(pet)
+ return not pet.immortal and pet.hunger == 0 and pet.happiness == 0
 end
 
 function check_player_inputs()
  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
 
  if btnp(❎) then
+  --disallows feeding or playing after death to prevent revives
+  if is_dead(pets[current_pet]) and (current_icon == 1 or current_icon == 2) then
+    return
+  end
   if icons[current_icon].name == "food" then
    add_hunger()
   elseif icons[current_icon].name == "left" then
@@ -257,13 +276,21 @@ function screen_home_draw()
  if happy_x > 1 then
   rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
  end
-
+ 
+ --print food counter
+ print(food, 3, 13, 7)
+ 
+ --draw current pet
  fillp(★)
  circfill(64, 64, 44, 3)
- --set gray to not draw
  pet = pets[current_pet]
  print_centered(pet.name, 64, 20, 7)
- pet:spr_scaled(32, 32, 4)
+ if is_dead(pet) then
+  spr_scaled(50, 52, 62, 4)
+ else
+  pet:spr_scaled(32, 32, 4)
+ end
+ --draw number of pets and current pet indicator
  pal()
  fillp(█)
  for i = 1, #pets do
@@ -849,11 +876,12 @@ end
 -->8
 --MARK: games
 
---MARK: ToDo: generalzide games into classes
+--MARK: ToDo: generalize games into classes
 function finish_game()
  tokens += 2
  switch_screen(0)
  pets[current_pet].happiness = 15
+ food += 3
 end
 
 function in_options(this)
