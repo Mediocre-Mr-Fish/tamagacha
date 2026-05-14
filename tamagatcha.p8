@@ -391,7 +391,7 @@ max_pets = 16
 -- MARK: save data
 
 -- username_title_version
-cartdata("real-fancy-fire_tamagatcha_0-2")
+cartdata("real-fancy-fire_tamagatcha_0-3")
 function load_data()
  local addr = 0x5e00
 
@@ -402,6 +402,16 @@ function load_data()
  -- discovered pets
  discovered_pets = decode_bitfield(peek(addr), num_pet_types)
  addr += 4
+
+ -- food
+ food = peek2(addr)
+ addr += 2
+
+ -- items
+ for i = 1, num_item_types do
+  inventory[i] = peek2(addr)
+  addr += 2
+ end
 
  -- pets
  for i = 1, max_pets do
@@ -414,12 +424,6 @@ function load_data()
    pets[i] = pet
   end
   addr += 4
- end
-
- -- items
- for i = 1, num_item_types do
-  inventory[i] = peek2(addr)
-  addr += 2
  end
 end
 
@@ -439,6 +443,16 @@ function save_data()
  poke4(addr, encode_bitfield(discovered_pets))
  addr += 2
 
+ -- food
+ poke2(addr, food)
+ addr += 2
+
+ -- items
+ for i = 1, num_item_types do
+  poke2(addr, inventory[i])
+  addr += 2
+ end
+
  -- pets
  for i = 1, max_pets do
   local pet = pets[i]
@@ -452,11 +466,6 @@ function save_data()
   addr += 4
  end
 
- -- items
- for i = 1, num_item_types do
-  poke2(addr, inventory[i])
-  addr += 2
- end
  printh("data saved")
 end
 
