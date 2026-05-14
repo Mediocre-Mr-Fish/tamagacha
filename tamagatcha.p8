@@ -142,6 +142,7 @@ function switch_screen(new)
   current_icon = 0
  end
  screen = new
+ save_data()
 end
 
 -->8
@@ -183,7 +184,7 @@ end
 function decode_bitfield(integer, length)
  local ret = {}
  for _ = 1, length do
-  add(ret, integer & 1, 0)
+  add(ret, integer & 1, 1)
   integer = integer >> 1
  end
  return ret
@@ -425,6 +426,8 @@ function load_data()
   end
   addr += 4
  end
+
+ printh("data loaded")
 end
 
 function save_data()
@@ -469,8 +472,7 @@ function save_data()
  printh("data saved")
 end
 
-save_data()
--- load_data()
+load_data()
 
 -->8
 -- MARK: screens
