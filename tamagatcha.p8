@@ -27,7 +27,7 @@ function _init()
 
   { name = "snack", x = 3, y = 117, sprite = 17 },
   { name = "left", x = 31, y = 117, sprite = 18 },
-  { name = "right", x = 60, y = 117, sprite = 19 },
+  { name = "right", x = 60, y = 117, sprite = 18 },
   { name = "pets", x = 89, y = 117, sprite = 20 },
   { name = "adopt", x = 117, y = 117, sprite = 21 }
  }
@@ -258,8 +258,20 @@ function check_player_inputs()
 end
 
 function screen_home_draw()
- for i in all(icons) do
-  spr(i.sprite, i.x, i.y)
+ for i,icon in pairs(icons) do
+  if i == 7 and current_pet == 1 then
+   pal(7, 5)
+   spr(icon.sprite, icon.x, icon.y)
+   pal()
+  elseif i == 8 then
+   if current_pet == #pets then
+    pal(7, 5)
+   end
+   spr(icon.sprite, icon.x, icon.y, 1, 1, true, false)
+   pal()
+  else
+   spr(icon.sprite, icon.x, icon.y)
+  end
  end
  local curr_icon = icons[current_icon]
  rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
@@ -294,7 +306,17 @@ function screen_home_draw()
  pal()
  fillp(█)
  for i = 1, #pets do
-  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
+  local circle_color = 5
+  if i == current_pet then
+   circle_color = 7
+  end
+  if is_dead(pets[i]) then
+   circle_color = 2
+   if i == current_pet then
+    circle_color = 8
+   end
+  end
+  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, circle_color)
  end
 end
 
