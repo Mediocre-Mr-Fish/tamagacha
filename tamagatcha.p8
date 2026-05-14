@@ -82,8 +82,7 @@ end
 function _draw()
  cls()
  if screen == 0 then
-  draw_icons()
-  draw_pet()
+  screen_home_draw()
  elseif screen == 1 then
   --game
   draw_game_select()
@@ -180,14 +179,6 @@ function decode_bitfield(integer, length)
  return ret
 end
 
--- function table_search(table, item)
---  for i in all(table) do
---   if i == item then
---    return true
---   end
---  end
--- end
-
 function print_centered(text, x, y, col)
  if (col) color(col)
  print(text, x - print(text, 0, -8) / 2, y)
@@ -247,13 +238,15 @@ function check_player_inputs()
  end
 end
 
-function draw_icons()
+function screen_home_draw()
  for i in all(icons) do
   spr(i.sprite, i.x, i.y)
  end
  local curr_icon = icons[current_icon]
- -- spr(16,curr_icon.x,curr_icon.y)
  rect(curr_icon.x - 1, curr_icon.y - 1, curr_icon.x + 8, curr_icon.y + 8, 10)
+
+ print_centered(curr_icon.name, 64, 110, 7)
+
  --stats icon reflecting pet status
  fillp(█)
  local hunger_x = pets[current_pet].hunger / 15 * 6
@@ -264,9 +257,7 @@ function draw_icons()
  if happy_x > 1 then
   rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
  end
-end
 
-function draw_pet()
  fillp(★)
  circfill(64, 64, 44, 3)
  --set gray to not draw
@@ -857,6 +848,8 @@ end
 
 -->8
 --MARK: games
+
+--MARK: ToDo: generalzide games into classes
 function finish_game()
  tokens += 2
  switch_screen(0)
