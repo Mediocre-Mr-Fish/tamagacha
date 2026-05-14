@@ -33,6 +33,8 @@ function _init()
  mute = false
  --optionally reveal the blender heh
  grim = false
+ --progress of minigames
+ grim_progress = 0
 end
 
 function _update()
@@ -45,6 +47,7 @@ function _update()
   check_player_inputs()
  elseif screen == 1 then
   --game
+  update_game_select()
  elseif screen == 2 then
   --stats
  elseif screen == 3 then
@@ -55,6 +58,7 @@ function _update()
   update_settings()
  elseif screen == 5 then
   --snack
+  update_snacks()
  elseif screen == 8 then
   --pet collection
   update_collection()
@@ -63,6 +67,15 @@ function _update()
  elseif screen == 10 then
   --gatcha animation
   update_gatcha_animation()
+ elseif screen == 11 then
+  --game 1 math
+  update_math_game()
+ elseif screen == 12 then
+  --game 2 maze
+ elseif screen == 13 then
+  --game 3 idk
+ elseif screen == 14 then
+  --game 4 in progress
  end
 end
 
@@ -95,6 +108,15 @@ function _draw()
  elseif screen == 10 then
   --gatcha animation
   draw_gatcha_animation()
+ elseif screen == 11 then
+  --game 1 math
+  draw_math_game()
+ elseif screen == 12 then
+  --game 2 maze
+ elseif screen == 13 then
+  --game 3 idk
+ elseif screen == 14 then
+  --game 4 in progress
  end
 end
 
@@ -104,6 +126,11 @@ function switch_screen(new)
   --takes into account game screens
   --and animation screens
   current_icon = 1
+  --init game 1
+ end
+ if new == 11 then
+  setup_question()
+  current_icon = 0
  end
  screen = new
 end
@@ -245,8 +272,31 @@ function draw_pet()
  end
 end
 
+function update_game_select()
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
+ if btnp(❎) then
+  switch_screen(current_icon + 10)
+ end
+end
+
 function draw_game_select()
- print("games in the works", 10, 40, 7)
+ fillp(█)
+ rectfill(8 , 8 , 60 , 60 , 3)
+ print_centered("math",34,31,7)
+ rectfill(68, 8 , 120, 60 , 3)
+ print_centered("maze",94,31,7)
+ rectfill(8 , 68, 60 , 120, 3)
+ print_centered("idk yet",34,91,7)
+ rectfill(68, 68, 120, 120, grim and 3 or 5)
+ if grim then
+  print_centered(grim_progress.."/3",94,91,7)
+ else
+  print_centered("tbd",94,91,7)
+ end
+ --selector
+ local x = 8 + (current_icon - 1) % 2 * 60
+ local y = 8 + (current_icon - 1) \ 2 * 60
+ rect(x, y, x + 52, y + 52, 10)
 end
 
 function draw_stats()
@@ -304,13 +354,42 @@ function draw_settings()
  print_centered("❎ select  🅾️ exit", 64, 110, 5)
 end
 
+function update_snacks()
+ local last_icon = current_icon
+ current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 3, 2)
+ if btnp(❎) and inventory[current_icon] ~= 0 then
+  if x_pressed and inventory[current_icon] > 0 then
+   inventory[current_icon] -= 1
+   x_pressed = false
+   --give pet status or ailment
+  else
+   x_pressed = true
+  end
+ end
+end
+
 function draw_snacks()
- print("snacks menu in the works", 10, 40, 7)
+ for i,item_amount in pairs(inventory) do
+  local sx = 8 + (i - 1) % 3 * 44
+  local sy = 8 + (i - 1) \ 3 * 44
+  spr_scaled(all_items[i].sprite, sx, sy, 3)
+  print_centered(item_amount, sx - 5, sy, 7)
+  if i == current_icon then
+   rect(sx - 1, sy - 1, sx + 24, sy + 24, 10)
+  end
+ end
+ if x_pressed then
+  print_centered("🅾️ return    ❎ use", 64, 110, 5)
+ else
+  print_centered("🅾️ exit", 64, 110, 5)
+ end
 end
 
 function update_collection()
  local last_icon = current_icon
  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2)
+ --there is no 8-th pet rn
+ --deny access to 8th tile in grid
  if current_icon == 8 then
   current_icon = last_icon
  end
@@ -472,7 +551,8 @@ all_items = {
  { sprite = 33 },
  { sprite = 34 },
  { sprite = 35 },
- { sprite = 36 }
+ { sprite = 36 },
+ { sprite = 51 }
 }
 num_item_types = 16
 
@@ -487,11 +567,8 @@ end
 max_item_stack = 0xff
 
 pets = {
- pet_duck.new(),
- pet_cheeto.new(),
- pet_mimikyu.new(),
- pet_not_mimikyu.new(),
- pet_squirrel.new():set_color()
+ pet_duck.new()
+ --pet_squirrel.new():set_color()
 }
 --1 based counting to access pet table
 current_pet = 1
@@ -770,6 +847,83 @@ function print_item(item, x, y, size, open)
  pal()
 end
 
+-->8
+--MARK: games
+function finish_game()
+ tokens += 2
+ switch_screen(0)
+ pets[current_pet].happiness = 15
+end
+
+function in_options(this)
+ for option in all(options) do
+  if this == option then
+   return true
+  end
+ end
+end
+
+function get_str()
+ local operation = {"+" ,"-" ,"*"}
+ return num1..operation[i]..num2
+end
+
+function draw_triangle(a,b,c,d,e,f)
+ line(a,b,c,d)
+ line(c,d,e,f)
+ line(e,f,a,b)
+end
+
+function setup_question()
+ num1 = flr( rnd(10) )
+ num2 = flr( rnd(10) )
+ i = flr( rnd(3) ) + 1
+ ans_index = flr( rnd(4) )
+ algs = {num1 + num2, num1 - num2, num1 * num2}
+ ans = algs[i]
+ options = {}
+ --make sure no overlap answers
+ add(options, ans)
+ repeat
+  new = ans + flr( rnd(6) ) - 2
+  if not in_options(new) then
+   add(options, new)
+  end
+ until #options == 4
+ del(options, ans)
+ add(options, ans, ans_index + 1)
+end
+
+function update_math_game()
+ if btnp(ans_index) then
+  current_icon += 1
+  setup_question()
+  if current_icon == 5 then
+   --finished game
+   finish_game()
+  end
+ elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
+  current_icon = clamp(0, current_icon-1, 5)
+  setup_question()
+ end
+end
+
+function draw_math_game()
+ print(current_icon.."/5",110,3,7)
+ 
+ print_centered(get_str() , 64, 61, 7)
+ print_centered(options[1], 34, 61, 7)
+ draw_triangle(22, 63, 40, 77, 40, 49)
+ 
+ print_centered(options[2], 94, 61, 7)
+ draw_triangle(104, 63, 86, 77, 86, 49)
+ 
+ print_centered(options[3], 64, 31, 7)
+ draw_triangle(63, 104, 77, 86, 49, 86)
+ 
+ print_centered(options[4], 64, 91, 7)
+ draw_triangle(63, 22, 77, 40, 49, 40)
+end
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bb
 000000000000990005677650077777700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
@@ -787,19 +941,19 @@ __gfx__
 777777000662200007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbbbbbb6666655bbbbb
 000777000060000000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbbbb55bb666bbbbbbb
 000077000000000000070000000070000000000000000000bbbbbbbbbbbbbbbbb977949999999bbbbb00000000000bbbbb00d0d00d000bbbbbbbb55bbbbbbbbb
-00000000000000000011111000011000001001100000a000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
-0011100000001000011000110110110001100100000a9a00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
-001011000001100001000001010001001000100000a999a0bbbbbbbbbbbbbbbbbbb44bbbbbb44bbb000000000000000000000000000000000000000000000000
-01000100000100000000001000001000100010110a99a99abbbbbbbbbbbbbbbbbbb44bbbbbb44bbb000000000000000000000000000000000000000000000000
-0100110000010000000011000011110011111100a9a999a0bbbbbbbb44444bbbbbb4444444444bbb000000000000000000000000000000000000000000000000
-01011000001000000001000000000110001100000a9a9a00bbbbbb4994444bbbbbb4444444444bbb000000000000000000000000000000000000000000000000
-011100000010000000100000100001000010000000a9a000bb44bb499449944bbbb4444444444bbb000000000000000000000000000000000000000000000000
-0000000000100000001111101111110001000000000a0000bb044b449499444bbbb4004440044bbb000000000000000000000000000000000000000000000000
-000770000007700000777700000000000000000000000000b8444b44999444bbbbb4444444444bbb000000000000000000000000000000000000000000000000
-007777000078870007777770000000000000000000000000b8b99444994499bbbbb4449994444bbb000000000000000000000000000000000000000000000000
-007777000772287005565570000000000000000000000000bbb9994449994bbbbbb4449994444bbb000000000000000000000000000000000000000000000000
-077777700788776005575560000000000000000000000000bbb999999994bbbbbbb4444944444bbb000000000000000000000000000000000000000000000000
-077777700777766007657760000000000000000000000000bbb4444444bbbbbbbbb444444444bbbb000000000000000000000000000000000000000000000000
-077777700777666006777600000000000000000000000000bbbbb4444bbbbbbbbbbb44bbbb4bbbbb000000000000000000000000000000000000000000000000
-077777700777666005656500000000000000000000000000bbbbbb4bbbbbbbbbbbbbb4bbbb4bbbbb000000000000000000000000000000000000000000000000
-007777000077660000000000000000000000000000000000bbbbb444bbbbbbbbbbbb444bb444bbbb000000000000000000000000000000000000000000000000
+00004400077000000000000000767700000044000000a000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
+004444400767000000f87f000677776000444440000a9a00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
+04444444076700000f88fff0777767760444444400a999a0bbbbbbbbbbbbbbbbbbb44bbbbbb44bbb000000000000000000000000000000000000000000000000
+11664444007670000ffff87076777777444444450a99a99abbbbbbbbbbbbbbbbbbb44bbbbbb44bbb000000000000000000000000000000000000000000000000
+1116664400aaaaa008fff8806776776748844445a9a999a0bbbbbbbb44444bbbbbb4444444444bbb000000000000000000000000000000000000000000000000
+111116660a99aa0a0f78ff7015555551078844500a9a9a00bbbbbb4994444bbbbbb4444444444bbb000000000000000000000000000000000000000000000000
+011111060909aaa00088ff00115555117768550000a9a000bb44bb499449944bbbb4444444444bbb000000000000000000000000000000000000000000000000
+00110000000099aa000000000111111066000000000a0000bb044b449499444bbbb4004440044bbb000000000000000000000000000000000000000000000000
+000770000007700000777700000006608888888888888888b8444b44999444bbbbb4444444444bbb000000000000000000000000000000000000000000000000
+007777000078870007777770000060a88888a8888a888888b8b99444994499bbbbb4449994444bbb000000000000000000000000000000000000000000000000
+00777700077228700556557000756588888aaa8888888888bbb9994449994bbbbbb4449994444bbb000000000000000000000000000000000000000000000000
+077777700788776005575560075555508aaaaaaa88a88888bbb999999994bbbbbbb4444944444bbb000000000000000000000000000000000000000000000000
+0777777007777660076577607555555588aaaaa888888888bbb4444444bbbbbbbbb444444444bbbb000000000000000000000000000000000000000000000000
+07777770077766600677760075555555888aaa8888a88888bbbbb4444bbbbbbbbbbb44bbbb4bbbbb000000000000000000000000000000000000000000000000
+0777777007776660056565000755555088aa8aa888888888bbbbbb4bbbbbbbbbbbbbb4bbbb4bbbbb000000000000000000000000000000000000000000000000
+007777000077660000000000005555008aa888aa8a888888bbbbb444bbbbbbbbbbbb444bb444bbbb000000000000000000000000000000000000000000000000
