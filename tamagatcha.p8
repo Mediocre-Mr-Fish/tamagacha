@@ -142,6 +142,7 @@ function switch_screen(new)
   current_icon = 0
  end
  screen = new
+ save_data()
 end
 
 -->8
@@ -183,7 +184,7 @@ end
 function decode_bitfield(integer, length)
  local ret = {}
  for _ = 1, length do
-  add(ret, integer & 1, 0)
+  add(ret, integer & 1, 1)
   integer = integer >> 1
  end
  return ret
@@ -391,7 +392,7 @@ max_pets = 16
 -- MARK: save data
 
 -- username_title_version
-cartdata("real-fancy-fire_tama-gatcha_1-0")
+cartdata("real-fancy-fire_tama-gatcha_1-1")
 function load_data()
  local addr = 0x5e00
 
@@ -402,6 +403,16 @@ function load_data()
  -- discovered pets
  discovered_pets = decode_bitfield(peek(addr), num_pet_types)
  addr += 4
+
+ -- food
+ food = peek2(addr)
+ addr += 2
+
+ -- items
+ for i = 1, num_item_types do
+  inventory[i] = peek2(addr)
+  addr += 2
+ end
 
  -- pets
  for i = 1, max_pets do
@@ -416,11 +427,7 @@ function load_data()
   addr += 4
  end
 
- -- items
- for i = 1, num_item_types do
-  inventory[i] = peek2(addr)
-  addr += 2
- end
+ printh("data loaded")
 end
 
 function save_data()
@@ -439,6 +446,16 @@ function save_data()
  poke4(addr, encode_bitfield(discovered_pets))
  addr += 2
 
+ -- food
+ poke2(addr, food)
+ addr += 2
+
+ -- items
+ for i = 1, num_item_types do
+  poke2(addr, inventory[i])
+  addr += 2
+ end
+
  -- pets
  for i = 1, max_pets do
   local pet = pets[i]
@@ -452,16 +469,10 @@ function save_data()
   addr += 4
  end
 
- -- items
- for i = 1, num_item_types do
-  poke2(addr, inventory[i])
-  addr += 2
- end
  printh("data saved")
 end
 
-save_data()
--- load_data()
+load_data()
 
 -->8
 -- MARK: screens
