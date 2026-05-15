@@ -19,7 +19,6 @@ function _init()
  --general use timer
  t = time()
 
- 
  current_icon = 1
  screen = 0
  --allows for the use of clamp function
@@ -480,7 +479,7 @@ screens = {
  gacha_anim = {}
 }
 
-screens.home = { 
+screens.home = {
  icons = {
   { name = "food", x = 3, y = 3, sprite = 1 },
   { name = "game", x = 31, y = 3, sprite = 2 },
@@ -494,7 +493,8 @@ screens.home = {
   { name = "pets", x = 89, y = 117, sprite = 20 },
   { name = "adopt", x = 117, y = 117, sprite = 21 }
  },
- selection = 1 }
+ selection = 1
+}
 function screens.home:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
  local icon = self.icons[self.selection]
@@ -919,7 +919,7 @@ end
 function finish_game()
  tokens += 2
  switch_screen(0)
- pets[current_pet].happiness = 15
+ pets[current_pet]:change_happiness(15)
  food += 3
 end
 
