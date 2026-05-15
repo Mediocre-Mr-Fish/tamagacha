@@ -469,8 +469,6 @@ load_data()
 -->8
 -- MARK: screens
 screens = {
- game_select = {},
- stats = {},
  settings = {},
  snacks = {},
  collection = {},
@@ -513,20 +511,21 @@ function screens.home:update()
    current_pet = mod(current_pet + 1, #pets)
   else
    switch_screen(self.selection - 1)
+   -- MARK: remove this
    current_icon = 1
   end
  end
 end
 function screens.home:draw()
+ local pet = pets[current_pet]
+ local icon = self.icons[self.selection]
+
  for i in all(self.icons) do
   spr(i.sprite, i.x, i.y)
  end
 
- local icon = self.icons[self.selection]
  rect(icon.x - 1, icon.y - 1, icon.x + 8, icon.y + 8, 10)
  print_centered(icon.name, 64, 110, 7)
-
- local pet = pets[current_pet]
 
  --stats icon reflecting pet status
  fillp(█)
@@ -560,46 +559,66 @@ function screens.home:draw()
  end
 end
 
+screens.game_select = {
+ selection = 1,
+ games = {
+  { name = "math", game = 11 },
+  { name = "maze", game = 12 },
+  { name = "idk yet", game = 12 },
+  { name = "you shouldn't see this", game = 14 }
+ }
+}
 function screens.game_select:update()
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
+ self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
  if btnp(❎) then
-  switch_screen(current_icon + 10)
+  switch_screen(self.games[self.selection].game)
  end
 end
 function screens.game_select:draw()
  fillp(█)
- rectfill(8, 8, 60, 60, 3)
- print_centered("math", 34, 31, 7)
- rectfill(68, 8, 120, 60, 3)
- print_centered("maze", 94, 31, 7)
- rectfill(8, 68, 60, 120, 3)
- print_centered("idk yet", 34, 91, 7)
- rectfill(68, 68, 120, 120, grim and 3 or 5)
- if grim then
-  print_centered(grim_progress .. "/3", 94, 91, 7)
- else
-  print_centered("tbd", 94, 91, 7)
+ for i, game in ipairs(self.games) do
+  local x = 8 + (i - 1) % 2 * 60
+  local y = 8 + (i - 1) \ 2 * 60
+  local col = 3
+
+  -- MARK: ToDo: whatever this is
+  if i == 4 then
+   if grim then
+    game.name = grim_progress .. "/3"
+   else
+    game.name = "tbd"
+    col = 5
+   end
+  end
+
+  self:draw_pannel(game.name, x, y, 52, 52, col)
+
+  if i == self.selection then
+   rect(x, y, x + 52, y + 52, 10)
+  end
  end
- --selector
- local x = 8 + (current_icon - 1) % 2 * 60
- local y = 8 + (current_icon - 1) \ 2 * 60
- rect(x, y, x + 52, y + 52, 10)
+end
+function screens.game_select:draw_pannel(label, x, y, w, h, col)
+ rectfill(x, y, x + w, y + h, col)
+ print_centered(label, x + flr(w / 2), y + flr(h / 2) - 3, 7)
 end
 
+screens.stats = {}
 function screens.stats:update()
  -- do nothing
 end
 function screens.stats:draw()
- print(pets[current_pet].name, 20, 40, 7)
+ local pet = pets[current_pet]
+ print(pet.name, 20, 40, 7)
  fillp(█)
  --hunger bar
  print("hunger", 20, 52, 7)
  rectfill(20, 60, 108, 65, 5)
- rectfill(20, 60, 20 + 5.87 * pets[current_pet].hunger, 65, 11)
+ rectfill(20, 60, 20 + 5.87 * pet.hunger, 65, 11)
  --happy bar
  print("happiness", 20, 72, 7)
  rectfill(20, 80, 108, 85, 5)
- rectfill(20, 80, 20 + 5.87 * pets[current_pet].happiness, 85, 11)
+ rectfill(20, 80, 20 + 5.87 * pet.happiness, 85, 11)
 end
 
 function screens.settings:update()
