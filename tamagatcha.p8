@@ -24,12 +24,17 @@ function _init()
  --allows for the use of clamp function
  clamp = mid
 
- --optional turn sound off
- mute = false
- --optionally reveal the blender heh
- grim = false
+ settings = {
+  --optional turn sound off
+  mute = false,
+  --optionally reveal the blender heh
+  grim = false
+ }
+
  --progress of minigames
  grim_progress = 0
+
+ load_data()
 end
 
 function _update()
@@ -389,7 +394,7 @@ function load_data()
  local addr = 0x5e00
 
  -- user data
- mute, grim, _, _ = decode_bitfield(peek(addr), 4)
+ settings.mute, settings.grim, _, _ = decode_bitfield(peek(addr), 4)
  addr += 1
 
  -- discovered pets
@@ -428,7 +433,7 @@ function save_data()
  -- user settings
  poke(
   addr, encode_bitfield({
-   mute, grim, false, false,
+   settings.mute, settings.grim, false, false,
    false, false, false, false
   })
  )
@@ -464,12 +469,9 @@ function save_data()
  printh("data saved")
 end
 
-load_data()
-
 -->8
 -- MARK: screens
 screens = {
- settings = {},
  snacks = {},
  collection = {},
  adoption = {},
@@ -583,7 +585,7 @@ function screens.game_select:draw()
 
   -- MARK: ToDo: whatever this is
   if i == 4 then
-   if grim then
+   if settings.grim then
     game.name = grim_progress .. "/3"
    else
     game.name = "tbd"
@@ -621,24 +623,34 @@ function screens.stats:draw()
  rectfill(20, 80, 20 + 5.87 * pet.happiness, 85, 11)
 end
 
+screens.settings = {
+ selection = 1,
+ options = {
+  -- not called 'settings' to reduce confusion
+  { name = "sound", key = "mute" },
+  { name = "grim mode", key = "grim" }
+ }
+}
 function screens.settings:update()
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
+ self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
  if btnp(❎) then
-  if current_icon == 1 then
-   --sound
-   mute = not mute
-  elseif current_icon == 2 then
-   --grim mode
-   grim = not grim
-  end
+  local key = self.options[self.selection].key
+  -- assumes settings are boolean
+  settings[key] = not settings[key]
  end
 end
 function screens.settings:draw()
- print_centered("sound", 64, 20, current_icon == 1 and 10 or 7)
+ for i, option in ipairs(self.options) do
+  local y = 20 + (i - 1) * 40
+  local setting = settings[option.key]
+
+  print_centered(option.name, 64, y, i == self.selection and 10 or 7)
+  self.draw_checkbox(45, y + 14, setting)
+ end
+
  spr_scaled(16, 62, 30, 2, 1, 1)
- rect(45, 34, 53, 42, 7)
- if mute then
-  print("🐱", 46, 36, 8)
+ if settings.mute then
+  color(8)
   line(75, 35, 81, 41)
   line(75, 41, 81, 35)
  else
@@ -646,10 +658,7 @@ function screens.settings:draw()
   line(79, 32, 79, 44)
  end
 
- print_centered("grim mode", 64, 60, current_icon == 2 and 10 or 7)
- rect(45, 74, 53, 82, 7)
- if grim then
-  print("🐱", 46, 76, 8)
+ if settings.grim then
   pal(6, 8)
   print("✽", 67, 81, 8)
   print("★", 71, 78, 2)
@@ -660,6 +669,12 @@ function screens.settings:draw()
  end
 
  print_centered("❎ select  🅾️ exit", 64, 110, 5)
+end
+function screens.settings.draw_checkbox(x, y, checked)
+ rect(x, y, x + 8, y + 8, 7)
+ if checked then
+  print("🐱", x + 1, y + 2, 8)
+ end
 end
 
 function screens.snacks:update()
