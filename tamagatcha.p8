@@ -211,7 +211,7 @@ function update_hunger()
   last_fed = time()
   --do this for all pets later
   for pet in all(pets) do
-   pet.hunger = max(pet.hunger - 1, 0)
+   pet:change_hunger(-1)
   end
  end
 end
@@ -221,23 +221,15 @@ function update_happiness()
   last_play = time()
   --do this for all pets later
   for pet in all(pets) do
-   pet.happiness = max(pet.happiness - 1, 0)
+   pet:change_happiness(-1)
   end
  end
 end
 
-function add_hunger()
+function feed_pet()
  if (food == 0) return
- pets[current_pet].hunger = min(pets[current_pet].hunger + 2, 15)
+ pets[current_pet]:change_hunger(2)
  food -= 1
-end
-
-function add_happiness()
- pets[current_pet].happiness = min(pets[current_pet].happiness + 2, 15)
-end
-
-function is_dead(pet)
- return not pet.immortal and pet.hunger == 0 and pet.happiness == 0
 end
 
 -->8
@@ -338,6 +330,19 @@ function class__pet:spr_scaled(x, y, scale, no_pal)
  end
 
  pal()
+end
+
+function class__pet:change_hunger(delta)
+ self.hunger = mid(self.hunger + delta, 0, 0xf)
+ return self
+end
+function class__pet:change_happiness(delta)
+ self.happiness = mid(self.happiness + delta, 0, 0xf)
+ return self
+end
+
+function class__pet:is_dead()
+ return not self.immortal and self.hunger == 0 and self.happiness == 0
 end
 
 pet_duck = classfactory__pet({ name = "arb duck", sprite = 6 })
@@ -493,11 +498,11 @@ function screens.home.update()
 
  if btnp(❎) then
   --disallows feeding or playing after death to prevent revives
-  if is_dead(pets[current_pet]) and (current_icon == 1 or current_icon == 2) then
+  if pets[current_pet]:is_dead() and (current_icon == 1 or current_icon == 2) then
    return
   end
   if icons[current_icon].name == "food" then
-   add_hunger()
+   feed_pet()
   elseif icons[current_icon].name == "left" then
    current_pet = mod(current_pet - 1, #pets)
   elseif icons[current_icon].name == "right" then
@@ -536,7 +541,7 @@ function screens.home.draw()
  circfill(64, 64, 44, 3)
  pet = pets[current_pet]
  print_centered(pet.name, 64, 20, 7)
- if is_dead(pet) then
+ if pet:is_dead() then
   spr_scaled(50, 52, 62, 4)
  else
   pet:spr_scaled(32, 32, 4)
