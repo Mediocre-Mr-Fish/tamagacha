@@ -149,6 +149,10 @@ function btnp_axis(neg, pos)
  return 0
 end
 
+function grid_coords(x1, y1, dx, dy, val, cols)
+ return x1 + dx * ((val - 1) % cols), y1 + dy * ((val - 1) \ cols)
+end
+
 function grid_wrap(val, dx, dy, width, height)
  row = ((val - 1) \ width + dy) % height
  col = ((val - 1) % width + dx) % width
@@ -475,11 +479,7 @@ end
 
 -->8
 -- MARK: screens
-screens = {
- adoption = {},
- gacha = {},
- gacha_anim = {}
-}
+screens = {}
 
 screens.home = {
  icons = {
@@ -740,6 +740,7 @@ function screens.collection:draw()
  print_centered("🅾️ exit", 64, 110, 5)
 end
 
+screens.adoption = {}
 function screens.adoption:update()
  -- do nothing
 end
@@ -749,24 +750,33 @@ end
 
 -->8
 --MARK: gacha page and animation
+
+screens.gacha = {
+ selection = 1,
+ pulls = {
+  {
+   label = "1-pull", desc1 = "20% chance for", desc2 = "pet egg", color = 4,
+   cost = 1, rolls = 1
+  },
+  {
+   label = "10-pull", desc1 = "guaranteed 3", desc2 = "pet eggs", color = 9,
+   cost = 10, rolls = 10
+  }
+ }
+}
 function screens.gacha:update()
+ self.selection = mod(self.selection + btnp_axis(⬅️, ➡️), #self.pulls)
+
  if btnp(🅾️) then
-  screen = 0
- elseif current_icon == 1 and btnp(➡️) then
-  current_icon = 2
- elseif current_icon == 2 and btnp(⬅️) then
-  current_icon = 1
+  switch_screen(0)
  elseif btnp(❎) then
-  if current_icon == 1 and tokens >= 1 then
-   tokens -= 1
-   screen = 10
+  local pull_type = self.pulls[self.selection]
+  if tokens >= pull_type.cost then
+   tokens -= pull_type.cost
+   screens.gacha_anim.pull_type = pull_type
+   screens.gacha_anim:init()
+   switch_screen(10)
    t = time()
-   gacha_animation_init()
-  elseif tokens >= 10 then
-   tokens -= 10
-   screen = 10
-   t = time()
-   gacha_animation_init()
   end
  end
 end
@@ -776,46 +786,49 @@ function screens.gacha:draw()
  --tickets icon
  spr(37, 105, 0)
  print(tokens, 115, 2, 9)
- --1-pull choice
- rectfill(3, 49, 62, 79, 4)
- print("1-pull", 5, 51, 7)
- line(5, 59, 60, 59)
- print("20% chance for", 5, 63)
- print("pet egg")
- --10-pull choice
- rectfill(66, 49, 125, 79, 9)
- print("10-pull", 68, 51, 7)
- line(68, 59, 123, 59)
- print("guaranteed 3", 68, 63)
- print("pet egg drop")
- --selector
- local l = 63 * (current_icon - 1)
- rect(l + 3, 49, l + 62, 79, 10)
+ for i, pull_type in ipairs(self.pulls) do
+  local x, y = grid_coords(3, 49, 63, 34, i, 2)
+  self.draw_card(x, y, pull_type, self.selection == i)
+  if self.selection == i and tokens < pull_type.cost then
+   print("not enough tokens", 30, 90, 8)
+  end
+ end
+
  --back icon
  print_centered("🅾️ back", 64, 110, 5)
- if current_icon == 1 and tokens < 1 or current_icon == 2 and tokens < 10 then
-  print("not enough tokens", 30, 90, 8)
+end
+function screens.gacha.draw_card(x, y, pull_type, selected)
+ rectfill(x, y, x + 59, y + 30, pull_type.color)
+ print(pull_type.label, x + 2, y + 2, 7)
+ line(x + 2, y + 10, x + 57, y + 10)
+ print(pull_type.desc1, x + 2, y + 14)
+ print(pull_type.desc2)
+ if selected then
+  rect(x, y, x + 59, y + 30, 10)
  end
 end
 
 --------------------------------
 --animation and selection
 --------------------------------
-
-function gacha_animation_init()
- prizes_to_delete = {}
-
- --one pull
- if current_icon == 1 then
-  draw_list = { pull_gacha() }
-  --10 pull
- elseif current_icon == 2 then
-  draw_list = {}
-  for i = 1, 10 do
-   add(draw_list, pull_gacha())
-  end
+screens.gacha_anim = {
+ pull_type = nil,
+ selection = 1,
+ prizes_to_delete = {},
+ draw_list = {}
+}
+function screens.gacha_anim:init()
+ if not self.pull_type then
+  return
  end
- current_icon = 1
+
+ self.prizes_to_delete = {}
+ self.draw_list = {}
+ for _ = 1, self.pull_type.rolls do
+  add(self.draw_list, pull_gacha())
+ end
+
+ self.selection = 1
 end
 
 function pull_gacha()
@@ -830,9 +843,9 @@ function screens.gacha_anim:update()
  elseif btnp(🅾️) then
   -- exit the screen
   --add inventory/pets list
-  for i, prize in pairs(draw_list) do
-   if prizes_to_delete[i] then
-    -- MARK: ToDo add food system
+  for i, prize in pairs(self.draw_list) do
+   if self.prizes_to_delete[i] then
+    food += 10
    elseif is_instance(prize, class__pet) then
     add(pets, prize.new())
     discovered_pets[prize.id] = true
@@ -847,15 +860,15 @@ function screens.gacha_anim:update()
  if btnp(❎) then
   --mark obj for deletion
   -- draw_list[current_icon].delete = true
-  prizes_to_delete[current_icon] = true
-  if #draw_list == 1 then
+  self.prizes_to_delete[current_icon] = true
+  if #self.draw_list == 1 then
    --start blender animation
    switch_screen(0)
   end
  end
 
- if #draw_list ~= 1 and not under(6) then
-  current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
+ if #self.draw_list ~= 1 and not under(6) then
+  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
  end
 end
 
@@ -870,46 +883,47 @@ function screens.gacha_anim:draw()
   print_centered("🅾️ skip", 64, 110, 5)
  end
  --1 pull
- if #draw_list == 1 then
+ if #self.draw_list == 1 then
+  local prize = self.draw_list[1]
   if under(0.3) then
-   print_item(draw_list[1], 48, 48, 4)
+   self.draw_item(prize, 48, 48, 4)
   elseif under(0.6) then
-   print_item(draw_list[1], 47, 48, 4)
+   self.draw_item(prize, 47, 48, 4)
   elseif under(0.9) then
-   print_item(draw_list[1], 48, 48, 4)
+   self.draw_item(prize, 48, 48, 4)
   elseif under(1.2) then
-   print_item(draw_list[1], 49, 48, 4)
+   self.draw_item(prize, 49, 48, 4)
   elseif under(3) then
-   print_item(draw_list[1], 48, 48, 4)
+   self.draw_item(prize, 48, 48, 4)
   elseif under(6) then
-   print_item(draw_list[1], 48, 48, 4, true)
+   self.draw_item(prize, 48, 48, 4, true)
   else
-   print_item(draw_list[1], 48, 48, 4, true)
+   self.draw_item(prize, 48, 48, 4, true)
   end
  else
-  for i, prize in pairs(draw_list) do
-   local ix = (i - 1) % 5 * 26 + 4
-   local iy = (i - 1) \ 5 * 46 + 33
+  for i, prize in pairs(self.draw_list) do
+   local ix, iy = grid_coords(4, 33, 26, 46, i, 5)
    local shake = prize.sprite % 2 * 2 - 1
+
    if under(0.3) then
-    print_item(prize, ix, iy, 2)
+    self.draw_item(prize, ix, iy, 2)
    elseif under(0.6) then
-    print_item(prize, ix + shake, iy, 2)
+    self.draw_item(prize, ix + shake, iy, 2)
    elseif under(0.9) then
-    print_item(prize, ix, iy, 2)
+    self.draw_item(prize, ix, iy, 2)
    elseif under(1.2) then
-    print_item(prize, ix - shake, iy, 2)
+    self.draw_item(prize, ix - shake, iy, 2)
    elseif under(3) then
-    print_item(prize, ix, iy, 2)
+    self.draw_item(prize, ix, iy, 2)
    elseif under(6) then
-    print_item(prize, ix, iy, 2, true)
+    self.draw_item(prize, ix, iy, 2, true)
    else
-    print_item(prize, ix, iy, 2, true)
+    self.draw_item(prize, ix, iy, 2, true)
     --draw selector
-    if current_icon == i then
+    if self.selection == i then
      rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
     end
-    if prizes_to_delete[i] then
+    if self.prizes_to_delete[i] then
      line(ix - 1, iy - 1, ix + 16, iy + 16, 8)
      line(ix - 1, iy + 16, ix + 16, iy - 1, 8)
      --thicker lines
@@ -924,22 +938,23 @@ function screens.gacha_anim:draw()
  end
 end
 
-function print_item(item, x, y, size, open)
+function screens.gacha_anim.draw_item(item, x, y, size, open)
+ local item_size = 1
  if is_instance(item, class__pet) and open then
   item_size = 2
   size /= 2
- else
-  item_size = 1
  end
 
+ local sprite = 49
+ --present box
  if open then
   sprite = item.sprite
+  palt(item.transparent, true)
  elseif item.pet then
   sprite = 48 --egg
- else
-  sprite = 49 --present box
+  palt()
  end
- palt(0b0000000000010000)
+
  spr_scaled(sprite, x, y, size, item_size, item_size)
  pal()
 end
