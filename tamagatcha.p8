@@ -19,7 +19,6 @@ function _init()
  --general use timer
  t = time()
 
- screen = screens.home
  --allows for the use of clamp function
  clamp = mid
 
@@ -34,6 +33,7 @@ function _init()
  grim_progress = 0
 
  load_data()
+ switch_screen()
 end
 
 function _update()
@@ -47,6 +47,7 @@ function _draw()
  screen:draw()
 end
 
+screen = nil
 function switch_screen(screen_or_nil)
  screen = screen_or_nil or screens.home
  if screen.init then
@@ -78,10 +79,10 @@ function grid_wrap(val, dx, dy, width, height)
  return row * width + col + 1
 end
 
-function spr_scaled(n, x, y, scale, sw, sh)
+function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
  scale = scale or 1
  sw, sh = (sw or 1) * 8, (sh or 1) * 8
- sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale)
+ sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
 end
 
 -- encode a bool array as an integer
@@ -115,6 +116,24 @@ function draw_triangle(x1, y1, x2, y2, x3, y3, col)
  line(x1, y1, x2, y2)
  line(x3, y3)
  line(x1, y1)
+end
+
+---draw a rectangle with vectors
+---@param pos1 vec2
+---@param pos2 vec2
+---@param col integer? if nil, use previous color
+---@param fill boolean?
+---@param as_dim boolean? if true, pos2 is relative to pos1
+function rect_vec(pos1, pos2, col, fill, as_dim)
+ if (col) color(col)
+ if (as_dim) pos2 += pos1
+ (fill and rectfill or rect)(pos1.x, pos1.y, pos2.x, pos2.y)
+end
+
+function glide_vec(vec1, vec2, mult)
+ local dv = vec2 - vec1
+ if (dv:length2() > 0.25) return vec1 + dv * mult
+ return vec2
 end
 
 function get_penalty_mult()
@@ -183,6 +202,21 @@ function is_instance(object, class)
  return false
 end
 
+vec2 = classfactory({})
+function vec2.new(x, y) return setmetatable({ x = x, y = y }, vec2) end
+function vec2.unpack(v) return v.x, v.y end
+function vec2.length2(v) return v.x * v.x + v.y * v.y end
+function vec2.__add(a, b) return vec2.new(a.x + b.x, a.y + b.y) end
+function vec2.__sub(a, b) return vec2.new(a.x - b.x, a.y - b.y) end
+function vec2.__mul(a, b) if type(a) == "number" then a, b = b, a end return vec2.new(a.x * b, a.y * b) end
+function vec2.__div(a, b) return vec2.new(a.x / b, a.y / b) end
+function vec2.__unm(a) return vec2.new(-a.x, -a.y) end
+function vec2.__eq(a, b) return a.x == b.x and a.y == b.y end
+function vec2.__tostring(v) return "(" .. v.x .. "," .. v.y .. ")" end
+vec2_1 = vec2.new(1, 1)
+vec2_8 = vec2.new(8, 8)
+vec2_9 = vec2.new(9, 9)
+
 all_pets = {}
 num_pet_types = 15
 function classfactory__pet(static_vars, parent)
@@ -235,13 +269,13 @@ function class__pet:pal(obscured)
 end
 
 -- draw the pet's sprite
-function class__pet:spr_scaled(x, y, scale, no_pal)
+function class__pet:spr_scaled(x, y, scale, no_pal, flip_x, flip_y)
  if not no_pal then self:pal() end
 
  if not scale or scale == 1 then
-  spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
+  spr(self.sprite, x, y, self.sprite_width, self.sprite_height, flip_x, flip_y)
  else
-  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
+  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height, flip_x, flip_y)
  end
 
  pal()
@@ -414,10 +448,16 @@ screens.home = {
   { name = "pets", sprite = 20, screen = "collection" },
   { name = "adopt", sprite = 21, screen = "adoption" }
  },
- selection = 1
+ selection = 1,
+ select_pos = {}
 }
+function screens.home:init()
+ self.select_pos = self.grid_vec(self.selection)
+end
 function screens.home:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
+ self.select_pos = glide_vec(self.select_pos, self.grid_vec(self.selection), 0.5)
+
  local icon = self.icons[self.selection]
 
  if btnp(❎) then
@@ -443,13 +483,14 @@ function screens.home:draw()
  local pet = pets[current_pet]
 
  for i, icon in ipairs(self.icons) do
-  local x, y = grid_coords(4, 3, 28, 114, i, 5)
+  local x, y = self.grid_vec(i):unpack()
   spr(icon.sprite, x, y)
   if i == self.selection then
-   rect(x - 1, y - 1, x + 8, y + 8, 10)
    print_centered(icon.name, 64, 110, 7)
   end
  end
+
+ rect_vec(self.select_pos - vec2_1, vec2_9, 10, false, true)
 
  --stats icon reflecting pet status
  fillp(█)
@@ -482,13 +523,16 @@ function screens.home:draw()
   circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
  end
 end
+function screens.home.grid_vec(i)
+ return vec2.new(grid_coords(4, 3, 28, 114, i, 5))
+end
 
 screens.game_select = {
  selection = 1,
  games = {
   { name = "math", game = "math" },
   { name = "maze", game = nil },
-  { name = "idk yet", game = nil },
+  { name = "fishing", game = "fishing" },
   { name = "you shouldn't see this", game = nil }
  }
 }
@@ -928,7 +972,7 @@ games = {}
 games.math = {
  reward = {
   tokens = 2,
-  food = 3,
+  food = 0,
   happiness = 15
  },
 
@@ -948,7 +992,6 @@ function games.math:init()
  self.progress = 0
  self:setup_question()
 end
-
 function games.math:setup_question()
  local a, b = flr(rnd(10)), flr(rnd(10))
  local op_key = rnd(self.operation_keys)
@@ -971,7 +1014,6 @@ function games.math:setup_question()
  self.answer = flr(rnd(4))
  add(self.options, ans, self.answer + 1)
 end
-
 function games.math:update()
  if btnp(self.answer) then
   self.progress += 1
@@ -987,7 +1029,6 @@ function games.math:update()
   self:setup_question()
  end
 end
-
 function games.math:draw()
  print(self.progress .. "/5", 110, 3, 7)
 
@@ -1004,6 +1045,114 @@ function games.math:draw()
 
  print_centered(self.options[4], 64, 91)
  draw_triangle(63, 22, 77, 40, 49, 40)
+end
+
+games.fishing = {
+ reward = nil,
+ reward_win = {
+  tokens = 1,
+  food = 3,
+  happiness = 15
+ }
+}
+function games.fishing:init()
+ local _ENV = setmetatable(self, { __index = _ENV })
+
+ fish_x = 50
+ --ui ranges from 20 to 108
+
+ escape_ui_x = 64
+ new_esc_ui_x = 64
+
+ user_ui_x = 21
+
+ last⧗ = time()
+ fish⧗ = time()
+end
+
+function games.fishing:update()
+ local _ENV = setmetatable(self, { __index = _ENV })
+
+ if fish_x > 130 then
+  --leave loss
+  if time() - last⧗ > 3 then
+   reward = nil
+   screens.minigame:finish_game()
+  end
+  return
+ elseif fish_x < 30 then
+  --leave win
+  if time() - last⧗ > 3 then
+   reward = self.reward_win
+   screens.minigame:finish_game()
+  end
+  return
+ end
+
+ if time() - last⧗ > 0.3 then
+  if fish_x > 80 then
+   fish_x += 5
+  elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
+   fish_x -= 3
+  else
+   fish_x += 1
+  end
+
+  last⧗ = time()
+ end
+
+ --escape ui width == 20
+ --ranges from 20 to 78
+ if time() - fish⧗ > 2 then
+  new_esc_ui_x = flr(rnd(1) * 58) + 20
+  fish⧗ = time()
+ end
+ --move the fish_ui to new_esc_ui_x
+ escape_ui_x += (new_esc_ui_x - escape_ui_x) * 0.1
+ if btn(❎) then
+  user_ui_x = min(user_ui_x + 3, 98)
+ else
+  user_ui_x = max(user_ui_x - 3, 21)
+ end
+end
+
+function games.fishing:draw()
+ local _ENV = setmetatable(self, { __index = _ENV })
+
+ if fish_x > 130 then
+  --lose
+  print_centered("you lost the fish", 63, 60, 7)
+  return
+ elseif fish_x < 30 then
+  --win
+  print_centered("you got the fish!", 63, 60, 7)
+  print_centered("+3 food", 63, 68, 4)
+  print_centered("+1 ticket", 63, 76, 9)
+  return
+ end
+
+ print_centered("press ❎ to move hook", 63, 104, 7)
+ print_centered("keep hook in blue zone", 63, 112, 7)
+ fillp(█)
+ rectfill(20, 40, 0, 60, 5)
+ rectfill(0, 60, 128, 80, 1)
+
+ --pet + fishing pole
+ pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
+ line(13, 36, 28, 23, 4)
+
+ --fish
+ rectfill(fish_x, 69, fish_x + 6, 71, 12)
+ --fish ui
+ rectfill(escape_ui_x, 91, escape_ui_x + 25, 99)
+
+ --fishing line
+ line(min(fish_x, 80), 69, 6)
+
+ --line ui
+ rectfill(user_ui_x, 91, user_ui_x + 10, 99)
+ --ui box
+ rect(20, 90, 108, 100, 7)
 end
 
 __gfx__
