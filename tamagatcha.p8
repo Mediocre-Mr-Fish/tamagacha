@@ -669,8 +669,7 @@ end
 function screens.snacks:draw()
  for i, prefab in ipairs(all_items) do
   local amount = inventory[i]
-  local sx = 8 + (i - 1) % 3 * 44
-  local sy = 8 + (i - 1) \ 3 * 44
+  local sx, sy = grid_coords(8, 8, 44, 44, i, 3)
 
   spr_scaled(prefab.sprite, sx, sy, 3)
 
@@ -852,7 +851,7 @@ function under(length)
 end
 
 function screens.gacha_anim:draw()
- cls()
+ local draw_item = self.draw_item
  --skip button
  if under(6) then
   print_centered("🅾️ skip", 64, 110, 5)
@@ -861,19 +860,19 @@ function screens.gacha_anim:draw()
  if #self.draw_list == 1 then
   local prize = self.draw_list[1]
   if under(0.3) then
-   self.draw_item(prize, 48, 48, 4)
+   draw_item(prize, 48, 48, 4)
   elseif under(0.6) then
-   self.draw_item(prize, 47, 48, 4)
+   draw_item(prize, 47, 48, 4)
   elseif under(0.9) then
-   self.draw_item(prize, 48, 48, 4)
+   draw_item(prize, 48, 48, 4)
   elseif under(1.2) then
-   self.draw_item(prize, 49, 48, 4)
+   draw_item(prize, 49, 48, 4)
   elseif under(3) then
-   self.draw_item(prize, 48, 48, 4)
+   draw_item(prize, 48, 48, 4)
   elseif under(6) then
-   self.draw_item(prize, 48, 48, 4, true)
+   draw_item(prize, 48, 48, 4, true)
   else
-   self.draw_item(prize, 48, 48, 4, true)
+   draw_item(prize, 48, 48, 4, true)
   end
  else
   for i, prize in pairs(self.draw_list) do
@@ -881,19 +880,19 @@ function screens.gacha_anim:draw()
    local shake = prize.sprite % 2 * 2 - 1
 
    if under(0.3) then
-    self.draw_item(prize, ix, iy, 2)
+    draw_item(prize, ix, iy, 2)
    elseif under(0.6) then
-    self.draw_item(prize, ix + shake, iy, 2)
+    draw_item(prize, ix + shake, iy, 2)
    elseif under(0.9) then
-    self.draw_item(prize, ix, iy, 2)
+    draw_item(prize, ix, iy, 2)
    elseif under(1.2) then
-    self.draw_item(prize, ix - shake, iy, 2)
+    draw_item(prize, ix - shake, iy, 2)
    elseif under(3) then
-    self.draw_item(prize, ix, iy, 2)
+    draw_item(prize, ix, iy, 2)
    elseif under(6) then
-    self.draw_item(prize, ix, iy, 2, true)
+    draw_item(prize, ix, iy, 2, true)
    else
-    self.draw_item(prize, ix, iy, 2, true)
+    draw_item(prize, ix, iy, 2, true)
     --draw selector
     if self.selection == i then
      rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
