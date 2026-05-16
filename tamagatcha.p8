@@ -130,12 +130,6 @@ function rect_vec(pos1, pos2, col, fill, as_dim)
  (fill and rectfill or rect)(pos1.x, pos1.y, pos2.x, pos2.y)
 end
 
-function glide_vec(vec1, vec2, mult)
- local dv = vec2 - vec1
- if (dv:length2() > 0.25) return vec1 + dv * mult
- return vec2
-end
-
 function get_penalty_mult()
  return #pets * swarm_penalty + 1
 end
@@ -204,6 +198,7 @@ end
 
 vec2 = classfactory({})
 function vec2.new(x, y) return setmetatable({ x = x, y = y }, vec2) end
+function vec2.setfrom(v, a) v.x, v.y = a.x, a.y return self end
 function vec2.unpack(v) return v.x, v.y end
 function vec2.length2(v) return v.x * v.x + v.y * v.y end
 function vec2.__add(a, b) return vec2.new(a.x + b.x, a.y + b.y) end
@@ -216,6 +211,37 @@ function vec2.__tostring(v) return "(" .. v.x .. "," .. v.y .. ")" end
 vec2_1 = vec2.new(1, 1)
 vec2_8 = vec2.new(8, 8)
 vec2_9 = vec2.new(9, 9)
+
+glider = classfactory({}, vec2)
+function glider.new(rate, x, y)
+ local self = setmetatable(vec2.new(x or 0, y or 0), glider)
+ self.rate = rate
+ self.target = nil
+ return self
+end
+function glider:move()
+ if self.target then
+  local dv = self.target - self
+
+  if dv:length2() < 0.25 then
+   return self:teleport(self.target)
+  end
+
+  self:setfrom(self + (dv * self.rate))
+ end
+
+ return self
+end
+function glider:set_target(vec_or_nil, no_copy)
+ if (vec_or_nil and not no_copy) vec_or_nil *= 1
+ self.target = vec_or_nil
+ return self
+end
+function glider:teleport(vec)
+ self:setfrom(vec)
+ self.target = nil
+ return self
+end
 
 all_pets = {}
 num_pet_types = 15
@@ -449,14 +475,14 @@ screens.home = {
   { name = "adopt", sprite = 21, screen = "adoption" }
  },
  selection = 1,
- select_pos = {}
+ sel_glider = glider.new(0.5)
 }
 function screens.home:init()
- self.select_pos = self.grid_vec(self.selection)
+ self.sel_glider:teleport(self:grid_vec())
 end
 function screens.home:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
- self.select_pos = glide_vec(self.select_pos, self.grid_vec(self.selection), 0.5)
+ self.sel_glider:set_target(self:grid_vec()):move()
 
  local icon = self.icons[self.selection]
 
@@ -483,14 +509,14 @@ function screens.home:draw()
  local pet = pets[current_pet]
 
  for i, icon in ipairs(self.icons) do
-  local x, y = self.grid_vec(i):unpack()
+  local x, y = self:grid_vec(i):unpack()
   spr(icon.sprite, x, y)
   if i == self.selection then
    print_centered(icon.name, 64, 110, 7)
   end
  end
 
- rect_vec(self.select_pos - vec2_1, vec2_9, 10, false, true)
+ rect_vec(self.sel_glider - vec2_1, vec2_9, 10, false, true)
 
  --stats icon reflecting pet status
  fillp(█)
@@ -523,8 +549,8 @@ function screens.home:draw()
   circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
  end
 end
-function screens.home.grid_vec(i)
- return vec2.new(grid_coords(4, 3, 28, 114, i, 5))
+function screens.home:grid_vec(i)
+ return vec2.new(grid_coords(4, 3, 28, 114, i or self.selection, 5))
 end
 
 screens.game_select = {
