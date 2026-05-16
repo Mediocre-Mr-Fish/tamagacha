@@ -83,7 +83,8 @@ function _update()
  elseif screen == 12 then
   --game 2 maze
  elseif screen == 13 then
-  --game 3 idk
+  --game 3 fishing
+  update_fishing()
  elseif screen == 14 then
   --game 4 in progress
  end
@@ -123,7 +124,8 @@ function _draw()
  elseif screen == 12 then
   --game 2 maze
  elseif screen == 13 then
-  --game 3 idk
+  --game 3 fishing
+  draw_fishing()
  elseif screen == 14 then
   --game 4 in progress
  end
@@ -140,6 +142,8 @@ function switch_screen(new)
  if new == 11 then
   setup_question()
   current_icon = 0
+ elseif new == 13 then
+  init_fishing()
  end
  screen = new
 end
@@ -551,7 +555,7 @@ function screens.game_select.draw()
  rectfill(68, 8, 120, 60, 3)
  print_centered("maze", 94, 31, 7)
  rectfill(8, 68, 60, 120, 3)
- print_centered("idk yet", 34, 91, 7)
+ print_centered("fishing", 34, 91, 7)
  rectfill(68, 68, 120, 120, grim and 3 or 5)
  if grim then
   print_centered(grim_progress .. "/3", 94, 91, 7)
@@ -895,10 +899,9 @@ end
 
 --MARK: ToDo: generalize games into classes
 function finish_game()
- tokens += 2
+ tokens += 1
  switch_screen(0)
  pets[current_pet].happiness = 15
- food += 3
 end
 
 function in_options(this)
@@ -940,6 +943,7 @@ function update_math_game()
   setup_question()
   if current_icon == 5 then
    --finished game
+   tokens += 1
    finish_game()
   end
  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
@@ -965,6 +969,97 @@ function draw_math_game()
  draw_triangle(63, 22, 77, 40, 49, 40)
 end
 
+function init_fishing()
+ fish_x = 50
+ --ui ranges from 20 to 108
+ escape_ui_x = 64
+ new_esc_ui_x = 64
+ user_ui_x = 21
+ last⧗ = time()
+ fish⧗ = time()
+end
+
+function update_fishing()
+ if fish_x > 130 then
+  --leave loss
+  if time() - last⧗ > 3 then
+   tokens -= 1
+   finish_game()
+  end
+  return
+ elseif fish_x < 30 then
+  --leave win
+  if time() - last⧗ > 3 then
+   food += 3
+   finish_game()
+  end
+  return
+ end
+ if time() - last⧗ > 0.3 then
+  if fish_x > 80 then
+   fish_x += 5
+  elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
+   fish_x -= 3
+  else
+   fish_x += 1
+  end
+ 
+  last⧗ = time()
+ end
+ 
+ --escape ui width == 20
+ --ranges from 20 to 78
+ if time() - fish⧗ > 2 then
+  new_esc_ui_x = flr(rnd(1) * 58) + 20
+  fish⧗ = time()
+ end
+ --move the fish_ui to new_esc_ui_x
+ escape_ui_x += (new_esc_ui_x-escape_ui_x) * 0.1
+ if btn(❎) then
+  user_ui_x = min(user_ui_x+3,98)
+ else
+  user_ui_x = max(user_ui_x-3,21)
+ end
+end
+
+function draw_fishing()
+ if fish_x > 130 then
+  --lose
+  print_centered("you lost the fish", 63,60,7)
+  return
+ elseif fish_x < 30 then
+  --win
+  print_centered("you got the fish!", 63,60,7)
+  print_centered("+3 food", 63,68,4)
+  print_centered("+1 ticket", 63,76,9)
+  return
+ end
+ print_centered("press ❎ to move hook", 63,104, 7)
+ print_centered("keep hook in blue zone", 63, 112, 7)
+ fillp(█)
+ rectfill(20,40,0,60,5)
+ rectfill(0,60,128,80,1)
+ --or draw ur pet here
+ rectfill(10,34,13,40,7)
+ --fishing pole
+ line(13,36,28,23,4)
+ 
+ --fish
+ rectfill(fish_x,69, fish_x+6, 71, 12)
+ --fish ui
+ rectfill(escape_ui_x, 91, escape_ui_x+25,99)
+ 
+ --fishing line
+ if fish_x < 80 then
+  line(fish_x, 69, 6)
+ else
+  line(80,69,6)
+ end
+ --line ui
+ rectfill(user_ui_x,91,user_ui_x+10,99)
+ --ui box
+ rect(20,90,108,100,7)
+end
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bb
 000000000000990005677650077777700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
