@@ -460,29 +460,40 @@ end
 -- MARK: screens
 screens = {}
 
-screens.home = {
- icons = {
-  { name = "food", sprite = 1 },
-  { name = "game", sprite = 2, screen = "game_select" },
-  { name = "stats", sprite = 3, screen = "stats" },
-  { name = "gacha", sprite = 4, screen = "gacha" },
-  { name = "settings", sprite = 5, screen = "settings" },
-
-  { name = "snacks", sprite = 17, screen = "snacks" },
-  { name = "left", sprite = 18 },
-  { name = "right", sprite = 19 },
-  { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "adoption" }
- },
- selection = 1,
- sel_glider = glider.new(0.5)
-}
-function screens.home:init()
+class__gridmenu = classfactory({ selection = 1, selectables = {} })
+function class__gridmenu:init()
+ self.sel_glider = self.sel_glider or glider.new(0.5)
  self.sel_glider:teleport(self:grid_vec())
 end
+function class__gridmenu:update_sel(w, h)
+ local s = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), w, h)
+ self.selection = s
+ return s, self.selectables[s]
+end
+function class__gridmenu:glide()
+ return self.sel_glider:set_target(self:grid_vec()):move()
+end
+
+screens.home = classfactory(
+ {
+  icons = {
+   { name = "food", sprite = 1 },
+   { name = "game", sprite = 2, screen = "game_select" },
+   { name = "stats", sprite = 3, screen = "stats" },
+   { name = "gacha", sprite = 4, screen = "gacha" },
+   { name = "settings", sprite = 5, screen = "settings" },
+
+   { name = "snacks", sprite = 17, screen = "snacks" },
+   { name = "left", sprite = 18 },
+   { name = "right", sprite = 19 },
+   { name = "pets", sprite = 20, screen = "collection" },
+   { name = "adopt", sprite = 21, screen = "adoption" }
+  }
+ }, class__gridmenu
+)
 function screens.home:update()
- self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
- self.sel_glider:set_target(self:grid_vec()):move()
+ self:update_sel(5, 2)
+ self:glide()
 
  local icon = self.icons[self.selection]
 
@@ -553,17 +564,20 @@ function screens.home:grid_vec(i)
  return vec2.new(grid_coords(4, 3, 28, 114, i or self.selection, 5))
 end
 
-screens.game_select = {
- selection = 1,
- games = {
-  { name = "math", game = "math" },
-  { name = "maze", game = nil },
-  { name = "fishing", game = "fishing" },
-  { name = "you shouldn't see this", game = nil }
- }
-}
+screens.game_select = classfactory(
+ {
+  games = {
+   { name = "math", game = "math" },
+   { name = "maze", game = nil },
+   { name = "fishing", game = "fishing" },
+   { name = "you shouldn't see this", game = nil }
+  }
+ }, class__gridmenu
+)
 function screens.game_select:update()
- self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
+ self:update_sel(2, 2)
+ self:glide()
+
  if btnp(🅾️) then
   switch_screen()
  elseif btnp(❎) then
@@ -574,8 +588,7 @@ end
 function screens.game_select:draw()
  fillp(█)
  for i, game in ipairs(self.games) do
-  local x = 8 + (i - 1) % 2 * 60
-  local y = 8 + (i - 1) \ 2 * 60
+  local x, y = self:grid_vec(i):unpack()
   local col = 3
 
   -- MARK: ToDo: whatever this is
@@ -589,17 +602,16 @@ function screens.game_select:draw()
   end
 
   self:draw_pannel(game.name, x, y, 52, 52, col)
-
-  if i == self.selection then
-   rect(x, y, x + 52, y + 52, 10)
-  end
  end
+ rect_vec(self.sel_glider, vec2.new(52, 52), 10, false, true)
 end
 function screens.game_select:draw_pannel(label, x, y, w, h, col)
  rectfill(x, y, x + w, y + h, col)
  print_centered(label, x + flr(w / 2), y + flr(h / 2) - 3, 7)
 end
-
+function screens.game_select:grid_vec(i)
+ return vec2.new(grid_coords(8, 8, 60, 60, i or self.selection, 2))
+end
 screens.stats = {}
 function screens.stats:update()
  if btnp(🅾️) then
