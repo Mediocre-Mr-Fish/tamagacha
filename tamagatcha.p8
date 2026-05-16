@@ -176,7 +176,7 @@ end
 function decode_bitfield(integer, length)
  local ret = {}
  for _ = 1, length do
-  add(ret, integer & 1, 1)
+  add(ret, integer & 1 ~= 0, 1)
   integer = integer >> 1
  end
  return ret
@@ -388,27 +388,30 @@ max_pets = 16
 
 -- MARK: save data
 
--- username_title_version
-cartdata("real-fancy-fire_tama-gatcha_1-1")
 function load_data()
+ -- username_title_version
+ if not cartdata("real-fancy-fire_tama-gatcha_1-2") then
+  return false
+ end
+
  local addr = 0x5e00
 
  -- user data
- settings.mute, settings.grim, _, _ = decode_bitfield(peek(addr), 4)
+ settings.mute, settings.grim = decode_bitfield(peek(addr), 4)
  addr += 1
 
  -- discovered pets
- discovered_pets = decode_bitfield(peek(addr), num_pet_types)
- addr += 4
+ discovered_pets = decode_bitfield(peek2(addr), num_pet_types)
+ addr += 2
 
  -- food
- food = peek2(addr)
- addr += 2
+ food = peek(addr)
+ addr += 1
 
  -- items
  for i = 1, num_item_types do
-  inventory[i] = peek2(addr)
-  addr += 2
+  inventory[i] = peek(addr)
+  addr += 1
  end
 
  -- pets
@@ -425,6 +428,7 @@ function load_data()
  end
 
  printh("data loaded")
+ return true
 end
 
 function save_data()
@@ -440,17 +444,17 @@ function save_data()
  addr += 1
 
  -- discovered pets
- poke4(addr, encode_bitfield(discovered_pets))
+ poke2(addr, encode_bitfield(discovered_pets))
  addr += 2
 
  -- food
- poke2(addr, food)
- addr += 2
+ poke(addr, food)
+ addr += 1
 
  -- items
  for i = 1, num_item_types do
-  poke2(addr, inventory[i])
-  addr += 2
+  poke(addr, inventory[i])
+  addr += 1
  end
 
  -- pets
@@ -472,7 +476,6 @@ end
 -->8
 -- MARK: screens
 screens = {
- collection = {},
  adoption = {},
  gacha = {},
  gacha_anim = {}
@@ -708,36 +711,30 @@ function screens.snacks:draw()
  print_centered("🅾️ exit    ❎ use", 64, 110, 7)
 end
 
+screens.collection = {
+ selection = 1
+}
 function screens.collection:update()
- local last_icon = current_icon
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2)
- --there is no 8-th pet rn
- --deny access to 8th tile in grid
- if current_icon == 8 then
-  current_icon = last_icon
- end
+ self.selection = min(#all_pets, grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2))
 end
 function screens.collection:draw()
  --draw all pets
  for i, pet_cls in pairs(all_pets) do
   local sx = 8 + (i - 1) % 4 * 32
   local sy = 8 + (i - 1) \ 4 * 32
-  if i == current_icon then
-   rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
-  end
+  local name = pet_cls.name
+
   if discovered_pets[pet_cls.id] then
-   --draw normal
-   if i == current_icon then
-    print_centered(pet_cls.name, 64, 100, 7)
-   end
    pet_cls:spr_scaled(sx, sy, 1)
   else
-   --draw grayed out
-   if i == current_icon then
-    print_centered("???", 64, 100, 7)
-   end
    pet_cls:pal(true)
    pet_cls:spr_scaled(sx, sy, 1, true)
+   name = "???"
+  end
+
+  if i == self.selection then
+   rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
+   print_centered(name, 64, 100, 7)
   end
  end
  print_centered("🅾️ exit", 64, 110, 5)
