@@ -359,12 +359,12 @@ end
 discovered_pets[pet_duck.id] = true
 
 all_items = {
- { sprite = 32 },
- { sprite = 33 },
- { sprite = 34 },
- { sprite = 35 },
- { sprite = 36 },
- { sprite = 51 }
+ { name = "chocolate", sprite = 32 },
+ { name = "banana", sprite = 33 },
+ { name = "meatball", sprite = 34 },
+ { name = "rice", sprite = 35 },
+ { name = "drumstick", sprite = 36 },
+ { name = "bomb", sprite = 51 }
 }
 num_item_types = 16
 
@@ -472,7 +472,6 @@ end
 -->8
 -- MARK: screens
 screens = {
- snacks = {},
  collection = {},
  adoption = {},
  gacha = {},
@@ -487,7 +486,7 @@ screens.home = {
   { name = "gacha", x = 89, y = 3, sprite = 4 },
   { name = "setting", x = 117, y = 3, sprite = 5 },
 
-  { name = "snack", x = 3, y = 117, sprite = 17 },
+  { name = "snacks", x = 3, y = 117, sprite = 17 },
   { name = "left", x = 31, y = 117, sprite = 18 },
   { name = "right", x = 60, y = 117, sprite = 19 },
   { name = "pets", x = 89, y = 117, sprite = 20 },
@@ -677,34 +676,36 @@ function screens.settings.draw_checkbox(x, y, checked)
  end
 end
 
+screens.snacks = {
+ selection = 1
+}
 function screens.snacks:update()
- local last_icon = current_icon
- current_icon = grid_wrap(current_icon, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 3, 2)
- if btnp(❎) and inventory[current_icon] ~= 0 then
-  if x_pressed and inventory[current_icon] > 0 then
-   inventory[current_icon] -= 1
-   x_pressed = false
+ self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 3, 2)
+
+ if btnp(❎) then
+  if inventory[self.selection] > 0 then
+   inventory[self.selection] -= 1
    --give pet status or ailment
   else
-   x_pressed = true
+   -- play error sound
   end
  end
 end
 function screens.snacks:draw()
- for i, item_amount in pairs(inventory) do
+ for i, prefab in ipairs(all_items) do
+  local amount = inventory[i]
   local sx = 8 + (i - 1) % 3 * 44
   local sy = 8 + (i - 1) \ 3 * 44
-  spr_scaled(all_items[i].sprite, sx, sy, 3)
-  print_centered(item_amount, sx - 5, sy, 7)
-  if i == current_icon then
+
+  spr_scaled(prefab.sprite, sx, sy, 3)
+
+  print_centered(amount, sx - 5, sy, 7)
+  if i == self.selection then
    rect(sx - 1, sy - 1, sx + 24, sy + 24, 10)
+   print_centered(prefab.name, 64, 100, 7)
   end
  end
- if x_pressed then
-  print_centered("🅾️ return    ❎ use", 64, 110, 5)
- else
-  print_centered("🅾️ exit", 64, 110, 5)
- end
+ print_centered("🅾️ exit    ❎ use", 64, 110, 7)
 end
 
 function screens.collection:update()
