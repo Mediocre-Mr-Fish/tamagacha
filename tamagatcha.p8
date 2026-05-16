@@ -859,8 +859,7 @@ function screens.gacha_anim:update()
 
  if btnp(❎) then
   --mark obj for deletion
-  -- draw_list[current_icon].delete = true
-  self.prizes_to_delete[current_icon] = true
+  self.prizes_to_delete[self.selection] = true
   if #self.draw_list == 1 then
    --start blender animation
    switch_screen(0)
