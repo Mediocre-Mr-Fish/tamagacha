@@ -39,11 +39,6 @@ end
 function _update()
  update_hunger()
  update_happiness()
-
- if btnp(🅾️) and screen != screens.minigame then
-  switch_screen(screens.home)
- end
-
  screen:update()
 end
 
@@ -52,8 +47,8 @@ function _draw()
  screen:draw()
 end
 
-function switch_screen(scr)
- screen = scr
+function switch_screen(screen_or_nil)
+ screen = screen_or_nil or screens.home
  if screen.init then
   screen:init()
  end
@@ -484,7 +479,7 @@ function screens.home:draw()
  pal()
  fillp(█)
  for i = 1, #pets do
-  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == self.selection and 7 or 5)
+  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
  end
 end
 
@@ -499,7 +494,9 @@ screens.game_select = {
 }
 function screens.game_select:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
- if btnp(❎) then
+ if btnp(🅾️) then
+  switch_screen()
+ elseif btnp(❎) then
   screens.minigame.current_game = games[self.games[self.selection].game]
   switch_screen(screens.minigame)
  end
@@ -535,7 +532,9 @@ end
 
 screens.stats = {}
 function screens.stats:update()
- -- do nothing
+ if btnp(🅾️) then
+  switch_screen()
+ end
 end
 function screens.stats:draw()
  local pet = pets[current_pet]
@@ -561,7 +560,9 @@ screens.settings = {
 }
 function screens.settings:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
- if btnp(❎) then
+ if btnp(🅾️) then
+  switch_screen()
+ elseif btnp(❎) then
   local key = self.options[self.selection].key
   -- assumes settings are boolean
   settings[key] = not settings[key]
@@ -610,8 +611,9 @@ screens.snacks = {
 }
 function screens.snacks:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 3, 2)
-
- if btnp(❎) then
+ if btnp(🅾️) then
+  switch_screen()
+ elseif btnp(❎) then
   if inventory[self.selection] > 0 then
    inventory[self.selection] -= 1
    --give pet status or ailment
@@ -642,6 +644,9 @@ screens.collection = {
 }
 function screens.collection:update()
  self.selection = min(#all_pets, grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2))
+ if btnp(🅾️) then
+  switch_screen()
+ end
 end
 function screens.collection:draw()
  --draw all pets
@@ -668,7 +673,9 @@ end
 
 screens.adoption = {}
 function screens.adoption:update()
- -- do nothing
+ if btnp(🅾️) then
+  switch_screen()
+ end
 end
 function screens.adoption:draw()
  print("killing menu in the works", 10, 40, 7)
@@ -694,7 +701,7 @@ function screens.gacha:update()
  self.selection = mod(self.selection + btnp_axis(⬅️, ➡️), #self.pulls)
 
  if btnp(🅾️) then
-  switch_screen(screens.home)
+  switch_screen()
  elseif btnp(❎) then
   local pull_type = self.pulls[self.selection]
   if tokens >= pull_type.cost then
@@ -779,7 +786,7 @@ function screens.gacha_anim:update()
     inventory[prize.id] += 1
    end
   end
-  switch_screen(screens.home)
+  switch_screen()
  end
 
  if btnp(❎) then
@@ -787,7 +794,7 @@ function screens.gacha_anim:update()
   self.prizes_to_delete[self.selection] = true
   if #self.draw_list == 1 then
    --start blender animation
-   switch_screen(screens.home)
+   switch_screen()
   end
  end
 
@@ -905,14 +912,16 @@ function screens.minigame:draw()
  end
 end
 function screens.minigame:finish_game()
- if not self.current_game then return switch_screen(screens.home) end
+ if not self.current_game then return switch_screen() end
  local reward = self.current_game.reward or {}
 
  tokens += reward.tokens or 0
  food += reward.food or 3
  pets[current_pet]:change_happiness(reward.happiness or 0)
 
- switch_screen(screens.home)
+ self.current_game = nil
+
+ switch_screen()
 end
 games = {}
 
