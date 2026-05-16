@@ -19,8 +19,7 @@ function _init()
  --general use timer
  t = time()
 
- current_icon = 1
- screen = 0
+ screen = screens.home
  --allows for the use of clamp function
  clamp = mid
 
@@ -41,99 +40,24 @@ function _update()
  update_hunger()
  update_happiness()
 
- if btnp(🅾️) and screen != 10 then
-  switch_screen(0)
+ if btnp(🅾️) and screen != screens.minigame then
+  switch_screen(screens.home)
  end
 
- if screen == 0 then
-  screens.home:update()
- elseif screen == 1 then
-  --game
-  screens.game_select:update()
- elseif screen == 2 then
-  --stats
- elseif screen == 3 then
-  --gacha
-  screens.gacha:update()
- elseif screen == 4 then
-  --setting
-  screens.settings:update()
- elseif screen == 5 then
-  --snack
-  screens.snacks:update()
- elseif screen == 8 then
-  --pet collection
-  screens.collection:update()
- elseif screen == 9 then
-  --adoption
- elseif screen == 10 then
-  --gacha animation
-  screens.gacha_anim:update()
- elseif screen == 11 then
-  --game 1 math
-  games.math:update()
- elseif screen == 12 then
-  --game 2 maze
- elseif screen == 13 then
-  --game 3 idk
- elseif screen == 14 then
-  --game 4 in progress
- end
+ screen:update()
 end
 
 function _draw()
  cls()
- if screen == 0 then
-  screens.home:draw()
- elseif screen == 1 then
-  --game
-  screens.game_select:draw()
- elseif screen == 2 then
-  --stats
-  screens.stats:draw()
- elseif screen == 3 then
-  --gacha
-  screens.gacha:draw()
- elseif screen == 4 then
-  --setting
-  screens.settings:draw()
- elseif screen == 5 then
-  --snack
-  screens.snacks:draw()
- elseif screen == 8 then
-  --pet collection
-  screens.collection:draw()
- elseif screen == 9 then
-  --adoption
-  screens.adoption:draw()
- elseif screen == 10 then
-  --gacha animation
-  screens.gacha_anim:draw()
- elseif screen == 11 then
-  --game 1 math
-  games.math:draw()
- elseif screen == 12 then
-  --game 2 maze
- elseif screen == 13 then
-  --game 3 idk
- elseif screen == 14 then
-  --game 4 in progress
- end
+ screen:draw()
 end
 
-function switch_screen(new)
- current_icon = screen + 1
- if screen >= 10 then
-  --takes into account game screens
-  --and animation screens
-  current_icon = 1
-  --init game 1
+function switch_screen(scr)
+ screen = scr
+ if screen.init then
+  screen:init()
  end
- if new == 11 then
-  games.math:init()
-  current_icon = 0
- end
- screen = new
+
  save_data()
 end
 
@@ -483,17 +407,17 @@ screens = {}
 
 screens.home = {
  icons = {
-  { name = "food", x = 3, y = 3, sprite = 1 },
-  { name = "game", x = 31, y = 3, sprite = 2 },
-  { name = "stats", x = 60, y = 3, sprite = 3 },
-  { name = "gacha", x = 89, y = 3, sprite = 4 },
-  { name = "setting", x = 117, y = 3, sprite = 5 },
+  { name = "food", sprite = 1 },
+  { name = "game", sprite = 2, screen = "game_select" },
+  { name = "stats", sprite = 3, screen = "stats" },
+  { name = "gacha", sprite = 4, screen = "gacha" },
+  { name = "settings", sprite = 5, screen = "settings" },
 
-  { name = "snacks", x = 3, y = 117, sprite = 17 },
-  { name = "left", x = 31, y = 117, sprite = 18 },
-  { name = "right", x = 60, y = 117, sprite = 19 },
-  { name = "pets", x = 89, y = 117, sprite = 20 },
-  { name = "adopt", x = 117, y = 117, sprite = 21 }
+  { name = "snacks", sprite = 17, screen = "snacks" },
+  { name = "left", sprite = 18 },
+  { name = "right", sprite = 19 },
+  { name = "pets", sprite = 20, screen = "collection" },
+  { name = "adopt", sprite = 21, screen = "adoption" }
  },
  selection = 1
 }
@@ -507,29 +431,30 @@ function screens.home:update()
    return
   end
 
+  if icon.screen then
+   switch_screen(screens[icon.screen])
+  end
+
   if icon.name == "food" then
    feed_pet()
   elseif icon.name == "left" then
    current_pet = mod(current_pet - 1, #pets)
   elseif icon.name == "right" then
    current_pet = mod(current_pet + 1, #pets)
-  else
-   switch_screen(self.selection - 1)
-   -- MARK: remove this
-   current_icon = 1
   end
  end
 end
 function screens.home:draw()
  local pet = pets[current_pet]
- local icon = self.icons[self.selection]
 
- for i in all(self.icons) do
-  spr(i.sprite, i.x, i.y)
+ for i, icon in ipairs(self.icons) do
+  local x, y = grid_coords(4, 3, 28, 114, i, 5)
+  spr(icon.sprite, x, y)
+  if i == self.selection then
+   rect(x - 1, y - 1, x + 8, y + 8, 10)
+   print_centered(icon.name, 64, 110, 7)
+  end
  end
-
- rect(icon.x - 1, icon.y - 1, icon.x + 8, icon.y + 8, 10)
- print_centered(icon.name, 64, 110, 7)
 
  --stats icon reflecting pet status
  fillp(█)
@@ -566,16 +491,17 @@ end
 screens.game_select = {
  selection = 1,
  games = {
-  { name = "math", game = 11 },
-  { name = "maze", game = 12 },
-  { name = "idk yet", game = 12 },
-  { name = "you shouldn't see this", game = 14 }
+  { name = "math", game = "math" },
+  { name = "maze", game = nil },
+  { name = "idk yet", game = nil },
+  { name = "you shouldn't see this", game = nil }
  }
 }
 function screens.game_select:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
  if btnp(❎) then
-  switch_screen(self.games[self.selection].game)
+  screens.minigame.current_game = games[self.games[self.selection].game]
+  switch_screen(screens.minigame)
  end
 end
 function screens.game_select:draw()
@@ -854,7 +780,7 @@ function screens.gacha_anim:update()
     inventory[prize.id] += 1
    end
   end
-  switch_screen(0)
+  switch_screen(screens.home)
  end
 
  if btnp(❎) then
@@ -862,7 +788,7 @@ function screens.gacha_anim:update()
   self.prizes_to_delete[self.selection] = true
   if #self.draw_list == 1 then
    --start blender animation
-   switch_screen(0)
+   switch_screen(screens.home)
   end
  end
 
@@ -964,6 +890,11 @@ end
 screens.minigame = {
  current_game = nil
 }
+function screens.minigame:init()
+ if self.current_game then
+  self.current_game:init()
+ end
+end
 function screens.minigame:update()
  if self.current_game then
   self.current_game:update()
@@ -974,7 +905,16 @@ function screens.minigame:draw()
   self.current_game:draw()
  end
 end
+function screens.minigame:finish_game()
+ if not self.current_game then return switch_screen(screens.home) end
+ local reward = self.current_game.reward or {}
 
+ tokens += reward.tokens or 0
+ food += reward.food or 3
+ pets[current_pet]:change_happiness(reward.happiness or 0)
+
+ switch_screen(screens.home)
+end
 games = {}
 
 games.math = {
@@ -999,13 +939,6 @@ games.math = {
 function games.math:init()
  self.progress = 0
  self:setup_question()
-end
-
-function finish_game()
- tokens += 2
- switch_screen(0)
- pets[current_pet]:change_happiness(15)
- food += 3
 end
 
 function games.math:setup_question()
@@ -1036,7 +969,7 @@ function games.math:update()
   self.progress += 1
 
   if self.progress == 5 then
-   finish_game()
+   screens.minigame:finish_game()
    return
   end
 
