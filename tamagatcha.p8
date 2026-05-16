@@ -19,7 +19,6 @@ function _init()
  --general use timer
  t = time()
 
- screen = screens.home
  --allows for the use of clamp function
  clamp = mid
 
@@ -34,6 +33,7 @@ function _init()
  grim_progress = 0
 
  load_data()
+ switch_screen()
 end
 
 function _update()
@@ -47,6 +47,7 @@ function _draw()
  screen:draw()
 end
 
+screen = nil
 function switch_screen(screen_or_nil)
  screen = screen_or_nil or screens.home
  if screen.init then
@@ -117,6 +118,24 @@ function draw_triangle(x1, y1, x2, y2, x3, y3, col)
  line(x1, y1)
 end
 
+---draw a rectangle with vectors
+---@param pos1 vec2
+---@param pos2 vec2
+---@param col integer? if nil, use previous color
+---@param fill boolean?
+---@param as_dim boolean? if true, pos2 is relative to pos1
+function rect_vec(pos1, pos2, col, fill, as_dim)
+ if (col) color(col)
+ if (as_dim) pos2 += pos1
+ (fill and rectfill or rect)(pos1.x, pos1.y, pos2.x, pos2.y)
+end
+
+function glide_vec(vec1, vec2, mult)
+ local dv = vec2 - vec1
+ if (dv:length2() > 0.25) return vec1 + dv * mult
+ return vec2
+end
+
 function get_penalty_mult()
  return #pets * swarm_penalty + 1
 end
@@ -182,6 +201,21 @@ function is_instance(object, class)
 
  return false
 end
+
+vec2 = classfactory({})
+function vec2.new(x, y) return setmetatable({ x = x, y = y }, vec2) end
+function vec2.unpack(v) return v.x, v.y end
+function vec2.length2(v) return v.x * v.x + v.y * v.y end
+function vec2.__add(a, b) return vec2.new(a.x + b.x, a.y + b.y) end
+function vec2.__sub(a, b) return vec2.new(a.x - b.x, a.y - b.y) end
+function vec2.__mul(a, b) if type(a) == "number" then a, b = b, a end return vec2.new(a.x * b, a.y * b) end
+function vec2.__div(a, b) return vec2.new(a.x / b, a.y / b) end
+function vec2.__unm(a) return vec2.new(-a.x, -a.y) end
+function vec2.__eq(a, b) return a.x == b.x and a.y == b.y end
+function vec2.__tostring(v) return "(" .. v.x .. "," .. v.y .. ")" end
+vec2_1 = vec2.new(1, 1)
+vec2_8 = vec2.new(8, 8)
+vec2_9 = vec2.new(9, 9)
 
 all_pets = {}
 num_pet_types = 15
@@ -414,10 +448,16 @@ screens.home = {
   { name = "pets", sprite = 20, screen = "collection" },
   { name = "adopt", sprite = 21, screen = "adoption" }
  },
- selection = 1
+ selection = 1,
+ select_pos = {}
 }
+function screens.home:init()
+ self.select_pos = self.grid_vec(self.selection)
+end
 function screens.home:update()
  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
+ self.select_pos = glide_vec(self.select_pos, self.grid_vec(self.selection), 0.5)
+
  local icon = self.icons[self.selection]
 
  if btnp(❎) then
@@ -443,13 +483,14 @@ function screens.home:draw()
  local pet = pets[current_pet]
 
  for i, icon in ipairs(self.icons) do
-  local x, y = grid_coords(4, 3, 28, 114, i, 5)
+  local x, y = self.grid_vec(i):unpack()
   spr(icon.sprite, x, y)
   if i == self.selection then
-   rect(x - 1, y - 1, x + 8, y + 8, 10)
    print_centered(icon.name, 64, 110, 7)
   end
  end
+
+ rect_vec(self.select_pos - vec2_1, vec2_9, 10, false, true)
 
  --stats icon reflecting pet status
  fillp(█)
@@ -481,6 +522,9 @@ function screens.home:draw()
  for i = 1, #pets do
   circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
  end
+end
+function screens.home.grid_vec(i)
+ return vec2.new(grid_coords(4, 3, 28, 114, i, 5))
 end
 
 screens.game_select = {
