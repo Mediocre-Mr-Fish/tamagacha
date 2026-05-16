@@ -166,10 +166,10 @@ function grid_wrap(val, dx, dy, width, height)
  return row * width + col + 1
 end
 
-function spr_scaled(n, x, y, scale, sw, sh)
+function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
  scale = scale or 1
  sw, sh = (sw or 1) * 8, (sh or 1) * 8
- sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale)
+ sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
 end
 
 -- encode a bool array as an integer
@@ -1039,8 +1039,10 @@ function draw_fishing()
  fillp(█)
  rectfill(20,40,0,60,5)
  rectfill(0,60,128,80,1)
- --or draw ur pet here
- rectfill(10,34,13,40,7)
+ --pet
+ palt(0b0000000000010000)
+ spr_scaled(pets[current_pet].sprite, 3, 25, 1, 2, 2, true, false)
+ pal()
  --fishing pole
  line(13,36,28,23,4)
  
