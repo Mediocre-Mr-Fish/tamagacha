@@ -269,13 +269,13 @@ function class__pet:pal(obscured)
 end
 
 -- draw the pet's sprite
-function class__pet:spr_scaled(x, y, scale, no_pal)
+function class__pet:spr_scaled(x, y, scale, no_pal, flip_x, flip_y)
  if not no_pal then self:pal() end
 
  if not scale or scale == 1 then
-  spr(self.sprite, x, y, self.sprite_width, self.sprite_height)
+  spr(self.sprite, x, y, self.sprite_width, self.sprite_height, flip_x, flip_y)
  else
-  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height)
+  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height, flip_x, flip_y)
  end
 
  pal()
@@ -1047,32 +1047,48 @@ function games.math:draw()
  draw_triangle(63, 22, 77, 40, 49, 40)
 end
 
-function init_fishing()
+games.fishing = {
+ reward = nil,
+ reward_win = {
+  tokens = 1,
+  food = 3,
+  happiness = 15
+ }
+}
+function games.fishing:init()
+ local _ENV = setmetatable(self, { __index = _ENV })
+
  fish_x = 50
  --ui ranges from 20 to 108
+
  escape_ui_x = 64
  new_esc_ui_x = 64
+
  user_ui_x = 21
+
  last⧗ = time()
  fish⧗ = time()
 end
 
-function update_fishing()
+function games.fishing:update()
+ local _ENV = setmetatable(self, { __index = _ENV })
+
  if fish_x > 130 then
   --leave loss
   if time() - last⧗ > 3 then
-   tokens -= 1
-   finish_game()
+   reward = nil
+   screens.minigame:finish_game()
   end
   return
  elseif fish_x < 30 then
   --leave win
   if time() - last⧗ > 3 then
-   food += 3
-   finish_game()
+   reward = self.reward_win
+   screens.minigame:finish_game()
   end
   return
  end
+
  if time() - last⧗ > 0.3 then
   if fish_x > 80 then
    fish_x += 5
@@ -1081,10 +1097,10 @@ function update_fishing()
   else
    fish_x += 1
   end
- 
+
   last⧗ = time()
  end
- 
+
  --escape ui width == 20
  --ranges from 20 to 78
  if time() - fish⧗ > 2 then
@@ -1092,54 +1108,53 @@ function update_fishing()
   fish⧗ = time()
  end
  --move the fish_ui to new_esc_ui_x
- escape_ui_x += (new_esc_ui_x-escape_ui_x) * 0.1
+ escape_ui_x += (new_esc_ui_x - escape_ui_x) * 0.1
  if btn(❎) then
-  user_ui_x = min(user_ui_x+3,98)
+  user_ui_x = min(user_ui_x + 3, 98)
  else
-  user_ui_x = max(user_ui_x-3,21)
+  user_ui_x = max(user_ui_x - 3, 21)
  end
 end
 
-function draw_fishing()
+function games.fishing:draw()
+ local _ENV = setmetatable(self, { __index = _ENV })
+
  if fish_x > 130 then
   --lose
-  print_centered("you lost the fish", 63,60,7)
+  print_centered("you lost the fish", 63, 60, 7)
   return
  elseif fish_x < 30 then
   --win
-  print_centered("you got the fish!", 63,60,7)
-  print_centered("+3 food", 63,68,4)
-  print_centered("+1 ticket", 63,76,9)
+  print_centered("you got the fish!", 63, 60, 7)
+  print_centered("+3 food", 63, 68, 4)
+  print_centered("+1 ticket", 63, 76, 9)
   return
  end
- print_centered("press ❎ to move hook", 63,104, 7)
+
+ print_centered("press ❎ to move hook", 63, 104, 7)
  print_centered("keep hook in blue zone", 63, 112, 7)
  fillp(█)
- rectfill(20,40,0,60,5)
- rectfill(0,60,128,80,1)
- --pet
- palt(0b0000000000010000)
- spr_scaled(pets[current_pet].sprite, 3, 25, 1, 2, 2, true, false)
- pal()
- --fishing pole
- line(13,36,28,23,4)
- 
+ rectfill(20, 40, 0, 60, 5)
+ rectfill(0, 60, 128, 80, 1)
+
+ --pet + fishing pole
+ pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
+ line(13, 36, 28, 23, 4)
+
  --fish
- rectfill(fish_x,69, fish_x+6, 71, 12)
+ rectfill(fish_x, 69, fish_x + 6, 71, 12)
  --fish ui
- rectfill(escape_ui_x, 91, escape_ui_x+25,99)
- 
+ rectfill(escape_ui_x, 91, escape_ui_x + 25, 99)
+
  --fishing line
- if fish_x < 80 then
-  line(fish_x, 69, 6)
- else
-  line(80,69,6)
- end
+ line(min(fish_x, 80), 69, 6)
+
  --line ui
- rectfill(user_ui_x,91,user_ui_x+10,99)
+ rectfill(user_ui_x, 91, user_ui_x + 10, 99)
  --ui box
- rect(20,90,108,100,7)
+ rect(20, 90, 108, 100, 7)
 end
+
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bb
 000000000000990005677650077777700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
