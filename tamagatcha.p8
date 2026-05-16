@@ -694,14 +694,13 @@ function screens.gacha:update()
  self.selection = mod(self.selection + btnp_axis(⬅️, ➡️), #self.pulls)
 
  if btnp(🅾️) then
-  switch_screen(0)
+  switch_screen(screens.home)
  elseif btnp(❎) then
   local pull_type = self.pulls[self.selection]
   if tokens >= pull_type.cost then
    tokens -= pull_type.cost
    screens.gacha_anim.pull_type = pull_type
-   screens.gacha_anim:init()
-   switch_screen(10)
+   switch_screen(screens.gacha_anim)
    t = time()
   end
  end
