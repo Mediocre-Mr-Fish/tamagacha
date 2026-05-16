@@ -79,10 +79,10 @@ function grid_wrap(val, dx, dy, width, height)
  return row * width + col + 1
 end
 
-function spr_scaled(n, x, y, scale, sw, sh)
+function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
  scale = scale or 1
  sw, sh = (sw or 1) * 8, (sh or 1) * 8
- sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale)
+ sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
 end
 
 -- encode a bool array as an integer
@@ -532,7 +532,7 @@ screens.game_select = {
  games = {
   { name = "math", game = "math" },
   { name = "maze", game = nil },
-  { name = "idk yet", game = nil },
+  { name = "fishing", game = "fishing" },
   { name = "you shouldn't see this", game = nil }
  }
 }
@@ -972,7 +972,7 @@ games = {}
 games.math = {
  reward = {
   tokens = 2,
-  food = 3,
+  food = 0,
   happiness = 15
  },
 
@@ -992,7 +992,6 @@ function games.math:init()
  self.progress = 0
  self:setup_question()
 end
-
 function games.math:setup_question()
  local a, b = flr(rnd(10)), flr(rnd(10))
  local op_key = rnd(self.operation_keys)
@@ -1015,7 +1014,6 @@ function games.math:setup_question()
  self.answer = flr(rnd(4))
  add(self.options, ans, self.answer + 1)
 end
-
 function games.math:update()
  if btnp(self.answer) then
   self.progress += 1
@@ -1031,7 +1029,6 @@ function games.math:update()
   self:setup_question()
  end
 end
-
 function games.math:draw()
  print(self.progress .. "/5", 110, 3, 7)
 
@@ -1050,6 +1047,99 @@ function games.math:draw()
  draw_triangle(63, 22, 77, 40, 49, 40)
 end
 
+function init_fishing()
+ fish_x = 50
+ --ui ranges from 20 to 108
+ escape_ui_x = 64
+ new_esc_ui_x = 64
+ user_ui_x = 21
+ last⧗ = time()
+ fish⧗ = time()
+end
+
+function update_fishing()
+ if fish_x > 130 then
+  --leave loss
+  if time() - last⧗ > 3 then
+   tokens -= 1
+   finish_game()
+  end
+  return
+ elseif fish_x < 30 then
+  --leave win
+  if time() - last⧗ > 3 then
+   food += 3
+   finish_game()
+  end
+  return
+ end
+ if time() - last⧗ > 0.3 then
+  if fish_x > 80 then
+   fish_x += 5
+  elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
+   fish_x -= 3
+  else
+   fish_x += 1
+  end
+ 
+  last⧗ = time()
+ end
+ 
+ --escape ui width == 20
+ --ranges from 20 to 78
+ if time() - fish⧗ > 2 then
+  new_esc_ui_x = flr(rnd(1) * 58) + 20
+  fish⧗ = time()
+ end
+ --move the fish_ui to new_esc_ui_x
+ escape_ui_x += (new_esc_ui_x-escape_ui_x) * 0.1
+ if btn(❎) then
+  user_ui_x = min(user_ui_x+3,98)
+ else
+  user_ui_x = max(user_ui_x-3,21)
+ end
+end
+
+function draw_fishing()
+ if fish_x > 130 then
+  --lose
+  print_centered("you lost the fish", 63,60,7)
+  return
+ elseif fish_x < 30 then
+  --win
+  print_centered("you got the fish!", 63,60,7)
+  print_centered("+3 food", 63,68,4)
+  print_centered("+1 ticket", 63,76,9)
+  return
+ end
+ print_centered("press ❎ to move hook", 63,104, 7)
+ print_centered("keep hook in blue zone", 63, 112, 7)
+ fillp(█)
+ rectfill(20,40,0,60,5)
+ rectfill(0,60,128,80,1)
+ --pet
+ palt(0b0000000000010000)
+ spr_scaled(pets[current_pet].sprite, 3, 25, 1, 2, 2, true, false)
+ pal()
+ --fishing pole
+ line(13,36,28,23,4)
+ 
+ --fish
+ rectfill(fish_x,69, fish_x+6, 71, 12)
+ --fish ui
+ rectfill(escape_ui_x, 91, escape_ui_x+25,99)
+ 
+ --fishing line
+ if fish_x < 80 then
+  line(fish_x, 69, 6)
+ else
+  line(80,69,6)
+ end
+ --line ui
+ rectfill(user_ui_x,91,user_ui_x+10,99)
+ --ui box
+ rect(20,90,108,100,7)
+end
 __gfx__
 000000000000000000000000000000000000000000067000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb050bbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bb
 000000000000990005677650077777700999408007577670bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb05bbbbbb0000bbbb52bbbbbb0000bbbbbbbbbbb666666
