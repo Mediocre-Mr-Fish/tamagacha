@@ -71,7 +71,7 @@ function _update()
   screens.gacha_anim:update()
  elseif screen == 11 then
   --game 1 math
-  update_math_game()
+  games.math:update()
  elseif screen == 12 then
   --game 2 maze
  elseif screen == 13 then
@@ -111,7 +111,7 @@ function _draw()
   screens.gacha_anim:draw()
  elseif screen == 11 then
   --game 1 math
-  draw_math_game()
+  games.math:draw()
  elseif screen == 12 then
   --game 2 maze
  elseif screen == 13 then
@@ -130,7 +130,7 @@ function switch_screen(new)
   --init game 1
  end
  if new == 11 then
-  setup_question()
+  games.math:init()
   current_icon = 0
  end
  screen = new
@@ -961,7 +961,46 @@ end
 -->8
 --MARK: games
 
---MARK: ToDo: generalize games into classes
+screens.minigame = {
+ current_game = nil
+}
+function screens.minigame:update()
+ if self.current_game then
+  self.current_game:update()
+ end
+end
+function screens.minigame:draw()
+ if self.current_game then
+  self.current_game:draw()
+ end
+end
+
+games = {}
+
+games.math = {
+ reward = {
+  tokens = 2,
+  food = 3,
+  happiness = 15
+ },
+
+ operation_keys = { "+", "-", "*" },
+ operations = {
+  ["+"] = function(a, b) return a + b end,
+  ["-"] = function(a, b) return a - b end,
+  ["*"] = function(a, b) return a * b end
+ },
+
+ progress = 0,
+ question_str = "",
+ options = {},
+ answer = 1
+}
+function games.math:init()
+ self.progress = 0
+ self:setup_question()
+end
+
 function finish_game()
  tokens += 2
  switch_screen(0)
@@ -969,67 +1008,60 @@ function finish_game()
  food += 3
 end
 
-function in_options(this)
- for option in all(options) do
-  if this == option then
-   return true
-  end
- end
-end
+function games.math:setup_question()
+ local a, b = flr(rnd(10)), flr(rnd(10))
+ local op_key = rnd(self.operation_keys)
 
-function get_str()
- local operation = { "+", "-", "*" }
- return num1 .. operation[i] .. num2
-end
+ local ans = self.operations[op_key](a, b)
+ self.question_str = a .. op_key .. b
 
-function setup_question()
- num1 = flr(rnd(10))
- num2 = flr(rnd(10))
- i = flr(rnd(3)) + 1
- ans_index = flr(rnd(4))
- algs = { num1 + num2, num1 - num2, num1 * num2 }
- ans = algs[i]
- options = {}
+ self.options = {}
+
  --make sure no overlap answers
- add(options, ans)
- repeat
-  new = ans + flr(rnd(6)) - 2
-  if not in_options(new) then
-   add(options, new)
+ local option_set = { [ans] = true }
+ while #self.options < 3 do
+  local new = ans + flr(rnd(6)) - 2
+  if not option_set[new] then
+   option_set[new] = true
+   add(self.options, new)
   end
- until #options == 4
- del(options, ans)
- add(options, ans, ans_index + 1)
+ end
+
+ self.answer = flr(rnd(4))
+ add(self.options, ans, self.answer + 1)
 end
 
-function update_math_game()
- if btnp(ans_index) then
-  current_icon += 1
-  setup_question()
-  if current_icon == 5 then
-   --finished game
+function games.math:update()
+ if btnp(self.answer) then
+  self.progress += 1
+
+  if self.progress == 5 then
    finish_game()
+   return
   end
+
+  self:setup_question()
  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-  current_icon = clamp(0, current_icon - 1, 5)
-  setup_question()
+  self.progress = clamp(0, self.progress - 1, 5)
+  self:setup_question()
  end
 end
 
-function draw_math_game()
- print(current_icon .. "/5", 110, 3, 7)
+function games.math:draw()
+ print(self.progress .. "/5", 110, 3, 7)
 
- print_centered(get_str(), 64, 61)
- print_centered(options[1], 34, 61)
+ print_centered(self.question_str, 64, 61)
+
+ print_centered(self.options[1], 34, 61)
  draw_triangle(22, 63, 40, 77, 40, 49)
 
- print_centered(options[2], 94, 61)
+ print_centered(self.options[2], 94, 61)
  draw_triangle(104, 63, 86, 77, 86, 49)
 
- print_centered(options[3], 64, 31)
+ print_centered(self.options[3], 64, 31)
  draw_triangle(63, 104, 77, 86, 49, 86)
 
- print_centered(options[4], 64, 91)
+ print_centered(self.options[4], 64, 91)
  draw_triangle(63, 22, 77, 40, 49, 40)
 end
 
