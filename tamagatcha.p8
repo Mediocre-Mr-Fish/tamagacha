@@ -1101,23 +1101,25 @@ function screens.gacha_anim:draw()
  end
 end
 function screens.gacha_anim.draw_item(item, x, y, size, open)
- if is_instance(item, class__pet) and open then
+ local is_pet = is_instance(item, class__pet)
+ if is_pet and open then
   item:spr_scaled(x, y, size / 2)
   return
  end
 
- local sprite = 49
+ pal()
+
  --present box
+ local sprite = 49
+
  if open then
   sprite = item.sprite
   palt(item.transparent, true)
- elseif item.pet then
+ elseif is_pet then
   sprite = 48 --egg
-  palt()
  end
 
  spr_scaled(sprite, x, y, size, 1, 1)
- pal()
 end
 
 -->8
