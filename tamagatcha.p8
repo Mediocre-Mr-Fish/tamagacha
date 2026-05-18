@@ -794,9 +794,10 @@ screens.adoption = {
  max_y = 64 + 12,
  blood = {},
  gore_pool = {},
- timeline = anim_timeline.new({ 1, 4 })
+ timeline = anim_timeline.new({ 1, 4, 3 })
 }
 function screens.adoption:init()
+ self.pet = self.pet or pets[current_pet]
  self.timeline:start()
  self.frame = 1
  self.blood = {}
@@ -811,35 +812,32 @@ function screens.adoption:init()
   )
  end
 
- local meat = pets[current_pet].meat
- for i = 1, meat do
+ local meat = self.pet.meat
+ for i = 1, meat + self.pet.bone do
   local ptcl = self.gore_pool[i] or {}
-  ptcl.sprite = 36
-  ptcl.flip = rnd() < 0.5
- end
- for i = 1, pets[current_pet].bone do
-  local ptcl = self.gore_pool[meat + i] or {}
-  ptcl.sprite = 66
+  ptcl.sprite = i <= meat and 36 or 66
   ptcl.flip = rnd() < 0.5
  end
 end
 function screens.adoption:update()
- if btnp(🅾️) then
-  switch_screen()
- end
-
  local step, t = self.timeline:update()
 
  if step == 1 then
+  -- do nothing
  elseif step == 2 then
   -- add(self.blood, del(self.gore_pool, rnd(self.gore_pool)))
   add(self.blood, deli(self.gore_pool))
   self:update_particles()
- else
+ elseif step == 3 then
   while #self.gore_pool > 0 do
    add(self.blood, deli(self.gore_pool))
   end
   self:update_particles()
+ else
+  if btnp(🅾️) then
+   self.pet = nil
+   switch_screen()
+  end
  end
 end
 function screens.adoption:draw()
@@ -850,13 +848,16 @@ function screens.adoption:draw()
  if step == 1 then
   local y = accelerp(24, 0, 10, t)
   clip(0, 0, 128, 52)
-  pets[current_pet]:spr_scaled(56, y)
+  self.pet:spr_scaled(56, y)
   clip()
   self:draw_blender(56, 52, 0)
  elseif step == 2 then
   self:draw_blender(55 + self.frame % 2, 52, t)
   self:draw_particles()
  else
+  if step > 3 then
+   print_centered("🅾️ exit", 64, 110, 5)
+  end
   self:draw_blender(56, 52, 3)
   self:draw_particles()
  end
@@ -979,7 +980,7 @@ end
 
 function pull_gacha()
  local rolled_pet = rnd(1) < 0.2
- return rolled_pet and rnd(all_pets) or rnd(all_items)
+ return rolled_pet and rnd(all_pets).new() or rnd(all_items)
 end
 
 function screens.gacha_anim:update()
@@ -993,7 +994,7 @@ function screens.gacha_anim:update()
    if self.prizes_to_delete[i] then
     food += 10
    elseif is_instance(prize, class__pet) then
-    add(pets, prize.new())
+    add(pets, prize)
     discovered_pets[prize.id] = true
    else
     -- MARK: ToDo make item class
@@ -1007,8 +1008,15 @@ function screens.gacha_anim:update()
   --mark obj for deletion
   self.prizes_to_delete[self.selection] = true
   if #self.draw_list == 1 then
-   --start blender animation
-   switch_screen()
+   local prize = self.draw_list[1]
+
+   if is_instance(prize, class__pet) then
+    --start blender animation
+    screens.adoption.pet = prize
+    switch_screen(screens.adoption)
+   else
+    switch_screen()
+   end
   end
  end
 
