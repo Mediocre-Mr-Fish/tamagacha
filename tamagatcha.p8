@@ -282,6 +282,7 @@ function classfactory__pet(static_vars, parent)
  return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
+-- MARK: pet
 class__pet = classfactory({
  name = "default",
  immortal = false,
@@ -353,7 +354,11 @@ function class__pet:is_dead()
  return not self.immortal and self.hunger == 0 and self.happiness == 0
 end
 
-pet_duck = classfactory__pet({ name = "arb duck", sprite = 6 })
+pet_duck = classfactory__pet({
+ name = "arb duck", sprite = 6, color_variants = {
+  { [3] = 4, [4] = 15 }
+ }
+})
 pet_cheeto = classfactory__pet({ name = "cheeto", immortal = true, sprite = 8 })
 pet_mimikyu = classfactory__pet({ name = "mimikyu", sprite = 10 })
 pet_not_mimikyu = classfactory__pet({ name = "not mimikyu", sprite = 12 })
@@ -395,8 +400,7 @@ end
 max_item_stack = 0xff
 
 pets = {
- pet_duck.new()
- --pet_squirrel.new():set_color()
+ pet_duck.new():set_color()
 }
 --1 based counting to access pet table
 current_pet = 1
@@ -980,7 +984,7 @@ end
 
 function pull_gacha()
  local rolled_pet = rnd(1) < 0.2
- return rolled_pet and rnd(all_pets).new() or rnd(all_items)
+ return rolled_pet and rnd(all_pets).new():set_color() or rnd(all_items)
 end
 
 function screens.gacha_anim:update()
@@ -1090,12 +1094,10 @@ function screens.gacha_anim:draw()
   print_centered("❎ trash  🅾️ exit", 64, 110, 7)
  end
 end
-
 function screens.gacha_anim.draw_item(item, x, y, size, open)
- local item_size = 1
  if is_instance(item, class__pet) and open then
-  item_size = 2
-  size /= 2
+  item:spr_scaled(x, y, size / 2)
+  return 
  end
 
  local sprite = 49
@@ -1108,7 +1110,7 @@ function screens.gacha_anim.draw_item(item, x, y, size, open)
   palt()
  end
 
- spr_scaled(sprite, x, y, size, item_size, item_size)
+ spr_scaled(sprite, x, y, size, 1, 1)
  pal()
 end
 
