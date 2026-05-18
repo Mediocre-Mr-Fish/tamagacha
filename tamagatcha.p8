@@ -974,31 +974,38 @@ end
 --------------------------------
 
 screens.gacha_anim = classfactory__gridmenu({
- x = 4, y = 33, dx = 26, dy = 46, w = 5, h = 2,
  pull_type = nil,
  prizes_to_delete = {},
- timeline = anim_timeline.new({ 3, 1 })
+ timeline = anim_timeline.new({ 3, 1 }),
+ monopull = false,
+ prizes = {}
 })
 function screens.gacha_anim:init()
  local _ENV = rescope(self, _ENV)
+ monopull = self.pull_type.rolls == 1
 
  timeline:start()
 
  prizes_to_delete = {}
- selectables = {}
-
- if self.pull_type.rolls == 1 then
-  x, y, w, h = 48, 48, 1, 1
- else
-  x, y, w, h = 4, 33, 5, 2
- end
- sel_glider:teleport(self:grid_vec(1))
-
+ prizes = {}
  for _ = 1, pull_type.rolls do
-  add(selectables, pull_gacha())
+  add(prizes, pull_gacha())
+ end
+
+ if monopull then
+  x, y, dx, dy, w, h = 32, 108, 32, 8, 2, 1
+  selectables = { "keep", "recycle" }
+  local prize = prizes[1]
+  if is_instance(prize, class__pet) and not settings.grim or prize.immortal then
+   selectables[2] = "release"
+  end
+ else
+  x, y, dx, dy, w, h = 4, 33, 26, 46, 5, 2
+  selectables = prizes
  end
 
  selection = 1
+ sel_glider:teleport(self:grid_vec())
 end
 
 function pull_gacha()
@@ -1059,30 +1066,38 @@ function under(length)
 end
 
 function screens.gacha_anim:draw()
- local draw_item = self.draw_item
+ local _ENV = rescope(self, _ENV)
 
  local step, t = self.timeline:get()
 
  local shake = 0
  if step == 1 then
   print_centered("🅾️ skip", 64, 110, 5)
-
   shake = sin(t)
  end
 
- for i, prize in pairs(self.selectables) do
-  local ix, iy = self:grid_vec(i):unpack()
-  shake *= -1
-  draw_item(
-   prize,
-   ix + shake, iy,
-   self.pull_type.rolls == 1 and 4 or 2, step > 1
-  )
+ if monopull then
+  draw_item(prizes[1], 48 + shake, 48, 4, step > 1)
+ else
+  for i, prize in pairs(selectables) do
+   local x, y = self:grid_vec(i):unpack()
+   shake *= -1
+   draw_item(prize, x + shake, y, 2, step > 1)
+  end
  end
 
  if step == 3 then
-  print_centered("❎ trash  🅾️ exit", 64, 110, 7)
-  rect_vec(self.sel_glider - vec2_1, vec2.new(18), 10, false, true)
+  if monopull then
+   for i, label in pairs(selectables) do
+    local x, y = self:grid_vec(i):unpack()
+    print_centered(label, x + dx / 2, y + 1, 7)
+   end
+   print_centered(prizes[1].name, 64, 20, 7)
+   rect_vec(sel_glider - vec2_1, vec2.new(dx, dy), 10, false, true)
+  else
+   print_centered("❎ trash  🅾️ exit", 64, 110, 7)
+   rect_vec(sel_glider - vec2_1, vec2.new(17), 10, false, true)
+  end
  end
 end
 function screens.gacha_anim.draw_item(item, x, y, size, open)
