@@ -60,6 +60,15 @@ end
 -->8
 -- MARK: helper functions
 
+function rescope(self, env)
+ return setmetatable(
+  {}, {
+   __index = function(_, k) return self[k] or env[k] end,
+   __newindex = self
+  }
+ )
+end
+
 function mod(a, b)
  return (a - 1) % b + 1
 end
@@ -208,9 +217,10 @@ anim_timeline = classfactory({})
 function anim_timeline.new(durations)
  return setmetatable({ durations = durations, step = 0 }, anim_timeline)
 end
-function anim_timeline:start()
+function anim_timeline:start(from)
  self.t0 = time()
- self.step = 1
+ self.step = from or 1
+ return self:get()
 end
 function anim_timeline:update()
  while true do
@@ -962,24 +972,33 @@ end
 --------------------------------
 --animation and selection
 --------------------------------
-screens.gacha_anim = {
+
+screens.gacha_anim = classfactory__gridmenu({
+ x = 4, y = 33, dx = 26, dy = 46, w = 5, h = 2,
  pull_type = nil,
- selection = 1,
  prizes_to_delete = {},
- draw_list = {}
-}
+ timeline = anim_timeline.new({ 3, 1 })
+})
 function screens.gacha_anim:init()
- if not self.pull_type then
-  return
+ local _ENV = rescope(self, _ENV)
+
+ timeline:start()
+
+ prizes_to_delete = {}
+ selectables = {}
+
+ if self.pull_type.rolls == 1 then
+  x, y, w, h = 48, 48, 1, 1
+ else
+  x, y, w, h = 4, 33, 5, 2
+ end
+ sel_glider:teleport(self:grid_vec(1))
+
+ for _ = 1, pull_type.rolls do
+  add(selectables, pull_gacha())
  end
 
- self.prizes_to_delete = {}
- self.draw_list = {}
- for _ = 1, self.pull_type.rolls do
-  add(self.draw_list, pull_gacha())
- end
-
- self.selection = 1
+ selection = 1
 end
 
 function pull_gacha()
@@ -988,29 +1007,39 @@ function pull_gacha()
 end
 
 function screens.gacha_anim:update()
- --skip animation button
- if btnp(🅾️) and under(6) then
-  t -= 3
- elseif btnp(🅾️) then
-  -- exit the screen
-  --add inventory/pets list
-  for i, prize in pairs(self.draw_list) do
-   if self.prizes_to_delete[i] then
-    food += 10
-   elseif is_instance(prize, class__pet) then
-    add(pets, prize)
-    discovered_pets[prize.id] = true
-   else
-    -- MARK: ToDo make item class
-    inventory[prize.id] += 1
-   end
-  end
-  switch_screen()
+ local step, t = self.timeline:update()
+
+ if btnp(🅾️) and step < 3 then
+  step, t = self.timeline:start(3)
  end
+
+ if step == 3 then
+  self:update_sel()
+  self:glide()
+ end
+ --skip animation button
+ -- if btnp(🅾️) and under(6) then
+ --  t -= 3
+ -- elseif btnp(🅾️) then
+ --  -- exit the screen
+ --  --add inventory/pets list
+ --  for i, prize in pairs(self.draw_list) do
+ --   if self.prizes_to_delete[i] then
+ --    food += 10
+ --   elseif is_instance(prize, class__pet) then
+ --    add(pets, prize)
+ --    discovered_pets[prize.id] = true
+ --   else
+ --    -- MARK: ToDo make item class
+ --    inventory[prize.id] += 1
+ --   end
+ --  end
+ --  switch_screen()
+ -- end
 
  if btnp(❎) then
   --mark obj for deletion
-  self.prizes_to_delete[self.selection] = true
+  self.prizes_to_delete[self.selection] = not self.prizes_to_delete[self.selection]
   if #self.draw_list == 1 then
    local prize = self.draw_list[1]
 
@@ -1023,10 +1052,6 @@ function screens.gacha_anim:update()
    end
   end
  end
-
- if #self.draw_list ~= 1 and not under(6) then
-  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
- end
 end
 
 function under(length)
@@ -1035,69 +1060,35 @@ end
 
 function screens.gacha_anim:draw()
  local draw_item = self.draw_item
- --skip button
- if under(6) then
-  print_centered("🅾️ skip", 64, 110, 5)
- end
- --1 pull
- if #self.draw_list == 1 then
-  local prize = self.draw_list[1]
-  if under(0.3) then
-   draw_item(prize, 48, 48, 4)
-  elseif under(0.6) then
-   draw_item(prize, 47, 48, 4)
-  elseif under(0.9) then
-   draw_item(prize, 48, 48, 4)
-  elseif under(1.2) then
-   draw_item(prize, 49, 48, 4)
-  elseif under(3) then
-   draw_item(prize, 48, 48, 4)
-  elseif under(6) then
-   draw_item(prize, 48, 48, 4, true)
-  else
-   draw_item(prize, 48, 48, 4, true)
-  end
- else
-  for i, prize in pairs(self.draw_list) do
-   local ix, iy = grid_coords(4, 33, 26, 46, i, 5)
-   local shake = prize.sprite % 2 * 2 - 1
 
-   if under(0.3) then
-    draw_item(prize, ix, iy, 2)
-   elseif under(0.6) then
-    draw_item(prize, ix + shake, iy, 2)
-   elseif under(0.9) then
-    draw_item(prize, ix, iy, 2)
-   elseif under(1.2) then
-    draw_item(prize, ix - shake, iy, 2)
-   elseif under(3) then
-    draw_item(prize, ix, iy, 2)
-   elseif under(6) then
-    draw_item(prize, ix, iy, 2, true)
-   else
-    draw_item(prize, ix, iy, 2, true)
-    --draw selector
-    if self.selection == i then
-     rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
-    end
-    if self.prizes_to_delete[i] then
-     line(ix - 1, iy - 1, ix + 16, iy + 16, 8)
-     line(ix - 1, iy + 16, ix + 16, iy - 1, 8)
-     --thicker lines
-     line(ix - 2, iy - 1, ix + 15, iy + 16, 8)
-     line(ix - 2, iy + 16, ix + 15, iy - 1, 8)
-    end
-   end
-  end
+ local step, t = self.timeline:get()
+
+ local shake = 0
+ if step == 1 then
+  print_centered("🅾️ skip", 64, 110, 5)
+
+  shake = sin(t)
  end
- if not under(6) then
+
+ for i, prize in pairs(self.selectables) do
+  local ix, iy = self:grid_vec(i):unpack()
+  shake *= -1
+  draw_item(
+   prize,
+   ix + shake, iy,
+   self.pull_type.rolls == 1 and 4 or 2, step > 1
+  )
+ end
+
+ if step == 3 then
   print_centered("❎ trash  🅾️ exit", 64, 110, 7)
+  rect_vec(self.sel_glider - vec2_1, vec2.new(18), 10, false, true)
  end
 end
 function screens.gacha_anim.draw_item(item, x, y, size, open)
  if is_instance(item, class__pet) and open then
   item:spr_scaled(x, y, size / 2)
-  return 
+  return
  end
 
  local sprite = 49
@@ -1236,7 +1227,7 @@ games.fishing = {
  }
 }
 function games.fishing:init()
- local _ENV = setmetatable(self, { __index = _ENV })
+ local _ENV = rescope(self, _ENV)
 
  fish_x = 50
  --ui ranges from 20 to 108
@@ -1251,7 +1242,7 @@ function games.fishing:init()
 end
 
 function games.fishing:update()
- local _ENV = setmetatable(self, { __index = _ENV })
+ local _ENV = rescope(self, _ENV)
 
  if fish_x > 130 then
   --leave loss
@@ -1297,7 +1288,7 @@ function games.fishing:update()
 end
 
 function games.fishing:draw()
- local _ENV = setmetatable(self, { __index = _ENV })
+ local _ENV = rescope(self, _ENV)
 
  if fish_x > 130 then
   --lose
