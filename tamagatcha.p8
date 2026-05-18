@@ -7,6 +7,7 @@ function _init()
  is_runtime = true
  tokens = 10
  food = 1
+ bones = 0
  --multiplier for too many pets
  --equation in get_penalty_mult
  swarm_penalty = 0.1
@@ -427,7 +428,7 @@ function load_data()
  local addr = 0x5e00
 
  -- user data
- settings.mute, settings.grim = decode_bitfield(peek(addr), 4)
+ settings.mute, settings.grim = unpack(decode_bitfield(peek(addr), 8))
  addr += 1
 
  -- discovered pets
@@ -912,7 +913,7 @@ function screens.adoption:draw_particles()
 end
 
 -->8
---MARK: gacha page and animation
+--MARK: gacha
 
 screens.gacha = classfactory__gridmenu({
  x = 3, y = 49, dx = 63, dy = 34, w = 2, h = 1,
@@ -969,34 +970,30 @@ function screens.gacha.draw_card(x, y, pull_type)
  print(pull_type.desc2)
 end
 
---------------------------------
---animation and selection
---------------------------------
+--MARK: gacha_anim
 
 screens.gacha_anim = classfactory__gridmenu({
  pull_type = nil,
  prizes_to_delete = {},
  timeline = anim_timeline.new({ 3, 1 }),
- monopull = false,
+ monopull = nil,
  prizes = {}
 })
 function screens.gacha_anim:init()
  local _ENV = rescope(self, _ENV)
- monopull = self.pull_type.rolls == 1
 
- timeline:start()
-
+ monopull = nil
  prizes_to_delete = {}
  prizes = {}
- for _ = 1, pull_type.rolls do
+ for _ = 1, self.pull_type.rolls do
   add(prizes, pull_gacha())
  end
 
+ if (pull_type.rolls == 1) monopull = prizes[1]
  if monopull then
   x, y, dx, dy, w, h = 32, 108, 32, 8, 2, 1
   selectables = { "keep", "recycle" }
-  local prize = prizes[1]
-  if is_instance(prize, class__pet) and not settings.grim or prize.immortal then
+  if is_instance(monopull, class__pet) and not settings.grim or monopull.immortal then
    selectables[2] = "release"
   end
  else
@@ -1006,6 +1003,8 @@ function screens.gacha_anim:init()
 
  selection = 1
  sel_glider:teleport(self:grid_vec())
+
+ timeline:start()
 end
 
 function pull_gacha()
@@ -1014,57 +1013,53 @@ function pull_gacha()
 end
 
 function screens.gacha_anim:update()
- local step, t = self.timeline:update()
+ local _ENV = rescope(self, _ENV)
+ local step, t = timeline:update()
 
  if btnp(🅾️) and step < 3 then
-  step, t = self.timeline:start(3)
- end
-
- if step == 3 then
+  step, t = timeline:start(3)
+ elseif step == 3 then
   self:update_sel()
   self:glide()
- end
- --skip animation button
- -- if btnp(🅾️) and under(6) then
- --  t -= 3
- -- elseif btnp(🅾️) then
- --  -- exit the screen
- --  --add inventory/pets list
- --  for i, prize in pairs(self.draw_list) do
- --   if self.prizes_to_delete[i] then
- --    food += 10
- --   elseif is_instance(prize, class__pet) then
- --    add(pets, prize)
- --    discovered_pets[prize.id] = true
- --   else
- --    -- MARK: ToDo make item class
- --    inventory[prize.id] += 1
- --   end
- --  end
- --  switch_screen()
- -- end
 
- if btnp(❎) then
-  --mark obj for deletion
-  self.prizes_to_delete[self.selection] = not self.prizes_to_delete[self.selection]
-  if #self.draw_list == 1 then
-   local prize = self.draw_list[1]
-
-   if is_instance(prize, class__pet) then
-    --start blender animation
-    screens.adoption.pet = prize
-    switch_screen(screens.adoption)
-   else
+  if monopull then
+   if btnp(🅾️) then
+    selection = 1
+   end
+   if btnp(❎) then
+    if selection == 1 then
+     keep_item(monopull)
+     switch_screen()
+     return
+    elseif selection == 2 then
+     if discard_item(monopull) then
+      --start blender animation
+      screens.adoption.pet = monopull
+      switch_screen(screens.adoption)
+     else
+      switch_screen()
+     end
+     return
+    end
+   end
+  else
+   if btnp(❎) then
+    prizes_to_delete[selection] = not prizes_to_delete[selection]
+   end
+   if btnp(🅾️) then
+    for i, prize in pairs(prizes) do
+     if prizes_to_delete[selection] then
+      discard_item(prize)
+     else
+      keep_item(prize)
+     end
+    end
     switch_screen()
+    return
    end
   end
  end
 end
-
-function under(length)
- return time() - t <= length
-end
-
 function screens.gacha_anim:draw()
  local _ENV = rescope(self, _ENV)
 
@@ -1077,12 +1072,25 @@ function screens.gacha_anim:draw()
  end
 
  if monopull then
-  draw_item(prizes[1], 48 + shake, 48, 4, step > 1)
+  draw_item(monopull, 48 + shake, 48, 4, step > 1)
  else
   for i, prize in pairs(selectables) do
    local x, y = self:grid_vec(i):unpack()
    shake *= -1
    draw_item(prize, x + shake, y, 2, step > 1)
+   
+   if i==selection then
+    print_centered(prize.name, 64, 102, 7)
+   end
+  
+   if prizes_to_delete[i] then
+    for j = 0, 3 do
+     cx = x + j % 2
+     cy = y + j \ 2
+     line(cx, cy, cx + 15, cy + 15, 8)
+     line(cx, cy + 15, cx + 15, cy, 8)
+    end
+   end
   end
  end
 
@@ -1092,10 +1100,10 @@ function screens.gacha_anim:draw()
     local x, y = self:grid_vec(i):unpack()
     print_centered(label, x + dx / 2, y + 1, 7)
    end
-   print_centered(prizes[1].name, 64, 20, 7)
+   print_centered(monopull.name, 64, 20, 7)
    rect_vec(sel_glider - vec2_1, vec2.new(dx, dy), 10, false, true)
   else
-   print_centered("❎ trash  🅾️ exit", 64, 110, 7)
+   print_centered("❎ discard  🅾️ exit", 64, 110, 7)
    rect_vec(sel_glider - vec2_1, vec2.new(17), 10, false, true)
   end
  end
@@ -1120,6 +1128,24 @@ function screens.gacha_anim.draw_item(item, x, y, size, open)
  end
 
  spr_scaled(sprite, x, y, size, 1, 1)
+end
+function screens.gacha_anim.keep_item(item)
+ if is_instance(item, class__pet) then
+  add(pets, item)
+  discovered_pets[item.id] = true
+ else
+  inventory[item.id] += 1
+ end
+end
+function screens.gacha_anim.discard_item(item)
+ if is_instance(item, class__pet) then
+  food += item.meat * 5
+  bones += item.bone
+  return true
+ else
+  inventory[item.id] += 1
+  return false
+ end
 end
 
 -->8
