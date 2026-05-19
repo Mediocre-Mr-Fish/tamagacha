@@ -96,7 +96,7 @@ function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
 end
 
 function accelerp(x0, v0, a, t)
- return x0 + x0 * t + a * t * t / 2
+ return x0 + v0 * t + a * t * t / 2
 end
 
 function rngf(lower, upper)
@@ -239,6 +239,7 @@ end
 
 vec2 = classfactory({})
 function vec2.new(x, y) return setmetatable({ x = x, y = y or x }, vec2) end
+function vec2.rng(x0, y0, x1, y1) return vec2.new(rngf(x0, x1 or x0), rngf(y0 or x0, y1 or y0 or x0)) end
 function vec2.setfrom(v, a) v.x, v.y = a.x, a.y return self end
 function vec2.unpack(v) return v.x, v.y end
 function vec2.length2(v) return v.x * v.x + v.y * v.y end
@@ -535,6 +536,7 @@ function classfactory__gridmenu(static_vars)
  return classfactory(static_vars, class__gridmenu)
 end
 
+-- MARK: home
 screens.home = classfactory__gridmenu({
  x = 4, y = 3, dx = 28, dy = 114, w = 5, h = 2,
  selectables = {
@@ -619,6 +621,7 @@ function screens.home:draw()
  rect_vec(self.sel_glider - vec2_1, vec2_9, 10, false, true)
 end
 
+-- MARK: game_select
 screens.game_select = classfactory__gridmenu({
  x = 8, y = 8, dx = 60, dy = 60, w = 2, h = 2,
  selectables = {
@@ -684,6 +687,7 @@ function screens.stats:draw()
  rectfill(20, 80, 20 + 5.87 * pet.happiness, 85, 11)
 end
 
+-- MARK: settings
 screens.settings = {
  selection = 1,
  options = {
@@ -740,6 +744,7 @@ function screens.settings.draw_checkbox(x, y, checked)
  end
 end
 
+-- MARK: snacks
 screens.snacks = classfactory__gridmenu({
  x = 8, y = 8, dx = 44, dy = 44, w = 3, h = 2,
  selectables = all_items
@@ -776,6 +781,7 @@ function screens.snacks:draw()
  print_centered("🅾️ exit    ❎ use", 64, 110, 7)
 end
 
+-- MARK: collection
 screens.collection = classfactory__gridmenu({
  x = 8, y = 8, dx = 32, dy = 32, w = 4, h = 4,
  selectables = all_pets
@@ -810,6 +816,7 @@ function screens.collection:draw()
  print_centered("🅾️ exit", 64, 110, 5)
 end
 
+-- MARK: adoption
 screens.adoption = {
  acc = vec2.new(0, 0.1),
  max_y = 64 + 12,
@@ -818,7 +825,7 @@ screens.adoption = {
  timeline = anim_timeline.new({ 1, 4, 3 })
 }
 function screens.adoption:init()
- self.pet = self.pet or pets[current_pet]
+ self.pet = self.pet or deli(pets, current_pet)
  self.timeline:start()
  self.frame = 1
  self.blood = {}
@@ -827,8 +834,8 @@ function screens.adoption:init()
  for _ = 1, 180 do
   add(
    self.gore_pool, {
-    pos = vec2.new(rngf(56, 72), 51),
-    vel = vec2.new(rngf(-0.5, 0.5), rngf(-1.75, -0.5))
+    pos = vec2.rng(56, 51, 72, 51),
+    vel = vec2.rng(-0.5, -1.75, 0.5, -0.5)
    }
   )
  end
@@ -867,7 +874,7 @@ function screens.adoption:draw()
  local step, t = self.timeline:get()
 
  if step == 1 then
-  local y = accelerp(24, 0, 10, t)
+  local y = accelerp(-16, 20, 100, t)
   clip(0, 0, 128, 52)
   self.pet:spr_scaled(56, y)
   clip()
@@ -1084,11 +1091,11 @@ function screens.gacha_anim:draw()
    local x, y = self:grid_vec(i):unpack()
    shake *= -1
    draw_item(prize, x + shake, y, 2, step > 1)
-   
-   if i==selection then
+
+   if i == selection then
     print_centered(prize.name, 64, 102, 7)
    end
-  
+
    if prizes_to_delete[i] then
     for j = 0, 3 do
      cx = x + j % 2
