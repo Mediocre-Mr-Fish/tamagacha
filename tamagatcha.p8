@@ -562,7 +562,7 @@ screens.home = classfactory__gridmenu({
   { name = "left", sprite = 18 },
   { name = "right", sprite = 19 },
   { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "surrender" }
+  { name = "adopt", sprite = 21, screen = "loose_pet" }
  }
 })
 function screens.home:update()
@@ -838,15 +838,16 @@ do
  end
  function scn:init()
   local pet = self.pet or deli(pets, current_pet)
-  local target = screens.abandon
-
-  if settings.grim and not pet.immortal then
-   target = screens.blender
-  end
-
-  target.pet = pet
+  local target = self.decide(pet)
+  if (target) target.pet = pet
   switch_screen(target)
   self.pet = nil
+ end
+ function scn.decide(pet)
+  if (pet.immortal) return screens.abandon
+  if (not settings.grim) return screens.abandon
+  if (pet.happiness == 0) return screens.talljump
+  return screens.abandon
  end
 
  -- MARK: abandon
