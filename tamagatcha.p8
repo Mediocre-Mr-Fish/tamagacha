@@ -255,6 +255,16 @@ vec2_1 = vec2.new(1)
 vec2_8 = vec2.new(8)
 vec2_9 = vec2.new(9)
 
+particle = classfactory({})
+function particle:new() return setmetatable({ pos = vec2.new(0), vel = vec2.new(0), acc = vec2.new(0) }, particle) end
+function particle:set_pos(vec) self.pos = vec * 1 return self end
+function particle:set_vel(vec) self.vel = vec * 1 return self end
+function particle:set_acc(vec) self.acc = vec * 1 return self end
+function particle:update()
+ self.pos += self.vel
+ self.vel += self.acc
+end
+
 glider = classfactory({}, vec2)
 function glider.new(rate, x, y)
  local self = setmetatable(vec2.new(x or 0, y), glider)
@@ -550,7 +560,7 @@ screens.home = classfactory__gridmenu({
   { name = "left", sprite = 18 },
   { name = "right", sprite = 19 },
   { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "adoption" }
+  { name = "adopt", sprite = 21, screen = "talljump" }
  }
 })
 function screens.home:update()
@@ -814,6 +824,98 @@ function screens.collection:draw()
  end
  rect_vec(self.sel_glider, vec2.new(16), 10, false, true)
  print_centered("🅾️ exit", 64, 110, 5)
+end
+
+-- MARK: talljump
+screens.talljump = {
+ acc = vec2.new(0, 0.1),
+ timeline = anim_timeline.new({ 1, 1.5, 2, 5 })
+}
+function screens.talljump:init()
+ self.pet = self.pet or deli(pets, current_pet)
+ self.timeline:start()
+ self.gore_pool = {}
+ self.splash = false
+end
+function screens.talljump:update()
+ local step, t = self.timeline:update()
+ if step == 4 then
+  if not self.splash and accelerp(-64, 256 * 4, 0, t) > 88 then
+   self.splash = true
+   for _ = 1, 500 do
+    local p = add(self.gore_pool, particle.new())
+    p:set_pos(vec2.rng(80, 96, 96, nil))
+    p:set_vel(vec2.rng(-1.5, -2, 1.5, -5))
+    p:set_acc(self.acc)
+   end
+  end
+  if self.splash then
+   for p in all(self.gore_pool) do
+    p:update()
+    if p.pos.y > 96 and rnd() < 0.75 then
+     -- p.pos.y = 96
+     p:set_vel(vec2_0)
+     p:set_acc(vec2_0)
+    end
+    if p.pos.x < 48 and rnd() < 0.25 then
+     p:set_vel(vec2_0)
+     p:set_acc(vec2_0)
+    end
+   end
+  end
+ elseif step == 5 then
+  if btnp(🅾️) then
+   self.pet = nil
+   switch_screen()
+   return
+  end
+ end
+end
+function screens.talljump:draw()
+ cls(12)
+ local _ENV = rescope(self, _ENV)
+ local step, t = self.timeline:get()
+
+ if step == 1 then
+  rectfill(0, 64, 64, 128, 5)
+  self.pet:spr_scaled(48, 50, 1, false, true, false)
+ elseif step == 2 then
+  rectfill(0, 64, 64, 128, 5)
+  self.pet:spr_scaled(
+   accelerp(48, 50, -25, t),
+   accelerp(50, -50, 200, t),
+   1, false, true, false
+  )
+ elseif step == 3 then
+  rectfill(0, 0, 64, 128, 5)
+  for i = -1, 5 do
+   local y = (t % 0.15) / 0.15 * -48 + i * 48
+   rectfill(16, y, 32, y + 24, 0)
+  end
+  self.pet:spr_scaled(
+   88,
+   accelerp(32, 32, 0, t),
+   1, false, true, false
+  )
+ elseif step >= 4 then
+  if step == 4 then
+   local y = accelerp(-64, 256 * 4, 0, t)
+   self.pet:spr_scaled(80, y, 1, false, true, false)
+  end
+
+  rectfill(0, 0, 48, 128, 5)
+  rectfill(0, 96, 128, 128, 0)
+  self:draw_particles()
+
+  if step == 5 then
+   print_centered("🅾️ exit", 64, 110, 5)
+  end
+ end
+end
+function screens.talljump:draw_particles()
+ for particle in all(self.gore_pool) do
+  pset(particle.pos.x, particle.pos.y, 8)
+ end
 end
 
 -- MARK: adoption
