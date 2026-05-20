@@ -562,7 +562,7 @@ screens.home = classfactory__gridmenu({
   { name = "left", sprite = 18 },
   { name = "right", sprite = 19 },
   { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "abandon" }
+  { name = "adopt", sprite = 21, screen = "surrender" }
  }
 })
 function screens.home:update()
@@ -828,14 +828,33 @@ function screens.collection:draw()
  print_centered("🅾️ exit", 64, 110, 5)
 end
 
--- MARK: abandon
+-- MARK: loose_pet
 do
+ local scn = {}
+ screens.loose_pet = scn
+ function scn:with(pet)
+  self.pet = pet
+  return self
+ end
+ function scn:init()
+  local pet = self.pet or deli(pets, current_pet)
+  local target = screens.abandon
+
+  if settings.grim and not pet.immortal then
+   target = screens.blender
+  end
+
+  target.pet = pet
+  switch_screen(target)
+  self.pet = nil
+ end
+
+ -- MARK: abandon
  local scn = {
   timeline = anim_timeline.new({})
  }
  screens.abandon = scn
  function scn:init()
-  self.pet = self.pet or deli(pets, current_pet)
   self.timeline:start()
  end
  function scn:update()
@@ -861,16 +880,14 @@ do
    print_centered("🅾️ exit", 64, 110, 5)
   end
  end
-end
--- MARK: talljump
-do
+
+ -- MARK: talljump
  local scn = {
   acc = vec2.new(0, 0.1),
   timeline = anim_timeline.new({ 1, 1.5, 2, 5 })
  }
  screens.talljump = scn
  function scn:init()
-  self.pet = self.pet or deli(pets, current_pet)
   self.timeline:start()
   self.gore_pool = {}
   self.splash = false
@@ -955,9 +972,8 @@ do
    pset(particle.pos.x, particle.pos.y, 8)
   end
  end
-end
--- MARK: blender
-do
+
+ -- MARK: blender
  local scn = {
   acc = vec2.new(0, 0.1),
   floor = 64 + 12,
@@ -965,7 +981,6 @@ do
  }
  screens.blender = scn
  function scn:init()
-  self.pet = self.pet or deli(pets, current_pet)
   self.timeline:start()
   self.frame = 1
   self.gore_pool = {}
@@ -1180,9 +1195,7 @@ function screens.gacha_anim:update()
      return
     elseif selection == 2 then
      if discard_item(monopull) then
-      --start blender animation
-      screens.blender.pet = monopull
-      switch_screen(screens.blender)
+      switch_screen(screens.surrender:with(monopull))
      else
       switch_screen()
      end
