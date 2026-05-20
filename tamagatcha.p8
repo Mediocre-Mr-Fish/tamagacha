@@ -260,7 +260,9 @@ function particle:new() return setmetatable({ pos = vec2.new(0), vel = vec2.new(
 function particle:set_pos(vec) self.pos = vec * 1 return self end
 function particle:set_vel(vec) self.vel = vec * 1 return self end
 function particle:set_acc(vec) self.acc = vec * 1 return self end
+function particle:stop(stop) self.stopped = stop ~= false end
 function particle:update()
+ if (self.stopped) return
  self.pos += self.vel
  self.vel += self.acc
 end
@@ -560,7 +562,7 @@ screens.home = classfactory__gridmenu({
   { name = "left", sprite = 18 },
   { name = "right", sprite = 19 },
   { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "talljump" }
+  { name = "adopt", sprite = 21, screen = "blender" }
  }
 })
 function screens.home:update()
@@ -918,49 +920,33 @@ function screens.talljump:draw_particles()
  end
 end
 
--- MARK: adoption
-screens.adoption = {
+-- MARK: blender
+screens.blender = {
  acc = vec2.new(0, 0.1),
- max_y = 64 + 12,
- blood = {},
- gore_pool = {},
+ floor = 64 + 12,
  timeline = anim_timeline.new({ 1, 4, 3 })
 }
-function screens.adoption:init()
+function screens.blender:init()
  self.pet = self.pet or deli(pets, current_pet)
  self.timeline:start()
  self.frame = 1
- self.blood = {}
  self.gore_pool = {}
-
- for _ = 1, 180 do
-  add(
-   self.gore_pool, {
-    pos = vec2.rng(56, 51, 72, 51),
-    vel = vec2.rng(-0.5, -1.75, 0.5, -0.5)
-   }
-  )
- end
-
- local meat = self.pet.meat
- for i = 1, meat + self.pet.bone do
-  local ptcl = self.gore_pool[i] or {}
-  ptcl.sprite = i <= meat and 36 or 66
-  ptcl.flip = rnd() < 0.5
- end
+ self.splash = false
 end
-function screens.adoption:update()
+function screens.blender:update()
  local step, t = self.timeline:update()
 
  if step == 1 then
   -- do nothing
  elseif step == 2 then
-  -- add(self.blood, del(self.gore_pool, rnd(self.gore_pool)))
-  add(self.blood, deli(self.gore_pool))
+  self:add_particles(2, nil)
   self:update_particles()
  elseif step == 3 then
-  while #self.gore_pool > 0 do
-   add(self.blood, deli(self.gore_pool))
+  if not self.splash then
+   self.splash = true
+   self:add_particles(80, nil)
+   self:add_particles(self.pet.meat, 36)
+   self:add_particles(self.pet.bone, 66)
   end
   self:update_particles()
  else
@@ -970,7 +956,7 @@ function screens.adoption:update()
   end
  end
 end
-function screens.adoption:draw()
+function screens.blender:draw()
  -- print("killing menu in the works", 10, 40, 7)
  self.frame += 1
  local step, t = self.timeline:get()
@@ -992,7 +978,7 @@ function screens.adoption:draw()
   self:draw_particles()
  end
 end
-function screens.adoption:draw_blender(x, y, stage)
+function screens.blender:draw_blender(x, y, stage)
  pal()
  if stage > 2 then
   pal(6, 8)
@@ -1003,26 +989,34 @@ function screens.adoption:draw_blender(x, y, stage)
  palt(0x0010)
  spr_scaled(64, x, y, 1, 2, 3)
 end
-function screens.adoption:update_particles()
- foreach(
-  self.blood, function(particle)
-   if (particle.stopped) return
-   particle.pos += particle.vel
-   particle.vel += self.acc
-   if particle.pos.y > self.max_y then
-    particle.pos.y = self.max_y
-    particle.stopped = true
-   end
+function screens.blender:add_particles(num, sprite)
+ for _ = 1, num do
+  local p = add(self.gore_pool, particle.new())
+  p:set_pos(vec2.rng(56, 51, 72, nil))
+  p:set_vel(vec2.rng(-0.5, -1.75, 0.5, -0.5))
+  p:set_acc(self.acc)
+  if sprite then
+   p.sprite = sprite
+   p.flip = rnd() < 0.5
   end
- )
+ end
 end
-function screens.adoption:draw_particles()
+function screens.blender:update_particles()
+ for p in all(self.gore_pool) do
+  p:update()
+  if p.pos.y > self.floor then
+   p.pos.y = self.floor
+   p:stop()
+  end
+ end
+end
+function screens.blender:draw_particles()
  pal()
- for particle in all(self.blood) do
-  if particle.sprite then
-   spr(particle.sprite, particle.pos.x - 4, particle.pos.y - 7, 1, 1, particle.flip)
+ for p in all(self.gore_pool) do
+  if p.sprite then
+   spr(p.sprite, p.pos.x - 4, p.pos.y - 7, 1, 1, p.flip)
   else
-   pset(particle.pos.x, particle.pos.y, 8)
+   pset(p.pos.x, p.pos.y, 8)
   end
  end
 end
@@ -1149,8 +1143,8 @@ function screens.gacha_anim:update()
     elseif selection == 2 then
      if discard_item(monopull) then
       --start blender animation
-      screens.adoption.pet = monopull
-      switch_screen(screens.adoption)
+      screens.blender.pet = monopull
+      switch_screen(screens.blender)
      else
       switch_screen()
      end
