@@ -845,9 +845,15 @@ end
 function screens.abandon:draw()
  local step, t = self.timeline:get()
  local x = accelerp(24, 50, 0, t)
+ pal()
  clip(0, 0, x + 8, 128)
- print(self.pet.name .. " has left you", 30, 60, 6)
+ print_centered(self.pet.name .. " has left you", 64, 60, 6)
  clip()
+ circfill(x + 2, 52, 4, 8)
+ for i = 0, 2 do
+  line(x + 2, 48 + i, x + 22, 68 + i, 4)
+ end
+
  self.pet:spr_scaled(x, 44, 2, false, true, false)
  if t > 4 then
   print_centered("🅾️ exit", 64, 110, 5)
