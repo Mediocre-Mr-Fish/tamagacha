@@ -562,7 +562,7 @@ screens.home = classfactory__gridmenu({
   { name = "left", sprite = 18 },
   { name = "right", sprite = 19 },
   { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "blender" }
+  { name = "adopt", sprite = 21, screen = "abandon" }
  }
 })
 function screens.home:update()
@@ -828,6 +828,32 @@ function screens.collection:draw()
  print_centered("🅾️ exit", 64, 110, 5)
 end
 
+-- MARK: abandon
+screens.abandon = {
+ timeline = anim_timeline.new({})
+}
+function screens.abandon:init()
+ self.pet = self.pet or deli(pets, current_pet)
+ self.timeline:start()
+end
+function screens.abandon:update()
+ local step, t = self.timeline:update()
+ if t > 4 and btnp(🅾️) then
+  switch_screen()
+ end
+end
+function screens.abandon:draw()
+ local step, t = self.timeline:get()
+ local x = accelerp(24, 50, 0, t)
+ clip(0, 0, x + 8, 128)
+ print(self.pet.name .. " has left you", 30, 60, 6)
+ clip()
+ self.pet:spr_scaled(x, 44, 2, false, true, false)
+ if t > 4 then
+  print_centered("🅾️ exit", 64, 110, 5)
+ end
+end
+
 -- MARK: talljump
 screens.talljump = {
  acc = vec2.new(0, 0.1),
@@ -876,14 +902,14 @@ end
 function screens.talljump:draw()
  cls(12)
  local _ENV = rescope(self, _ENV)
- local step, t = self.timeline:get()
+ local step, t = timeline:get()
 
  if step == 1 then
   rectfill(0, 64, 64, 128, 5)
   self.pet:spr_scaled(48, 50, 1, false, true, false)
  elseif step == 2 then
   rectfill(0, 64, 64, 128, 5)
-  self.pet:spr_scaled(
+  pet:spr_scaled(
    accelerp(48, 50, -25, t),
    accelerp(50, -50, 200, t),
    1, false, true, false
@@ -894,7 +920,7 @@ function screens.talljump:draw()
    local y = (t % 0.15) / 0.15 * -48 + i * 48
    rectfill(16, y, 32, y + 24, 0)
   end
-  self.pet:spr_scaled(
+  pet:spr_scaled(
    88,
    accelerp(32, 32, 0, t),
    1, false, true, false
@@ -902,7 +928,7 @@ function screens.talljump:draw()
  elseif step >= 4 then
   if step == 4 then
    local y = accelerp(-64, 256 * 4, 0, t)
-   self.pet:spr_scaled(80, y, 1, false, true, false)
+   pet:spr_scaled(80, y, 1, false, true, false)
   end
 
   rectfill(0, 0, 48, 128, 5)
