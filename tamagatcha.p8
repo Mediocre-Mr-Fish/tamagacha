@@ -829,230 +829,236 @@ function screens.collection:draw()
 end
 
 -- MARK: abandon
-screens.abandon = {
- timeline = anim_timeline.new({})
-}
-function screens.abandon:init()
- self.pet = self.pet or deli(pets, current_pet)
- self.timeline:start()
-end
-function screens.abandon:update()
- local step, t = self.timeline:update()
- if t > 4 and btnp(🅾️) then
-  switch_screen()
+do
+ local scn = {
+  timeline = anim_timeline.new({})
+ }
+ screens.abandon = scn
+ function scn:init()
+  self.pet = self.pet or deli(pets, current_pet)
+  self.timeline:start()
  end
-end
-function screens.abandon:draw()
- local step, t = self.timeline:get()
- local x = accelerp(24, 50, 0, t)
- pal()
- clip(0, 0, x + 8, 128)
- print_centered(self.pet.name .. " has left you", 64, 60, 6)
- clip()
- circfill(x + 2, 52, 4, 8)
- for i = 0, 2 do
-  line(x + 2, 48 + i, x + 22, 68 + i, 4)
- end
-
- self.pet:spr_scaled(x, 44, 2, false, true, false)
- if t > 4 then
-  print_centered("🅾️ exit", 64, 110, 5)
- end
-end
-
--- MARK: talljump
-screens.talljump = {
- acc = vec2.new(0, 0.1),
- timeline = anim_timeline.new({ 1, 1.5, 2, 5 })
-}
-function screens.talljump:init()
- self.pet = self.pet or deli(pets, current_pet)
- self.timeline:start()
- self.gore_pool = {}
- self.splash = false
-end
-function screens.talljump:update()
- local step, t = self.timeline:update()
- if step == 4 then
-  if not self.splash and accelerp(-64, 256 * 4, 0, t) > 88 then
-   self.splash = true
-   for _ = 1, 500 do
-    local p = add(self.gore_pool, particle.new())
-    p:set_pos(vec2.rng(80, 96, 96, nil))
-    p:set_vel(vec2.rng(-1.5, -2, 1.5, -5))
-    p:set_acc(self.acc)
-   end
-  end
-  if self.splash then
-   for p in all(self.gore_pool) do
-    p:update()
-    if p.pos.y > 96 and rnd() < 0.75 then
-     -- p.pos.y = 96
-     p:set_vel(vec2_0)
-     p:set_acc(vec2_0)
-    end
-    if p.pos.x < 48 and rnd() < 0.25 then
-     p:set_vel(vec2_0)
-     p:set_acc(vec2_0)
-    end
-   end
-  end
- elseif step == 5 then
-  if btnp(🅾️) then
-   self.pet = nil
-   switch_screen()
-   return
-  end
- end
-end
-function screens.talljump:draw()
- cls(12)
- local _ENV = rescope(self, _ENV)
- local step, t = timeline:get()
-
- if step == 1 then
-  rectfill(0, 64, 64, 128, 5)
-  self.pet:spr_scaled(48, 50, 1, false, true, false)
- elseif step == 2 then
-  rectfill(0, 64, 64, 128, 5)
-  pet:spr_scaled(
-   accelerp(48, 50, -25, t),
-   accelerp(50, -50, 200, t),
-   1, false, true, false
-  )
- elseif step == 3 then
-  rectfill(0, 0, 64, 128, 5)
-  for i = -1, 5 do
-   local y = (t % 0.15) / 0.15 * -48 + i * 48
-   rectfill(16, y, 32, y + 24, 0)
-  end
-  pet:spr_scaled(
-   88,
-   accelerp(32, 32, 0, t),
-   1, false, true, false
-  )
- elseif step >= 4 then
-  if step == 4 then
-   local y = accelerp(-64, 256 * 4, 0, t)
-   pet:spr_scaled(80, y, 1, false, true, false)
-  end
-
-  rectfill(0, 0, 48, 128, 5)
-  rectfill(0, 96, 128, 128, 0)
-  self:draw_particles()
-
-  if step == 5 then
-   print_centered("🅾️ exit", 64, 110, 5)
-  end
- end
-end
-function screens.talljump:draw_particles()
- for particle in all(self.gore_pool) do
-  pset(particle.pos.x, particle.pos.y, 8)
- end
-end
-
--- MARK: blender
-screens.blender = {
- acc = vec2.new(0, 0.1),
- floor = 64 + 12,
- timeline = anim_timeline.new({ 1, 4, 3 })
-}
-function screens.blender:init()
- self.pet = self.pet or deli(pets, current_pet)
- self.timeline:start()
- self.frame = 1
- self.gore_pool = {}
- self.splash = false
-end
-function screens.blender:update()
- local step, t = self.timeline:update()
-
- if step == 1 then
-  -- do nothing
- elseif step == 2 then
-  self:add_particles(2, nil)
-  self:update_particles()
- elseif step == 3 then
-  if not self.splash then
-   self.splash = true
-   self:add_particles(80, nil)
-   self:add_particles(self.pet.meat, 36)
-   self:add_particles(self.pet.bone, 66)
-  end
-  self:update_particles()
- else
-  if btnp(🅾️) then
-   self.pet = nil
+ function scn:update()
+  local step, t = self.timeline:update()
+  if t > 4 and btnp(🅾️) then
    switch_screen()
   end
  end
-end
-function screens.blender:draw()
- -- print("killing menu in the works", 10, 40, 7)
- self.frame += 1
- local step, t = self.timeline:get()
-
- if step == 1 then
-  local y = accelerp(-16, 20, 100, t)
-  clip(0, 0, 128, 52)
-  self.pet:spr_scaled(56, y)
+ function scn:draw()
+  local step, t = self.timeline:get()
+  local x = accelerp(24, 50, 0, t)
+  pal()
+  clip(0, 0, x + 8, 128)
+  print_centered(self.pet.name .. " has left you", 64, 60, 6)
   clip()
-  self:draw_blender(56, 52, 0)
- elseif step == 2 then
-  self:draw_blender(55 + self.frame % 2, 52, t)
-  self:draw_particles()
- else
-  if step > 3 then
+  circfill(x + 2, 52, 4, 8)
+  for i = 0, 2 do
+   line(x + 2, 48 + i, x + 22, 68 + i, 4)
+  end
+
+  self.pet:spr_scaled(x, 44, 2, false, true, false)
+  if t > 4 then
    print_centered("🅾️ exit", 64, 110, 5)
   end
-  self:draw_blender(56, 52, 3)
-  self:draw_particles()
  end
 end
-function screens.blender:draw_blender(x, y, stage)
- pal()
- if stage > 2 then
-  pal(6, 8)
- elseif stage > 0.5 then
-  pal(6, 14)
+-- MARK: talljump
+do
+ local scn = {
+  acc = vec2.new(0, 0.1),
+  timeline = anim_timeline.new({ 1, 1.5, 2, 5 })
+ }
+ screens.talljump = scn
+ function scn:init()
+  self.pet = self.pet or deli(pets, current_pet)
+  self.timeline:start()
+  self.gore_pool = {}
+  self.splash = false
  end
+ function scn:update()
+  local step, t = self.timeline:update()
+  if step == 4 then
+   if not self.splash and accelerp(-64, 256 * 4, 0, t) > 88 then
+    self.splash = true
+    for _ = 1, 500 do
+     local p = add(self.gore_pool, particle.new())
+     p:set_pos(vec2.rng(80, 96, 96, nil))
+     p:set_vel(vec2.rng(-1.5, -2, 1.5, -5))
+     p:set_acc(self.acc)
+    end
+   end
+   if self.splash then
+    for p in all(self.gore_pool) do
+     p:update()
+     if p.pos.y > 96 and rnd() < 0.75 then
+      -- p.pos.y = 96
+      p:set_vel(vec2_0)
+      p:set_acc(vec2_0)
+     end
+     if p.pos.x < 48 and rnd() < 0.25 then
+      p:set_vel(vec2_0)
+      p:set_acc(vec2_0)
+     end
+    end
+   end
+  elseif step == 5 then
+   if btnp(🅾️) then
+    self.pet = nil
+    switch_screen()
+    return
+   end
+  end
+ end
+ function scn:draw()
+  cls(12)
+  local _ENV = rescope(self, _ENV)
+  local step, t = timeline:get()
 
- palt(0x0010)
- spr_scaled(64, x, y, 1, 2, 3)
-end
-function screens.blender:add_particles(num, sprite)
- for _ = 1, num do
-  local p = add(self.gore_pool, particle.new())
-  p:set_pos(vec2.rng(56, 51, 72, nil))
-  p:set_vel(vec2.rng(-0.5, -1.75, 0.5, -0.5))
-  p:set_acc(self.acc)
-  if sprite then
-   p.sprite = sprite
-   p.flip = rnd() < 0.5
+  if step == 1 then
+   rectfill(0, 64, 64, 128, 5)
+   self.pet:spr_scaled(48, 50, 1, false, true, false)
+  elseif step == 2 then
+   rectfill(0, 64, 64, 128, 5)
+   pet:spr_scaled(
+    accelerp(48, 50, -25, t),
+    accelerp(50, -50, 200, t),
+    1, false, true, false
+   )
+  elseif step == 3 then
+   rectfill(0, 0, 64, 128, 5)
+   for i = -1, 5 do
+    local y = (t % 0.15) / 0.15 * -48 + i * 48
+    rectfill(16, y, 32, y + 24, 0)
+   end
+   pet:spr_scaled(
+    88,
+    accelerp(32, 32, 0, t),
+    1, false, true, false
+   )
+  elseif step >= 4 then
+   if step == 4 then
+    local y = accelerp(-64, 256 * 4, 0, t)
+    pet:spr_scaled(80, y, 1, false, true, false)
+   end
+
+   rectfill(0, 0, 48, 128, 5)
+   rectfill(0, 96, 128, 128, 0)
+   self:draw_particles()
+
+   if step == 5 then
+    print_centered("🅾️ exit", 64, 110, 5)
+   end
+  end
+ end
+ function scn:draw_particles()
+  for particle in all(self.gore_pool) do
+   pset(particle.pos.x, particle.pos.y, 8)
   end
  end
 end
-function screens.blender:update_particles()
- for p in all(self.gore_pool) do
-  p:update()
-  if p.pos.y > self.floor then
-   p.pos.y = self.floor
-   p:stop()
-  end
+-- MARK: blender
+do
+ local scn = {
+  acc = vec2.new(0, 0.1),
+  floor = 64 + 12,
+  timeline = anim_timeline.new({ 1, 4, 3 })
+ }
+ screens.blender = scn
+ function scn:init()
+  self.pet = self.pet or deli(pets, current_pet)
+  self.timeline:start()
+  self.frame = 1
+  self.gore_pool = {}
+  self.splash = false
  end
-end
-function screens.blender:draw_particles()
- pal()
- for p in all(self.gore_pool) do
-  if p.sprite then
-   spr(p.sprite, p.pos.x - 4, p.pos.y - 7, 1, 1, p.flip)
+ function scn:update()
+  local step, t = self.timeline:update()
+
+  if step == 1 then
+   -- do nothing
+  elseif step == 2 then
+   self:add_particles(2, nil)
+   self:update_particles()
+  elseif step == 3 then
+   if not self.splash then
+    self.splash = true
+    self:add_particles(80, nil)
+    self:add_particles(self.pet.meat, 36)
+    self:add_particles(self.pet.bone, 66)
+   end
+   self:update_particles()
   else
-   pset(p.pos.x, p.pos.y, 8)
+   if btnp(🅾️) then
+    self.pet = nil
+    switch_screen()
+   end
+  end
+ end
+ function scn:draw()
+  -- print("killing menu in the works", 10, 40, 7)
+  self.frame += 1
+  local step, t = self.timeline:get()
+
+  if step == 1 then
+   local y = accelerp(-16, 20, 100, t)
+   clip(0, 0, 128, 52)
+   self.pet:spr_scaled(56, y)
+   clip()
+   self:draw_blender(56, 52, 0)
+  elseif step == 2 then
+   self:draw_blender(55 + self.frame % 2, 52, t)
+   self:draw_particles()
+  else
+   if step > 3 then
+    print_centered("🅾️ exit", 64, 110, 5)
+   end
+   self:draw_blender(56, 52, 3)
+   self:draw_particles()
+  end
+ end
+ function scn:draw_blender(x, y, stage)
+  pal()
+  if stage > 2 then
+   pal(6, 8)
+  elseif stage > 0.5 then
+   pal(6, 14)
+  end
+
+  palt(0x0010)
+  spr_scaled(64, x, y, 1, 2, 3)
+ end
+ function scn:add_particles(num, sprite)
+  for _ = 1, num do
+   local p = add(self.gore_pool, particle.new())
+   p:set_pos(vec2.rng(56, 51, 72, nil))
+   p:set_vel(vec2.rng(-0.5, -1.75, 0.5, -0.5))
+   p:set_acc(self.acc)
+   if sprite then
+    p.sprite = sprite
+    p.flip = rnd() < 0.5
+   end
+  end
+ end
+ function scn:update_particles()
+  for p in all(self.gore_pool) do
+   p:update()
+   if p.pos.y > self.floor then
+    p.pos.y = self.floor
+    p:stop()
+   end
+  end
+ end
+ function scn:draw_particles()
+  pal()
+  for p in all(self.gore_pool) do
+   if p.sprite then
+    spr(p.sprite, p.pos.x - 4, p.pos.y - 7, 1, 1, p.flip)
+   else
+    pset(p.pos.x, p.pos.y, 8)
+   end
   end
  end
 end
-
 -->8
 --MARK: gacha
 
