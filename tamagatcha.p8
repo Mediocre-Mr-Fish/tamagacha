@@ -1021,8 +1021,8 @@ do
   if step == 1 then
    -- do nothing
   elseif step == 2 then
-   self:add_particles(2, nil)
    self:update_particles()
+   self:add_particles(2, nil)
   elseif step == 3 then
    if not self.splash then
     self.splash = true
@@ -1075,7 +1075,7 @@ do
   for _ = 1, num do
    local p = add(self.gore_pool, particle.new())
    p:set_pos(vec2.rng(56, 51, 72, nil))
-   p:set_vel(vec2.rng(-0.5, -1.75, 0.5, -0.5))
+   p:set_vel(vec2.rng(-0.75, -1.75, 0.75, -0.5))
    p:set_acc(self.acc)
    if sprite then
     p.sprite = sprite
