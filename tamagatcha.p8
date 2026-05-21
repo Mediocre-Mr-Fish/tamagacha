@@ -243,6 +243,7 @@ function vec2.rng(x0, y0, x1, y1) return vec2.new(rngf(x0, x1 or x0), rngf(y0 or
 function vec2.setfrom(v, a) v.x, v.y = a.x, a.y return self end
 function vec2.unpack(v) return v.x, v.y end
 function vec2.length2(v) return v.x * v.x + v.y * v.y end
+function vec2.to_cartesian(v) return vec2.new(v.x * cos(v.y), v.x * sin(v.y)) end
 function vec2.__add(a, b) return vec2.new(a.x + b.x, a.y + b.y) end
 function vec2.__sub(a, b) return vec2.new(a.x - b.x, a.y - b.y) end
 function vec2.__mul(a, b) if type(a) == "number" then a, b = b, a end return vec2.new(a.x * b, a.y * b) end
@@ -885,45 +886,58 @@ do
  -- MARK: talljump
  local scn = {
   acc = vec2.new(0, 0.1),
-  timeline = anim_timeline.new({ 1, 1.5, 2, 5 })
+  timeline = anim_timeline.new({ 1, 1.5, 2, 60, 6, 1 })
  }
  screens.talljump = scn
  function scn:init()
   self.timeline:start()
   self.gore_pool = {}
   self.splash = false
+  self.y4 = 0
  end
  function scn:update()
   local step, t = self.timeline:update()
+
+  if #self.gore_pool < 2100 then
+   for i = 1, 100 do
+    local p = add(self.gore_pool, particle.new())
+    p:set_pos(vec2.rng(80, 96, 96, nil))
+    local vel = vec2.rng(1, 0, 7, 1):to_cartesian()
+    if i < 25 then
+     vel.y = -abs(vel.y)
+     vel.x *= 0.4
+    end
+    vel.y *= abs(vel.y) * 0.5
+
+    p:set_vel(vel)
+    p:set_acc(self.acc)
+   end
+  end
+
   if step == 4 then
-   if not self.splash and accelerp(-64, 256 * 4, 0, t) > 88 then
-    self.splash = true
-    for _ = 1, 500 do
-     local p = add(self.gore_pool, particle.new())
-     p:set_pos(vec2.rng(80, 96, 96, nil))
-     p:set_vel(vec2.rng(-1.5, -2, 1.5, -5))
-     p:set_acc(self.acc)
-    end
+   if self.y4 > 88 then
+    self.timeline:start(5)
    end
-   if self.splash then
-    for p in all(self.gore_pool) do
-     p:update()
-     if p.pos.y > 96 and rnd() < 0.75 then
-      -- p.pos.y = 96
-      p:set_vel(vec2_0)
-      p:set_acc(vec2_0)
-     end
-     if p.pos.x < 48 and rnd() < 0.25 then
-      p:set_vel(vec2_0)
-      p:set_acc(vec2_0)
-     end
+  elseif step >= 5 then
+   for p in all(self.gore_pool) do
+    if p.pos.y < -32 then
+     p.vel.x *= 0.1
+     p.vel.y = min(p.vel.y, 10)
     end
+    if p.pos.y > 96 and rnd() < 0.75 then
+     p:stop()
+    end
+    if p.pos.x < 49 and rnd() < 0.5 then
+     p:stop()
+    end
+    p:update()
    end
-  elseif step == 5 then
-   if btnp(🅾️) then
-    self.pet = nil
-    switch_screen()
-    return
+   if step == 7 then
+    if btnp(🅾️) then
+     self.pet = nil
+     switch_screen()
+     return
+    end
    end
   end
  end
@@ -935,6 +949,7 @@ do
   if step == 1 then
    rectfill(0, 64, 64, 128, 5)
    self.pet:spr_scaled(48, 50, 1, false, true, false)
+   rectfill(0, 62, 66, 70, 6)
   elseif step == 2 then
    rectfill(0, 64, 64, 128, 5)
    pet:spr_scaled(
@@ -942,11 +957,14 @@ do
     accelerp(50, -50, 200, t),
     1, false, true, false
    )
+   rectfill(0, 62, 66, 70, 6)
   elseif step == 3 then
    rectfill(0, 0, 64, 128, 5)
    for i = -1, 5 do
-    local y = (t % 0.15) / 0.15 * -48 + i * 48
-    rectfill(16, y, 32, y + 24, 0)
+    for x = 8, 48, 32 do
+     local y = (t % 0.15) / 0.15 * -48 + i * 48
+     rectfill(x, y, x + 16, y + 24, 0)
+    end
    end
    pet:spr_scaled(
     88,
@@ -955,15 +973,25 @@ do
    )
   elseif step >= 4 then
    if step == 4 then
-    local y = accelerp(-64, 256 * 4, 0, t)
-    pet:spr_scaled(80, y, 1, false, true, false)
+    y4 = accelerp(-128, 256 * 4, 0, t)
+    pet:spr_scaled(80, y4, 1, false, true, false)
    end
 
-   rectfill(0, 0, 48, 128, 5)
-   rectfill(0, 96, 128, 128, 0)
+   -- grass
+   rectfill(0, 90, 127, 127, 3)
+   -- building
+   rectfill(0, 0, 48, 127, 5)
+   for y = 80, 0, -48 do
+    rectfill(1, y, 17, y - 24, 0)
+   end
+   -- road
+   rectfill(0, 96, 127, 127, 0)
    self:draw_particles()
 
-   if step == 5 then
+   if step >= 6 then
+    print_centered(pet.name .. " was sad.", 90, 48, 7)
+   end
+   if step == 7 then
     print_centered("🅾️ exit", 64, 110, 5)
    end
   end
