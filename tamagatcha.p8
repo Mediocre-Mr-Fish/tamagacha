@@ -1006,32 +1006,30 @@ do
  local scn = {
   acc = vec2.new(0, 0.1),
   floor = 64 + 12,
-  timeline = anim_timeline.new({ 1, 4, 3 })
+  timeline = anim_timeline.new({ 1, 0.5, 1.5, 1.5, 3 }),
+  frame = 1
  }
  screens.blender = scn
  function scn:init()
   self.timeline:start()
-  self.frame = 1
   self.gore_pool = {}
   self.splash = false
  end
  function scn:update()
   local step, t = self.timeline:update()
 
-  if step == 1 then
-   -- do nothing
-  elseif step == 2 then
+  if step >= 2 and step < 5 then
    self:update_particles()
-   self:add_particles(2, nil)
-  elseif step == 3 then
+   self:add_particles(2)
+  elseif step == 5 then
    if not self.splash then
     self.splash = true
-    self:add_particles(80, nil)
+    self:add_particles(80)
     self:add_particles(self.pet.meat, 36)
     self:add_particles(self.pet.bone, 66)
    end
    self:update_particles()
-  else
+  elseif step == 6 then
    if btnp(🅾️) then
     self.pet = nil
     switch_screen()
@@ -1039,32 +1037,26 @@ do
   end
  end
  function scn:draw()
-  -- print("killing menu in the works", 10, 40, 7)
-  self.frame += 1
-  local step, t = self.timeline:get()
+  local _ENV = rescope(self, _ENV)
+  local step, t = timeline:get()
+
+  draw_blender(55 + frame % 2, 52, step)
 
   if step == 1 then
-   local y = accelerp(-16, 20, 100, t)
    clip(0, 0, 128, 52)
-   self.pet:spr_scaled(56, y)
+   pet:spr_scaled(56, accelerp(-16, 20, 100, t))
    clip()
-   self:draw_blender(56, 52, 0)
-  elseif step == 2 then
-   self:draw_blender(55 + self.frame % 2, 52, t)
+  elseif step >= 2 then
    self:draw_particles()
-  else
-   if step > 3 then
-    print_centered("🅾️ exit", 64, 110, 5)
-   end
-   self:draw_blender(56, 52, 3)
-   self:draw_particles()
+   if (step < 5) frame += 1
   end
+  if (step > 5) print_centered("🅾️ exit", 64, 110, 5)
  end
- function scn:draw_blender(x, y, stage)
+ function scn.draw_blender(x, y, step)
   pal()
-  if stage > 2 then
+  if step >= 4 then
    pal(6, 8)
-  elseif stage > 0.5 then
+  elseif step == 3 then
    pal(6, 14)
   end
 
