@@ -848,7 +848,7 @@ do
   if (pet.immortal) return screens.abandon
   if (not settings.grim) return screens.abandon
   if (pet.happiness == 0) return screens.talljump
-  return screens.abandon
+  return screens.blender
  end
 
  -- MARK: abandon
