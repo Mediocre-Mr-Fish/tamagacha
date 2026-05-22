@@ -81,9 +81,13 @@ music_dir = {
  pet_loss = { file = "music1.p8", track = 4 }
 }
 function load_music(key, preload)
- if (key == nil) return music(-1)
+ if key == nil then 
+  current_music.track = nil
+  return music(-1)
+ end
  local entry = music_dir[key]
  if current_music.file ~= entry.file then
+  -- MARK: ToDo: half sfx load size
   reload(0X3100, 0X3100, 0x0100, entry.file)
   reload(0X3200, 0X3200, 0x1100, entry.file)
   current_music.file = entry.file
