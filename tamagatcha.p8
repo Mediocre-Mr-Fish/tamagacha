@@ -67,7 +67,7 @@ function rescope(scope, env)
    __index = function(_, k) return scope[k] or env[k] end,
    __newindex = scope
   }
- )
+ ), scope
 end
 
 function mod(a, b)
@@ -81,7 +81,7 @@ music_dir = {
  pet_loss = { file = "music1.p8", track = 4 }
 }
 function load_music(key, preload)
- if key == nil then 
+ if key == nil then
   current_music.track = nil
   return music(-1)
  end
@@ -574,283 +574,301 @@ function classfactory__gridmenu(static_vars)
 end
 
 -- MARK: home
-screens.home = classfactory__gridmenu({
- x = 4, y = 3, dx = 28, dy = 114, w = 5, h = 2,
- selectables = {
-  { name = "food", sprite = 1 },
-  { name = "game", sprite = 2, screen = "game_select" },
-  { name = "stats", sprite = 3, screen = "stats" },
-  { name = "gacha", sprite = 4, screen = "gacha" },
-  { name = "settings", sprite = 5, screen = "settings" },
+do
+ screens.home = classfactory__gridmenu({
+  x = 4, y = 3, dx = 28, dy = 114, w = 5, h = 2,
+  selectables = {
+   { name = "food", sprite = 1 },
+   { name = "game", sprite = 2, screen = "game_select" },
+   { name = "stats", sprite = 3, screen = "stats" },
+   { name = "gacha", sprite = 4, screen = "gacha" },
+   { name = "settings", sprite = 5, screen = "settings" },
 
-  { name = "snacks", sprite = 17, screen = "snacks" },
-  { name = "left", sprite = 18 },
-  { name = "right", sprite = 19 },
-  { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "loose_pet" }
- }
-})
-function screens.home:update()
- local _, icon = self:update_sel()
- self:glide()
+   { name = "snacks", sprite = 17, screen = "snacks" },
+   { name = "left", sprite = 18 },
+   { name = "right", sprite = 19 },
+   { name = "pets", sprite = 20, screen = "collection" },
+   { name = "adopt", sprite = 21, screen = "loose_pet" }
+  }
+ })
+ local _ENV, scn = rescope(screens.home, _ENV)
+ function update()
+  local _, icon = update_sel(scn)
+  glide(scn)
 
- if btnp(❎) then
-  --disallows feeding or playing after death to prevent revives
-  if pets[current_pet]:is_dead() and (icon.name == "food" or icon.name == "game") then
-   return
-  end
+  if btnp(❎) then
+   --disallows feeding or playing after death to prevent revives
+   if pets[current_pet]:is_dead() and (icon.name == "food" or icon.name == "game") then
+    return
+   end
 
-  if icon.screen then
-   switch_screen(screens[icon.screen])
-  end
+   if icon.screen then
+    switch_screen(screens[icon.screen])
+   end
 
-  if icon.name == "food" then
-   feed_pet()
-  elseif icon.name == "left" then
-   current_pet = mod(current_pet - 1, #pets)
-  elseif icon.name == "right" then
-   current_pet = mod(current_pet + 1, #pets)
-  end
- end
-end
-function screens.home:draw()
- local pet = pets[current_pet]
-
- for i, icon in ipairs(self.selectables) do
-  local x, y = self:grid_vec(i):unpack()
-  spr(icon.sprite, x, y)
-  if i == self.selection then
-   print_centered(icon.name, 64, 110, 7)
+   if icon.name == "food" then
+    feed_pet()
+   elseif icon.name == "left" then
+    current_pet = mod(current_pet - 1, #pets)
+   elseif icon.name == "right" then
+    current_pet = mod(current_pet + 1, #pets)
+   end
   end
  end
+ function draw()
+  local pet = pets[current_pet]
 
- --stats icon reflecting pet status
- fillp(█)
- local hunger_x = pet.hunger / 15 * 6
- local happy_x = pet.happiness / 15 * 6
- if hunger_x > 1 then
-  rectfill(61, 4, 60 + hunger_x, 4, hunger_x > 3 and 11 or 8)
- end
- if happy_x > 1 then
-  rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
- end
-
- --print food counter
- print(food, 3, 13, 7)
-
- --draw current pet
- fillp(★)
- circfill(64, 64, 44, 3)
- print_centered(pet.name, 64, 20, 7)
- if pet:is_dead() then
-  spr_scaled(50, 52, 62, 4)
- else
-  pet:spr_scaled(32, 32, 4)
- end
-
- --draw number of pets and current pet indicator
- pal()
- fillp(█)
- for i = 1, #pets do
-  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
- end
-
- rect_vec(self.sel_glider - vec2_1, vec2_9, 10, false, true)
-end
-
--- MARK: game_select
-screens.game_select = classfactory__gridmenu({
- x = 8, y = 8, dx = 60, dy = 60, w = 2, h = 2,
- selectables = {
-  { name = "math", key = "math" },
-  { name = "maze", key = nil },
-  { name = "fishing", key = "fishing" },
-  { name = "you shouldn't see this", key = nil }
- }
-})
-function screens.game_select:update()
- local _, game = self:update_sel()
- self:glide()
-
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  screens.minigame.current_game = games[game.key]
-  switch_screen(screens.minigame)
- end
-end
-function screens.game_select:draw()
- fillp(█)
- for i, game in ipairs(self.selectables) do
-  local x, y = self:grid_vec(i):unpack()
-  local col = 3
-
-  -- MARK: ToDo: whatever this is
-  if i == 4 then
-   if settings.grim then
-    game.name = grim_progress .. "/3"
-   else
-    game.name = "tbd"
-    col = 5
+  for i, icon in ipairs(selectables) do
+   local x, y = grid_vec(scn, i):unpack()
+   spr(icon.sprite, x, y)
+   if i == selection then
+    print_centered(icon.name, 64, 110, 7)
    end
   end
 
-  self:draw_pannel(game.name, x, y, 52, 52, col)
+  --stats icon reflecting pet status
+  fillp(█)
+  local hunger_x = pet.hunger / 15 * 6
+  local happy_x = pet.happiness / 15 * 6
+  if hunger_x > 1 then
+   rectfill(61, 4, 60 + hunger_x, 4, hunger_x > 3 and 11 or 8)
+  end
+  if happy_x > 1 then
+   rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
+  end
+
+  --print food counter
+  print(food, 3, 13, 7)
+
+  --draw current pet
+  fillp(★)
+  circfill(64, 64, 44, 3)
+  print_centered(pet.name, 64, 20, 7)
+  if pet:is_dead() then
+   spr_scaled(50, 52, 62, 4)
+  else
+   pet:spr_scaled(32, 32, 4)
+  end
+
+  --draw number of pets and current pet indicator
+  pal()
+  fillp(█)
+  for i = 1, #pets do
+   circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
+  end
+
+  rect_vec(sel_glider - vec2_1, vec2_9, 10, false, true)
  end
- rect_vec(self.sel_glider, vec2.new(52), 10, false, true)
-end
-function screens.game_select:draw_pannel(label, x, y, w, h, col)
- rectfill(x, y, x + w, y + h, col)
- print_centered(label, x + flr(w / 2), y + flr(h / 2) - 3, 7)
 end
 
-screens.stats = {}
-function screens.stats:update()
- if btnp(🅾️) then
-  switch_screen()
+-- MARK: game_select
+do
+ screens.game_select = classfactory__gridmenu({
+  x = 8, y = 8, dx = 60, dy = 60, w = 2, h = 2,
+  selectables = {
+   { name = "math", key = "math" },
+   { name = "maze", key = nil },
+   { name = "fishing", key = "fishing" },
+   { name = "you shouldn't see this", key = nil }
+  }
+ })
+ local _ENV, scn = rescope(screens.game_select, _ENV)
+ function update()
+  local _, game = update_sel(scn)
+  glide(scn)
+
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   screens.minigame.current_game = games[game.key]
+   switch_screen(screens.minigame)
+  end
+ end
+ function screens.game_select:draw()
+  fillp(█)
+  for i, game in ipairs(selectables) do
+   local x, y = grid_vec(scn, i):unpack()
+   local col = 3
+
+   -- MARK: ToDo: whatever this is
+   if i == 4 then
+    if settings.grim then
+     game.name = grim_progress .. "/3"
+    else
+     game.name = "tbd"
+     col = 5
+    end
+   end
+
+   draw_panel(game.name, x, y, 52, 52, col)
+  end
+  rect_vec(sel_glider, vec2.new(52), 10, false, true)
+ end
+ function draw_panel(label, x, y, w, h, col)
+  rectfill(x, y, x + w, y + h, col)
+  print_centered(label, x + flr(w / 2), y + flr(h / 2) - 3, 7)
  end
 end
-function screens.stats:draw()
- local pet = pets[current_pet]
- print(pet.name, 20, 40, 7)
- fillp(█)
- --hunger bar
- print("hunger", 20, 52, 7)
- rectfill(20, 60, 108, 65, 5)
- rectfill(20, 60, 20 + 5.87 * pet.hunger, 65, 11)
- --happy bar
- print("happiness", 20, 72, 7)
- rectfill(20, 80, 108, 85, 5)
- rectfill(20, 80, 20 + 5.87 * pet.happiness, 85, 11)
+
+-- MARK: stats
+do
+ screens.stats = {}
+ local _ENV, scn = rescope(screens.stats, _ENV)
+ function update()
+  if btnp(🅾️) then
+   switch_screen()
+  end
+ end
+ function draw()
+  local pet = pets[current_pet]
+  print(pet.name, 20, 40, 7)
+  fillp(█)
+  --hunger bar
+  print("hunger", 20, 52, 7)
+  rectfill(20, 60, 108, 65, 5)
+  rectfill(20, 60, 20 + 5.87 * pet.hunger, 65, 11)
+  --happy bar
+  print("happiness", 20, 72, 7)
+  rectfill(20, 80, 108, 85, 5)
+  rectfill(20, 80, 20 + 5.87 * pet.happiness, 85, 11)
+ end
 end
 
 -- MARK: settings
-screens.settings = {
- selection = 1,
- options = {
-  -- not called 'settings' to reduce confusion
-  { name = "sound", key = "mute" },
-  { name = "grim mode", key = "grim" }
+do
+ screens.settings = {
+  selection = 1,
+  options = {
+   -- not called 'settings' to reduce confusion
+   { name = "sound", key = "mute" },
+   { name = "grim mode", key = "grim" }
+  }
  }
-}
-function screens.settings:update()
- self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  local key = self.options[self.selection].key
-  -- assumes settings are boolean
-  settings[key] = not settings[key]
+ local _ENV, scn = rescope(screens.settings, _ENV)
+ function update()
+  selection = grid_wrap(selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   local key = scn.options[selection].key
+   -- assumes settings are boolean
+   settings[key] = not settings[key]
+  end
  end
-end
-function screens.settings:draw()
- for i, option in ipairs(self.options) do
-  local y = 20 + (i - 1) * 40
-  local setting = settings[option.key]
+ function draw()
+  for i, option in ipairs(options) do
+   local y = 20 + (i - 1) * 40
+   local setting = settings[option.key]
 
-  print_centered(option.name, 64, y, i == self.selection and 10 or 7)
-  self.draw_checkbox(45, y + 14, setting)
+   print_centered(option.name, 64, y, i == selection and 10 or 7)
+   draw_checkbox(45, y + 14, setting)
+  end
+
+  spr_scaled(16, 62, 30, 2, 1, 1)
+  if settings.mute then
+   color(8)
+   line(75, 35, 81, 41)
+   line(75, 41, 81, 35)
+  else
+   line(76, 35, 76, 41)
+   line(79, 32, 79, 44)
+  end
+
+  if settings.grim then
+   pal(6, 8)
+   print("✽", 67, 81, 8)
+   print("★", 71, 78, 2)
+   spr_scaled(50, 64, 70, 2, 1, 1)
+   pal()
+  else
+   spr_scaled(50, 64, 70, 2, 1, 1)
+  end
+
+  print_centered("❎ select  🅾️ exit", 64, 110, 5)
  end
-
- spr_scaled(16, 62, 30, 2, 1, 1)
- if settings.mute then
-  color(8)
-  line(75, 35, 81, 41)
-  line(75, 41, 81, 35)
- else
-  line(76, 35, 76, 41)
-  line(79, 32, 79, 44)
- end
-
- if settings.grim then
-  pal(6, 8)
-  print("✽", 67, 81, 8)
-  print("★", 71, 78, 2)
-  spr_scaled(50, 64, 70, 2, 1, 1)
-  pal()
- else
-  spr_scaled(50, 64, 70, 2, 1, 1)
- end
-
- print_centered("❎ select  🅾️ exit", 64, 110, 5)
-end
-function screens.settings.draw_checkbox(x, y, checked)
- rect(x, y, x + 8, y + 8, 7)
- if checked then
-  print("🐱", x + 1, y + 2, 8)
+ function screens.settings.draw_checkbox(x, y, checked)
+  rect(x, y, x + 8, y + 8, 7)
+  if checked then
+   print("🐱", x + 1, y + 2, 8)
+  end
  end
 end
 
 -- MARK: snacks
-screens.snacks = classfactory__gridmenu({
- x = 8, y = 8, dx = 44, dy = 44, w = 3, h = 2,
- selectables = all_items
-})
-function screens.snacks:update()
- self:update_sel()
- self:glide()
+do
+ screens.snacks = classfactory__gridmenu({
+  x = 8, y = 8, dx = 44, dy = 44, w = 3, h = 2,
+  selectables = all_items
+ })
+ local _ENV, scn = rescope(screens.snacks, _ENV)
+ function update()
+  update_sel(scn)
+  glide(scn)
 
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  if inventory[self.selection] > 0 then
-   inventory[self.selection] -= 1
-   --give pet status or ailment
-  else
-   -- play error sound
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   if inventory[selection] > 0 then
+    inventory[selection] -= 1
+    --give pet status or ailment
+   else
+    -- play error sound
+   end
   end
  end
-end
-function screens.snacks:draw()
- for i, prefab in ipairs(self.selectables) do
-  local amount = inventory[i]
-  local sx, sy = self:grid_vec(i):unpack()
+ function draw()
+  for i, prefab in ipairs(selectables) do
+   local amount = inventory[i]
+   local sx, sy = grid_vec(scn, i):unpack()
 
-  spr_scaled(prefab.sprite, sx, sy, 3)
+   spr_scaled(prefab.sprite, sx, sy, 3)
 
-  print_centered(amount, sx - 5, sy, 7)
-  if i == self.selection then
-   -- rect(sx - 1, sy - 1, sx + 24, sy + 24, 10)
-   print_centered(prefab.name, 64, 100, 7)
+   print_centered(amount, sx - 5, sy, 7)
+   if i == selection then
+    print_centered(prefab.name, 64, 100, 7)
+   end
   end
+  rect_vec(sel_glider, vec2.new(24), 10, false, true)
+  print_centered("🅾️ exit    ❎ use", 64, 110, 7)
  end
- rect_vec(self.sel_glider, vec2.new(24), 10, false, true)
- print_centered("🅾️ exit    ❎ use", 64, 110, 7)
 end
 
 -- MARK: collection
-screens.collection = classfactory__gridmenu({
- x = 8, y = 8, dx = 32, dy = 32, w = 4, h = 4,
- selectables = all_pets
-})
-function screens.collection:update()
- self:update_sel()
- self:glide()
+do
+ screens.collection = classfactory__gridmenu({
+  x = 8, y = 8, dx = 32, dy = 32, w = 4, h = 4,
+  selectables = all_pets
+ })
+ local _ENV, scn = rescope(screens.collection, _ENV)
+ function update()
+  update_sel(scn)
+  glide(scn)
 
- if btnp(🅾️) then
-  switch_screen()
- end
-end
-function screens.collection:draw()
- --draw all pets
- for i, pet_cls in pairs(self.selectables) do
-  local sx, sy = self:grid_vec(i):unpack()
-  local name = pet_cls.name
-
-  if discovered_pets[pet_cls.id] then
-   pet_cls:spr_scaled(sx, sy, 1)
-  else
-   pet_cls:pal(true)
-   pet_cls:spr_scaled(sx, sy, 1, true)
-   name = "???"
-  end
-
-  if i == self.selection then
-   print_centered(name, 64, 100, 7)
+  if btnp(🅾️) then
+   switch_screen()
   end
  end
- rect_vec(self.sel_glider, vec2.new(16), 10, false, true)
- print_centered("🅾️ exit", 64, 110, 5)
+ function draw()
+  --draw all pets
+  for i, pet_cls in pairs(selectables) do
+   local sx, sy = grid_vec(scn, i):unpack()
+   local name = pet_cls.name
+
+   if discovered_pets[pet_cls.id] then
+    pet_cls:spr_scaled(sx, sy, 1)
+   else
+    pet_cls:pal(true)
+    pet_cls:spr_scaled(sx, sy, 1, true)
+    name = "???"
+   end
+
+   if i == selection then
+    print_centered(name, 64, 100, 7)
+   end
+  end
+  rect_vec(sel_glider, vec2.new(16), 10, false, true)
+  print_centered("🅾️ exit", 64, 110, 5)
+ end
 end
 
 -- MARK: loose_pet
@@ -1128,237 +1146,234 @@ end
 -->8
 --MARK: gacha
 
-screens.gacha = classfactory__gridmenu({
- x = 3, y = 49, dx = 63, dy = 34, w = 2, h = 1,
- selectables = {
-  {
-   label = "1-pull", desc1 = "20% chance for", desc2 = "pet egg", color = 4,
-   cost = 1, rolls = 1
-  },
-  {
-   label = "10-pull", desc1 = "guaranteed 3", desc2 = "pet eggs", color = 9,
-   cost = 10, rolls = 10
+do
+ screens.gacha = classfactory__gridmenu({
+  x = 3, y = 49, dx = 63, dy = 34, w = 2, h = 1,
+  selectables = {
+   {
+    label = "1-pull", desc1 = "20% chance for", desc2 = "pet egg", color = 4,
+    cost = 1, rolls = 1
+   },
+   {
+    label = "10-pull", desc1 = "guaranteed 3", desc2 = "pet eggs", color = 9,
+    cost = 10, rolls = 10
+   }
   }
- }
-})
-function screens.gacha:update()
- local _, pull_type = self:update_sel()
- self:glide()
+ })
+ local _ENV, scn = rescope(screens.gacha, _ENV)
+ function update()
+  local _, pull_type = update_sel(scn)
+  glide(scn)
 
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  if tokens >= pull_type.cost then
-   tokens -= pull_type.cost
-   screens.gacha_anim.pull_type = pull_type
-   switch_screen(screens.gacha_anim)
-   t = time()
-  end
- end
-end
-function screens.gacha:draw()
- cls()
- --rectfill(0,0,128,128,15)
- --tickets icon
- spr(37, 105, 0)
- print(tokens, 115, 2, 9)
-
- for i, pull_type in ipairs(self.selectables) do
-  local x, y = self:grid_vec(i):unpack()
-  self.draw_card(x, y, pull_type)
-  if self.selection == i and tokens < pull_type.cost then
-   print("not enough tokens", 30, 90, 8)
-  end
- end
-
- rect_vec(self.sel_glider, vec2.new(59, 30), 10, false, true)
- --back icon
- print_centered("🅾️ back", 64, 110, 5)
-end
-function screens.gacha.draw_card(x, y, pull_type)
- rectfill(x, y, x + 59, y + 30, pull_type.color)
- print(pull_type.label, x + 2, y + 2, 7)
- line(x + 2, y + 10, x + 57, y + 10)
- print(pull_type.desc1, x + 2, y + 14)
- print(pull_type.desc2)
-end
-
---MARK: gacha_anim
-
-screens.gacha_anim = classfactory__gridmenu({
- pull_type = nil,
- prizes_to_delete = {},
- timeline = anim_timeline.new({ 3, 1 }),
- monopull = nil,
- prizes = {}
-})
-function screens.gacha_anim:init()
- local _ENV = rescope(self, _ENV)
-
- monopull = nil
- prizes_to_delete = {}
- prizes = {}
- for _ = 1, self.pull_type.rolls do
-  add(prizes, pull_gacha())
- end
-
- if (pull_type.rolls == 1) monopull = prizes[1]
- if monopull then
-  x, y, dx, dy, w, h = 32, 108, 32, 8, 2, 1
-  selectables = { "keep", "recycle" }
-  if is_instance(monopull, class__pet) and not settings.grim or monopull.immortal then
-   selectables[2] = "release"
-  end
- else
-  x, y, dx, dy, w, h = 4, 33, 26, 46, 5, 2
-  selectables = prizes
- end
-
- selection = 1
- sel_glider:teleport(self:grid_vec())
-
- timeline:start()
-end
-
-function pull_gacha()
- local rolled_pet = rnd(1) < 0.2
- return rolled_pet and rnd(all_pets).new():set_color() or rnd(all_items)
-end
-
-function screens.gacha_anim:update()
- local _ENV = rescope(self, _ENV)
- local step, t = timeline:update()
-
- if btnp(🅾️) and step < 3 then
-  step, t = timeline:start(3)
- elseif step == 3 then
-  self:update_sel()
-  self:glide()
-
-  if monopull then
-   if btnp(🅾️) then
-    selection = 1
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   if tokens >= pull_type.cost then
+    tokens -= pull_type.cost
+    screens.gacha_anim.pull_type = pull_type
+    switch_screen(screens.gacha_anim)
+    t = time()
    end
-   if btnp(❎) then
-    if selection == 1 then
-     keep_item(monopull)
+  end
+ end
+ function draw()
+  cls()
+  --rectfill(0,0,128,128,15)
+  --tickets icon
+  spr(37, 105, 0)
+  print(tokens, 115, 2, 9)
+
+  for i, pull_type in ipairs(selectables) do
+   local x, y = grid_vec(scn, i):unpack()
+   draw_card(x, y, pull_type)
+   if selection == i and tokens < pull_type.cost then
+    print("not enough tokens", 30, 90, 8)
+   end
+  end
+
+  rect_vec(sel_glider, vec2.new(59, 30), 10, false, true)
+  --back icon
+  print_centered("🅾️ back", 64, 110, 5)
+ end
+ function draw_card(x, y, pull_type)
+  rectfill(x, y, x + 59, y + 30, pull_type.color)
+  print(pull_type.label, x + 2, y + 2, 7)
+  line(x + 2, y + 10, x + 57, y + 10)
+  print(pull_type.desc1, x + 2, y + 14)
+  print(pull_type.desc2)
+ end
+end
+--MARK: gacha_anim
+do
+ screens.gacha_anim = classfactory__gridmenu({
+  pull_type = nil,
+  prizes_to_delete = {},
+  timeline = anim_timeline.new({ 3, 1 }),
+  monopull = nil,
+  prizes = {}
+ })
+ local _ENV, scn = rescope(screens.gacha_anim, _ENV)
+ function init()
+  monopull = nil
+  prizes_to_delete = {}
+  prizes = {}
+  for _ = 1, scn.pull_type.rolls do
+   add(prizes, pull_gacha())
+  end
+
+  if (pull_type.rolls == 1) monopull = prizes[1]
+  if monopull then
+   x, y, dx, dy, w, h = 32, 108, 32, 8, 2, 1
+   selectables = { "keep", "recycle" }
+   if is_instance(monopull, class__pet) and not settings.grim or monopull.immortal then
+    selectables[2] = "release"
+   end
+  else
+   x, y, dx, dy, w, h = 4, 33, 26, 46, 5, 2
+   selectables = prizes
+  end
+
+  selection = 1
+  sel_glider:teleport(grid_vec(scn))
+
+  timeline:start()
+ end
+
+ function pull_gacha()
+  local rolled_pet = rnd(1) < 0.2
+  return rolled_pet and rnd(all_pets).new():set_color() or rnd(all_items)
+ end
+
+ function update()
+  step, t = timeline:update()
+  if btnp(🅾️) and step < 3 then
+   step, t = timeline:start(3)
+  elseif step == 3 then
+   update_sel(scn)
+   glide(scn)
+
+   if monopull then
+    if btnp(🅾️) then
+     selection = 1
+    end
+    if btnp(❎) then
+     if selection == 1 then
+      keep_item(monopull)
+      switch_screen()
+      return
+     elseif selection == 2 then
+      if discard_item(monopull) then
+       switch_screen(screens.surrender:with(monopull))
+      else
+       switch_screen()
+      end
+      return
+     end
+    end
+   else
+    if btnp(❎) then
+     prizes_to_delete[selection] = not prizes_to_delete[selection]
+    end
+    if btnp(🅾️) then
+     for i, prize in pairs(prizes) do
+      if prizes_to_delete[selection] then
+       discard_item(prize)
+      else
+       keep_item(prize)
+      end
+     end
      switch_screen()
      return
-    elseif selection == 2 then
-     if discard_item(monopull) then
-      switch_screen(screens.surrender:with(monopull))
-     else
-      switch_screen()
-     end
-     return
-    end
-   end
-  else
-   if btnp(❎) then
-    prizes_to_delete[selection] = not prizes_to_delete[selection]
-   end
-   if btnp(🅾️) then
-    for i, prize in pairs(prizes) do
-     if prizes_to_delete[selection] then
-      discard_item(prize)
-     else
-      keep_item(prize)
-     end
-    end
-    switch_screen()
-    return
-   end
-  end
- end
-end
-function screens.gacha_anim:draw()
- local _ENV = rescope(self, _ENV)
-
- local step, t = self.timeline:get()
-
- local shake = 0
- if step == 1 then
-  print_centered("🅾️ skip", 64, 110, 5)
-  shake = sin(t)
- end
-
- if monopull then
-  draw_item(monopull, 48 + shake, 48, 4, step > 1)
- else
-  for i, prize in pairs(selectables) do
-   local x, y = self:grid_vec(i):unpack()
-   shake *= -1
-   draw_item(prize, x + shake, y, 2, step > 1)
-
-   if i == selection then
-    print_centered(prize.name, 64, 102, 7)
-   end
-
-   if prizes_to_delete[i] then
-    for j = 0, 3 do
-     cx = x + j % 2
-     cy = y + j \ 2
-     line(cx, cy, cx + 15, cy + 15, 8)
-     line(cx, cy + 15, cx + 15, cy, 8)
     end
    end
   end
  end
+ function draw()
+  local step, t = timeline:get()
 
- if step == 3 then
+  local shake = 0
+  if step == 1 then
+   print_centered("🅾️ skip", 64, 110, 5)
+   shake = sin(t)
+  end
+
   if monopull then
-   for i, label in pairs(selectables) do
-    local x, y = self:grid_vec(i):unpack()
-    print_centered(label, x + dx / 2, y + 1, 7)
-   end
-   print_centered(monopull.name, 64, 20, 7)
-   rect_vec(sel_glider - vec2_1, vec2.new(dx, dy), 10, false, true)
+   draw_item(monopull, 48 + shake, 48, 4, step > 1)
   else
-   print_centered("❎ discard  🅾️ exit", 64, 110, 7)
-   rect_vec(sel_glider - vec2_1, vec2.new(17), 10, false, true)
+   for i, prize in pairs(selectables) do
+    local x, y = scn:grid_vec(i):unpack()
+    shake *= -1
+    draw_item(prize, x + shake, y, 2, step > 1)
+
+    if i == selection then
+     print_centered(prize.name, 64, 102, 7)
+    end
+
+    if prizes_to_delete[i] then
+     for j = 0, 3 do
+      cx = x + j % 2
+      cy = y + j \ 2
+      line(cx, cy, cx + 15, cy + 15, 8)
+      line(cx, cy + 15, cx + 15, cy, 8)
+     end
+    end
+   end
+  end
+
+  if step == 3 then
+   if monopull then
+    for i, label in pairs(selectables) do
+     local x, y = scn:grid_vec(i):unpack()
+     print_centered(label, x + dx / 2, y + 1, 7)
+    end
+    print_centered(monopull.name, 64, 20, 7)
+    rect_vec(sel_glider - vec2_1, vec2.new(dx, dy), 10, false, true)
+   else
+    print_centered("❎ discard  🅾️ exit", 64, 110, 7)
+    rect_vec(sel_glider - vec2_1, vec2.new(17), 10, false, true)
+   end
+  end
+ end
+ function draw_item(item, x, y, size, open)
+  local is_pet = is_instance(item, class__pet)
+  if is_pet and open then
+   item:spr_scaled(x, y, size / 2)
+   return
+  end
+
+  pal()
+
+  --present box
+  local sprite = 49
+
+  if open then
+   sprite = item.sprite
+   palt(item.transparent, true)
+  elseif is_pet then
+   sprite = 48 --egg
+  end
+
+  spr_scaled(sprite, x, y, size, 1, 1)
+ end
+ function keep_item(item)
+  if is_instance(item, class__pet) then
+   add(pets, item)
+   discovered_pets[item.id] = true
+  else
+   inventory[item.id] += 1
+  end
+ end
+ function discard_item(item)
+  if is_instance(item, class__pet) then
+   food += item.meat * 5
+   bones += item.bone
+   return true
+  else
+   inventory[item.id] += 1
+   return false
   end
  end
 end
-function screens.gacha_anim.draw_item(item, x, y, size, open)
- local is_pet = is_instance(item, class__pet)
- if is_pet and open then
-  item:spr_scaled(x, y, size / 2)
-  return
- end
-
- pal()
-
- --present box
- local sprite = 49
-
- if open then
-  sprite = item.sprite
-  palt(item.transparent, true)
- elseif is_pet then
-  sprite = 48 --egg
- end
-
- spr_scaled(sprite, x, y, size, 1, 1)
-end
-function screens.gacha_anim.keep_item(item)
- if is_instance(item, class__pet) then
-  add(pets, item)
-  discovered_pets[item.id] = true
- else
-  inventory[item.id] += 1
- end
-end
-function screens.gacha_anim.discard_item(item)
- if is_instance(item, class__pet) then
-  food += item.meat * 5
-  bones += item.bone
-  return true
- else
-  inventory[item.id] += 1
-  return false
- end
-end
-
 -->8
 --MARK: games
 
@@ -1600,8 +1615,8 @@ __gfx__
 00004400077000000000000000767700000044000000a000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000
 004444400767000000f87f000677776000444440000a9a00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb4bb4bbbbbbbbbb00000000000000000000000000000000
 04444444076700000f88fff0777767760444444400a999a0bbbbbbbbbbbbbbbbbbb44bbbbbb44bbbbbb114bbbbbbbbbb00000000000000000000000000000000
-11664444007670000ffff87076777777444444450a99a99abbbbbbbbbbbbbbbbbbb44bbbbbb44bbbbb17111bbbbbbbbb00000000000000000000000000000000
-1116664400aaaaa008fff8806776776748844445a9a999a0bbbbbbbb44444bbbbbb4444444444bbbbb40411bbbbbbbbb00000000000000000000000000000000
+11664444007670000ffff87076777777044444450a99a99abbbbbbbbbbbbbbbbbbb44bbbbbb44bbbbb17111bbbbbbbbb00000000000000000000000000000000
+1116664400aaaaa008fff8806776776708844445a9a999a0bbbbbbbb44444bbbbbb4444444444bbbbb40411bbbbbbbbb00000000000000000000000000000000
 111116660a99aa0a0f78ff7015555551078844500a9a9a00bbbbbb4994444bbbbbb4444444444bbbb644e111bbbbbbbb00000000000000000000000000000000
 011111060909aaa00088ff00115555117768550000a9a000bb44bb499449944bbbb4444444444bbb74444111bb444bbb00000000000000000000000000000000
 00110000000099aa000000000111111066000000000a0000bb044b449499444bbbb4004440044bbbb5411411144444bb00000000000000000000000000000000
