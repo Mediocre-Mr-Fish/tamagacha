@@ -76,9 +76,9 @@ end
 
 current_music = {}
 music_dir = {
- tbd0 = { file = "music1.p8", track = 1 },
- rice_jingle = { file = "music1.p8", track = 3 },
- pet_loss = { file = "music1.p8", track = 4 }
+ tbd0 = { file = "music/1.p8", track = 1 },
+ rice_jingle = { file = "music/1.p8", track = 3 },
+ pet_loss = { file = "music/1.p8", track = 4 }
 }
 function load_music(key, preload)
  if key == nil then
