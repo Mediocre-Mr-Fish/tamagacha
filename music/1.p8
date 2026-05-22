@@ -1,26 +1,43 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
-
 function _init()
-    data = ""
+ function pad(n) return n < 10 and " " .. n or n end
 
-    offset = 1
-    for i = offset * 68, (offset + 1) * 68 - 1 do
-        byte = peek(0X3200 + i)
-        data = data .. byte
-    end
-    printh(data)
+ playing = nil
+ select = 0
+ tracks = {}
+
+ for i = 0, 63 do
+  local a, b, c, d = peek(0x3100 + i * 4, 4)
+  if a & 0x80 ~= 0 then add(tracks, { start = i }) end
+  if (b & 0x80) + (c & 0x80) ~= 0 or i == 63 then
+   for j = #tracks, 1, -1 do
+    tracks[j].stop = tracks[j].stop or i
+   end
+  end
+ end
 end
 function _update()
-    if btnp(0) then
-        print(0)
-        music(0)
-    end
-    if btnp(1) then
-        print(1)
-        music(1)
-    end
+ if (btnp(⬆️)) select -= 1
+ if (btnp(⬇️)) select += 1
+ select %= #tracks
+ if btnp(❎) then
+  playing = tracks[select + 1].start
+  music(playing)
+ end
+ if btnp(🅾️) then
+  playing = nil
+  music(-1)
+ end
+end
+function _draw()
+ cls(0)
+ print("playing: " .. tostr(stat(57) and stat(54)))
+ for i, track in ipairs(tracks) do
+  print((i == select + 1 and "> " or "  ") .. pad(track.start) .. " to " .. pad(track.stop))
+ end
+ print("❎ play 🅾️ stop", 0, 112)
 end
 
 __gfx__
@@ -90,7 +107,7 @@ __music__
 01 00014344
 00 02034344
 02 04054344
-00 06074344
+05 06074344
 01 08090a44
 00 0b0c0d44
 00 0e0f1644
@@ -101,5 +118,5 @@ __music__
 00 1c1d4344
 00 1e1f4344
 00 20214344
-00 22234344
+04 22234344
 
