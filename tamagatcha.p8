@@ -851,20 +851,20 @@ end
 
 -- MARK: loose_pet
 do
- local scn = {}
- screens.loose_pet = scn
- function scn:with(pet)
-  self.pet = pet
+ screens.loose_pet = {}
+ local _ENV = rescope(screens.loose_pet, _ENV)
+ function with(self, pet_)
+  pet = pet_
   return self
  end
- function scn:init()
-  local pet = self.pet or deli(pets, current_pet)
-  local target = self.decide(pet)
+ function init()
+  local pet = pet or deli(pets, current_pet)
+  local target = decide(pet)
   if (target) target.pet = pet
   switch_screen(target)
-  self.pet = nil
+  pet = nil
  end
- function scn.decide(pet)
+ function decide(pet)
   if (pet.immortal) return screens.abandon
   if (not settings.grim) return screens.abandon
   if (pet.happiness == 0) return screens.talljump
