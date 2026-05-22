@@ -74,6 +74,26 @@ function mod(a, b)
  return (a - 1) % b + 1
 end
 
+current_music = {}
+music_dir = {
+ tbd0 = { file = "music1.p8", track = 1 },
+ rice_jingle = { file = "music1.p8", track = 3 },
+ pet_loss = { file = "music1.p8", track = 4 }
+}
+function load_music(key, preload)
+ if (key == nil) return music(-1)
+ local entry = music_dir[key]
+ if current_music.file ~= entry.file then
+  reload(0X3100, 0X3100, 0x0100, entry.file)
+  reload(0X3200, 0X3200, 0x1100, entry.file)
+  current_music.file = entry.file
+ end
+ if not preload and current_music.track ~= entry.track then
+  current_music.track = entry.track
+  music(entry.track)
+ end
+end
+
 function btnp_axis(neg, pos)
  if (btnp(neg) ~= btnp(pos)) return btnp(pos) and 1 or -1
  return 0
@@ -848,7 +868,7 @@ do
   if (pet.immortal) return screens.abandon
   if (not settings.grim) return screens.abandon
   if (pet.happiness == 0) return screens.talljump
-  return screens.blender
+  return screens.talljump
  end
 
  -- MARK: abandon
@@ -894,6 +914,7 @@ do
   self.gore_pool = {}
   self.splash = false
   self.y4 = 0
+  load_music("pet_loss", true)
  end
  function scn:update()
   local step, t = self.timeline:update()
@@ -932,7 +953,10 @@ do
     end
     p:update()
    end
-   if step == 7 then
+
+   if step == 6 then
+    load_music("pet_loss")
+   elseif step == 7 then
     if btnp(🅾️) then
      self.pet = nil
      switch_screen()
@@ -986,7 +1010,9 @@ do
    end
    -- road
    rectfill(0, 96, 127, 127, 0)
-   self:draw_particles()
+   if step >= 5 then
+    self:draw_particles()
+   end
 
    if step >= 6 then
     print_centered(pet.name .. " was sad.", 90, 48, 7)
@@ -1014,6 +1040,7 @@ do
   timeline:start()
   gore_pool = {}
   splash = false
+  load_music("pet_loss", true)
  end
  function scn:update()
   local step, t = timeline:update()
@@ -1030,6 +1057,7 @@ do
    end
    update_particles()
   elseif step == 6 then
+   load_music("pet_loss")
    if btnp(🅾️) then
     pet = nil
     switch_screen()
@@ -1037,7 +1065,7 @@ do
   end
  end
  function scn:draw()
-    local step, t = timeline:get()
+  local step, t = timeline:get()
 
   draw_blender(55 + frame % 2, 52, step)
 
@@ -1559,12 +1587,12 @@ __gfx__
 000000000700000000600600000000000444400007677570b999333bbbbbbbbbb9999999bbbbbbbbbb49aaaa99a0b444bb4effffeef0bbbbf66666bbb6666bbb
 000000000000000000000000000000000000000000076000b999333bbbbbbb7bb9099099bbb9bbbbbb40a0a099a0b440bb42f2f2eef0bbbbb6666566bb6665bb
 000077000000000000000000000000000000000000000000bb33333bbbbb777bb9999999bbb999bbbbb40a0aaa0b440bbbb42f2fff0bbbbbbb5556666b66665b
-0007770000000600000700000000700007007000000d1000bb3333444444477bb99999999bbbb99bbbbb4aaaa0b44bbbbbbb4ffff0bbbbbbbbbd666666b6655b
-777777000007e66000770000000077000777700000d11100bb4444444444444bbb9979999bbbbb9bbbbbb4aa0bb044bbbbbbb4ff0bbbbbbbbb5dd56666bb655b
+0007770000600000000700000000700007007000000d1000bb3333444444477bb99999999bbbb99bbbbb4aaaa0b44bbbbbbb4ffff0bbbbbbbbbd666666b6655b
+77777700066e700000770000000077000777700000d11100bb4444444444444bbb9979999bbbbb9bbbbbb4aa0bb044bbbbbbb4ff0bbbbbbbbb5dd56666bb655b
 7777770000eeee000777777777777770067760600dd11110bb444444999444bbbb977794499bbb9bbbbb40a0a4bb0440bbbb45f5f4bbbbbbbbbd566666b655bb
-7777770000eee20077777777777777770077006000655500bb444499944444bbbb777794999bb99bbbb4a0a0aa00440bbbb4f5f5ff0bbbbbbbbbd66666655bbb
-777777000662200007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbbbbbb6666655bbbbb
-000777000060000000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbbbb55bb666bbbbbbb
+77777700002eee0077777777777777770077006000655500bb444499944444bbbb777794999bb99bbbb4a0a0aa00440bbbb4f5f5ff0bbbbbbbbbd66666655bbb
+777777000002266007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbbbbbb6666655bbbbb
+000777000000060000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbbbb55bb666bbbbbbb
 000077000000000000070000000070000000000000000000bbbbbbbbbbbbbbbbb977949999999bbbbb00000000000bbbbb00d0d00d000bbbbbbbb55bbbbbbbbb
 00004400077000000000000000767700000044000000a000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000
 004444400767000000f87f000677776000444440000a9a00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb4bb4bbbbbbbbbb00000000000000000000000000000000
