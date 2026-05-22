@@ -61,11 +61,11 @@ end
 -->8
 -- MARK: helper functions
 
-function rescope(self, env)
+function rescope(scope, env)
  return setmetatable(
   {}, {
-   __index = function(_, k) return self[k] or env[k] end,
-   __newindex = self
+   __index = function(_, k) return scope[k] or env[k] end,
+   __newindex = scope
   }
  )
 end
@@ -1005,40 +1005,39 @@ do
  -- MARK: blender
  local scn = {
   acc = vec2.new(0, 0.1),
-  floor = 64 + 12,
   timeline = anim_timeline.new({ 1, 0.5, 1.5, 1.5, 3 }),
   frame = 1
  }
+ local _ENV = rescope(scn, _ENV)
  screens.blender = scn
- function scn:init()
-  self.timeline:start()
-  self.gore_pool = {}
-  self.splash = false
+ function init()
+  timeline:start()
+  gore_pool = {}
+  splash = false
  end
  function scn:update()
-  local step, t = self.timeline:update()
+  local step, t = timeline:update()
 
   if step >= 2 and step < 5 then
-   self:update_particles()
-   self:add_particles(2)
+   update_particles()
+   add_particles(2)
   elseif step == 5 then
-   if not self.splash then
-    self.splash = true
-    self:add_particles(80)
-    self:add_particles(self.pet.meat, 36)
-    self:add_particles(self.pet.bone, 66)
+   if not splash then
+    splash = true
+    add_particles(80)
+    add_particles(pet.meat, 36)
+    add_particles(pet.bone, 66)
    end
-   self:update_particles()
+   update_particles()
   elseif step == 6 then
    if btnp(🅾️) then
-    self.pet = nil
+    pet = nil
     switch_screen()
    end
   end
  end
  function scn:draw()
-  local _ENV = rescope(self, _ENV)
-  local step, t = timeline:get()
+    local step, t = timeline:get()
 
   draw_blender(55 + frame % 2, 52, step)
 
@@ -1047,12 +1046,12 @@ do
    pet:spr_scaled(56, accelerp(-16, 20, 100, t))
    clip()
   elseif step >= 2 then
-   self:draw_particles()
+   draw_particles()
    if (step < 5) frame += 1
   end
   if (step > 5) print_centered("🅾️ exit", 64, 110, 5)
  end
- function scn.draw_blender(x, y, step)
+ function draw_blender(x, y, step)
   pal()
   if step >= 4 then
    pal(6, 8)
@@ -1063,30 +1062,30 @@ do
   palt(0x0010)
   spr_scaled(64, x, y, 1, 2, 3)
  end
- function scn:add_particles(num, sprite)
+ function add_particles(num, sprite)
   for _ = 1, num do
-   local p = add(self.gore_pool, particle.new())
+   local p = add(gore_pool, particle.new())
    p:set_pos(vec2.rng(56, 51, 72, nil))
    p:set_vel(vec2.rng(-0.75, -1.75, 0.75, -0.5))
-   p:set_acc(self.acc)
+   p:set_acc(acc)
    if sprite then
     p.sprite = sprite
     p.flip = rnd() < 0.5
    end
   end
  end
- function scn:update_particles()
-  for p in all(self.gore_pool) do
+ function update_particles()
+  for p in all(gore_pool) do
    p:update()
-   if p.pos.y > self.floor then
-    p.pos.y = self.floor
+   if p.pos.y > 76 then
+    p.pos.y = 76
     p:stop()
    end
   end
  end
- function scn:draw_particles()
+ function draw_particles()
   pal()
-  for p in all(self.gore_pool) do
+  for p in all(gore_pool) do
    if p.sprite then
     spr(p.sprite, p.pos.x - 4, p.pos.y - 7, 1, 1, p.flip)
    else
