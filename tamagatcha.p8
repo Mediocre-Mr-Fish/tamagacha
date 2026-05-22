@@ -7,6 +7,7 @@ function _init()
  is_runtime = true
  tokens = 10
  food = 1
+ bones = 0
  --multiplier for too many pets
  --equation in get_penalty_mult
  swarm_penalty = 0.1
@@ -60,8 +61,41 @@ end
 -->8
 -- MARK: helper functions
 
+function rescope(scope, env)
+ return setmetatable(
+  {}, {
+   __index = function(_, k) return scope[k] or env[k] end,
+   __newindex = scope
+  }
+ ), scope
+end
+
 function mod(a, b)
  return (a - 1) % b + 1
+end
+
+current_music = {}
+music_dir = {
+ tbd0 = { file = "music1.p8", track = 1 },
+ rice_jingle = { file = "music1.p8", track = 3 },
+ pet_loss = { file = "music1.p8", track = 4 }
+}
+function load_music(key, preload)
+ if key == nil then
+  current_music.track = nil
+  return music(-1)
+ end
+ local entry = music_dir[key]
+ if current_music.file ~= entry.file then
+  -- MARK: ToDo: half sfx load size
+  reload(0X3100, 0X3100, 0x0100, entry.file)
+  reload(0X3200, 0X3200, 0x1100, entry.file)
+  current_music.file = entry.file
+ end
+ if not settings.mute and not preload and current_music.track ~= entry.track then
+  current_music.track = entry.track
+  music(entry.track)
+ end
 end
 
 function btnp_axis(neg, pos)
@@ -83,6 +117,14 @@ function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
  scale = scale or 1
  sw, sh = (sw or 1) * 8, (sh or 1) * 8
  sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
+end
+
+function accelerp(x0, v0, a, t)
+ return x0 + v0 * t + a * t * t / 2
+end
+
+function rngf(lower, upper)
+ return lower + rnd() * (upper - lower)
 end
 
 -- encode a bool array as an integer
@@ -128,12 +170,6 @@ function rect_vec(pos1, pos2, col, fill, as_dim)
  if (col) color(col)
  if (as_dim) pos2 += pos1
  (fill and rectfill or rect)(pos1.x, pos1.y, pos2.x, pos2.y)
-end
-
-function glide_vec(vec1, vec2, mult)
- local dv = vec2 - vec1
- if (dv:length2() > 0.25) return vec1 + dv * mult
- return vec2
 end
 
 function get_penalty_mult()
@@ -202,10 +238,36 @@ function is_instance(object, class)
  return false
 end
 
+anim_timeline = classfactory({})
+function anim_timeline.new(durations)
+ return setmetatable({ durations = durations, step = 0 }, anim_timeline)
+end
+function anim_timeline:start(from)
+ self.t0 = time()
+ self.step = from or 1
+ return self:get()
+end
+function anim_timeline:update()
+ while true do
+  local step, t = self:get()
+  local dur = self.durations[step]
+  if not dur or t < dur then return step, t end
+
+  self.step += 1
+  self.t0 += dur
+ end
+end
+function anim_timeline:get()
+ return self.step, self.t0 and time() - self.t0 or 0
+end
+
 vec2 = classfactory({})
-function vec2.new(x, y) return setmetatable({ x = x, y = y }, vec2) end
+function vec2.new(x, y) return setmetatable({ x = x, y = y or x }, vec2) end
+function vec2.rng(x0, y0, x1, y1) return vec2.new(rngf(x0, x1 or x0), rngf(y0 or x0, y1 or y0 or x0)) end
+function vec2.setfrom(v, a) v.x, v.y = a.x, a.y return self end
 function vec2.unpack(v) return v.x, v.y end
 function vec2.length2(v) return v.x * v.x + v.y * v.y end
+function vec2.to_cartesian(v) return vec2.new(v.x * cos(v.y), v.x * sin(v.y)) end
 function vec2.__add(a, b) return vec2.new(a.x + b.x, a.y + b.y) end
 function vec2.__sub(a, b) return vec2.new(a.x - b.x, a.y - b.y) end
 function vec2.__mul(a, b) if type(a) == "number" then a, b = b, a end return vec2.new(a.x * b, a.y * b) end
@@ -213,9 +275,53 @@ function vec2.__div(a, b) return vec2.new(a.x / b, a.y / b) end
 function vec2.__unm(a) return vec2.new(-a.x, -a.y) end
 function vec2.__eq(a, b) return a.x == b.x and a.y == b.y end
 function vec2.__tostring(v) return "(" .. v.x .. "," .. v.y .. ")" end
-vec2_1 = vec2.new(1, 1)
-vec2_8 = vec2.new(8, 8)
-vec2_9 = vec2.new(9, 9)
+vec2_0 = vec2.new(0)
+vec2_1 = vec2.new(1)
+vec2_8 = vec2.new(8)
+vec2_9 = vec2.new(9)
+
+particle = classfactory({})
+function particle:new() return setmetatable({ pos = vec2.new(0), vel = vec2.new(0), acc = vec2.new(0) }, particle) end
+function particle:set_pos(vec) self.pos = vec * 1 return self end
+function particle:set_vel(vec) self.vel = vec * 1 return self end
+function particle:set_acc(vec) self.acc = vec * 1 return self end
+function particle:stop(stop) self.stopped = stop ~= false end
+function particle:update()
+ if (self.stopped) return
+ self.pos += self.vel
+ self.vel += self.acc
+end
+
+glider = classfactory({}, vec2)
+function glider.new(rate, x, y)
+ local self = setmetatable(vec2.new(x or 0, y), glider)
+ self.rate = rate
+ self.target = nil
+ return self
+end
+function glider:move()
+ if self.target then
+  local dv = self.target - self
+
+  if dv:length2() < 0.25 then
+   return self:teleport(self.target)
+  end
+
+  self:setfrom(self + (dv * self.rate))
+ end
+
+ return self
+end
+function glider:set_target(vec_or_nil, no_copy)
+ if (vec_or_nil and not no_copy) vec_or_nil *= 1
+ self.target = vec_or_nil
+ return self
+end
+function glider:teleport(vec)
+ self:setfrom(vec)
+ self.target = nil
+ return self
+end
 
 all_pets = {}
 num_pet_types = 15
@@ -225,6 +331,7 @@ function classfactory__pet(static_vars, parent)
  return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
+-- MARK: pet
 class__pet = classfactory({
  name = "default",
  immortal = false,
@@ -232,7 +339,9 @@ class__pet = classfactory({
  sprite_width = 2,
  sprite_height = 2,
  transparent = 11, --lime
- color_variants = {}
+ color_variants = {},
+ meat = 3,
+ bone = 2
 })
 function class__pet.new()
  local self = setmetatable({}, class__pet)
@@ -294,7 +403,11 @@ function class__pet:is_dead()
  return not self.immortal and self.hunger == 0 and self.happiness == 0
 end
 
-pet_duck = classfactory__pet({ name = "arb duck", sprite = 6 })
+pet_duck = classfactory__pet({
+ name = "arb duck", sprite = 6, color_variants = {
+  { [3] = 4, [4] = 15 }
+ }
+})
 pet_cheeto = classfactory__pet({ name = "cheeto", immortal = true, sprite = 8 })
 pet_mimikyu = classfactory__pet({ name = "mimikyu", sprite = 10 })
 pet_not_mimikyu = classfactory__pet({ name = "not mimikyu", sprite = 12 })
@@ -305,6 +418,12 @@ pet_squirrel = classfactory__pet({
 })
 pet_turkey = classfactory__pet({ name = "turkey", sprite = 38 })
 pet_owl = classfactory__pet({ name = "owl", sprite = 40 })
+pet_horse = classfactory__pet({
+ name = "horse", sprite = 42, color_variants = {
+  { [4] = 5, [5] = 4, [1] = 0 },
+  { [4] = 6, [6] = 7, [1] = 5 }
+ }
+})
 
 -- map integer pet.id to bool
 discovered_pets = {}
@@ -336,8 +455,7 @@ end
 max_item_stack = 0xff
 
 pets = {
- pet_duck.new()
- --pet_squirrel.new():set_color()
+ pet_duck.new():set_color()
 }
 --1 based counting to access pet table
 current_pet = 1
@@ -354,7 +472,7 @@ function load_data()
  local addr = 0x5e00
 
  -- user data
- settings.mute, settings.grim = decode_bitfield(peek(addr), 4)
+ settings.mute, settings.grim = unpack(decode_bitfield(peek(addr), 8))
  addr += 1
 
  -- discovered pets
@@ -432,508 +550,830 @@ end
 
 -->8
 -- MARK: screens
+class__gridmenu = classfactory({ selection = 1, selectables = {} })
+function class__gridmenu:init()
+ self.sel_glider:teleport(self:grid_vec())
+end
+function class__gridmenu:update_sel()
+ local s = min(#self.selectables, grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), self.w, self.h))
+ self.selection = s
+ return s, self.selectables[s]
+end
+function class__gridmenu:glide()
+ return self.sel_glider:set_target(self:grid_vec()):move()
+end
+function class__gridmenu:grid_vec(i)
+ return vec2.new(grid_coords(self.x, self.y, self.dx, self.dy, i or self.selection, self.w))
+end
+
 screens = {}
 
-screens.home = {
- icons = {
-  { name = "food", sprite = 1 },
-  { name = "game", sprite = 2, screen = "game_select" },
-  { name = "stats", sprite = 3, screen = "stats" },
-  { name = "gacha", sprite = 4, screen = "gacha" },
-  { name = "settings", sprite = 5, screen = "settings" },
-
-  { name = "snacks", sprite = 17, screen = "snacks" },
-  { name = "left", sprite = 18 },
-  { name = "right", sprite = 19 },
-  { name = "pets", sprite = 20, screen = "collection" },
-  { name = "adopt", sprite = 21, screen = "adoption" }
- },
- selection = 1,
- select_pos = {}
-}
-function screens.home:init()
- self.select_pos = self.grid_vec(self.selection)
-end
-function screens.home:update()
- self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
- self.select_pos = glide_vec(self.select_pos, self.grid_vec(self.selection), 0.5)
-
- local icon = self.icons[self.selection]
-
- if btnp(❎) then
-  --disallows feeding or playing after death to prevent revives
-  if pets[current_pet]:is_dead() and (icon.name == "food" or icon.name == "game") then
-   return
-  end
-
-  if icon.screen then
-   switch_screen(screens[icon.screen])
-  end
-
-  if icon.name == "food" then
-   feed_pet()
-  elseif icon.name == "left" then
-   current_pet = mod(current_pet - 1, #pets)
-  elseif icon.name == "right" then
-   current_pet = mod(current_pet + 1, #pets)
-  end
- end
-end
-function screens.home:draw()
- local pet = pets[current_pet]
-
- for i, icon in ipairs(self.icons) do
-  local x, y = self.grid_vec(i):unpack()
-  spr(icon.sprite, x, y)
-  if i == self.selection then
-   print_centered(icon.name, 64, 110, 7)
-  end
- end
-
- rect_vec(self.select_pos - vec2_1, vec2_9, 10, false, true)
-
- --stats icon reflecting pet status
- fillp(█)
- local hunger_x = pet.hunger / 15 * 6
- local happy_x = pet.happiness / 15 * 6
- if hunger_x > 1 then
-  rectfill(61, 4, 60 + hunger_x, 4, hunger_x > 3 and 11 or 8)
- end
- if happy_x > 1 then
-  rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
- end
-
- --print food counter
- print(food, 3, 13, 7)
-
- --draw current pet
- fillp(★)
- circfill(64, 64, 44, 3)
- print_centered(pet.name, 64, 20, 7)
- if pet:is_dead() then
-  spr_scaled(50, 52, 62, 4)
- else
-  pet:spr_scaled(32, 32, 4)
- end
-
- --draw number of pets and current pet indicator
- pal()
- fillp(█)
- for i = 1, #pets do
-  circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
- end
-end
-function screens.home.grid_vec(i)
- return vec2.new(grid_coords(4, 3, 28, 114, i, 5))
+function classfactory__gridmenu(static_vars)
+ static_vars.sel_glider = glider.new(0.5)
+ return classfactory(static_vars, class__gridmenu)
 end
 
-screens.game_select = {
- selection = 1,
- games = {
-  { name = "math", game = "math" },
-  { name = "maze", game = nil },
-  { name = "fishing", game = "fishing" },
-  { name = "you shouldn't see this", game = nil }
- }
-}
-function screens.game_select:update()
- self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 2, 2)
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  screens.minigame.current_game = games[self.games[self.selection].game]
-  switch_screen(screens.minigame)
- end
-end
-function screens.game_select:draw()
- fillp(█)
- for i, game in ipairs(self.games) do
-  local x = 8 + (i - 1) % 2 * 60
-  local y = 8 + (i - 1) \ 2 * 60
-  local col = 3
+-- MARK: home
+do
+ screens.home = classfactory__gridmenu({
+  x = 4, y = 3, dx = 28, dy = 114, w = 5, h = 2,
+  selectables = {
+   { name = "food", sprite = 1 },
+   { name = "game", sprite = 2, screen = "game_select" },
+   { name = "stats", sprite = 3, screen = "stats" },
+   { name = "gacha", sprite = 4, screen = "gacha" },
+   { name = "settings", sprite = 5, screen = "settings" },
 
-  -- MARK: ToDo: whatever this is
-  if i == 4 then
-   if settings.grim then
-    game.name = grim_progress .. "/3"
-   else
-    game.name = "tbd"
-    col = 5
-   end
-  end
-
-  self:draw_pannel(game.name, x, y, 52, 52, col)
-
-  if i == self.selection then
-   rect(x, y, x + 52, y + 52, 10)
-  end
- end
-end
-function screens.game_select:draw_pannel(label, x, y, w, h, col)
- rectfill(x, y, x + w, y + h, col)
- print_centered(label, x + flr(w / 2), y + flr(h / 2) - 3, 7)
-end
-
-screens.stats = {}
-function screens.stats:update()
- if btnp(🅾️) then
-  switch_screen()
- end
-end
-function screens.stats:draw()
- local pet = pets[current_pet]
- print(pet.name, 20, 40, 7)
- fillp(█)
- --hunger bar
- print("hunger", 20, 52, 7)
- rectfill(20, 60, 108, 65, 5)
- rectfill(20, 60, 20 + 5.87 * pet.hunger, 65, 11)
- --happy bar
- print("happiness", 20, 72, 7)
- rectfill(20, 80, 108, 85, 5)
- rectfill(20, 80, 20 + 5.87 * pet.happiness, 85, 11)
-end
-
-screens.settings = {
- selection = 1,
- options = {
-  -- not called 'settings' to reduce confusion
-  { name = "sound", key = "mute" },
-  { name = "grim mode", key = "grim" }
- }
-}
-function screens.settings:update()
- self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  local key = self.options[self.selection].key
-  -- assumes settings are boolean
-  settings[key] = not settings[key]
- end
-end
-function screens.settings:draw()
- for i, option in ipairs(self.options) do
-  local y = 20 + (i - 1) * 40
-  local setting = settings[option.key]
-
-  print_centered(option.name, 64, y, i == self.selection and 10 or 7)
-  self.draw_checkbox(45, y + 14, setting)
- end
-
- spr_scaled(16, 62, 30, 2, 1, 1)
- if settings.mute then
-  color(8)
-  line(75, 35, 81, 41)
-  line(75, 41, 81, 35)
- else
-  line(76, 35, 76, 41)
-  line(79, 32, 79, 44)
- end
-
- if settings.grim then
-  pal(6, 8)
-  print("✽", 67, 81, 8)
-  print("★", 71, 78, 2)
-  spr_scaled(50, 64, 70, 2, 1, 1)
-  pal()
- else
-  spr_scaled(50, 64, 70, 2, 1, 1)
- end
-
- print_centered("❎ select  🅾️ exit", 64, 110, 5)
-end
-function screens.settings.draw_checkbox(x, y, checked)
- rect(x, y, x + 8, y + 8, 7)
- if checked then
-  print("🐱", x + 1, y + 2, 8)
- end
-end
-
-screens.snacks = {
- selection = 1
-}
-function screens.snacks:update()
- self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 3, 2)
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  if inventory[self.selection] > 0 then
-   inventory[self.selection] -= 1
-   --give pet status or ailment
-  else
-   -- play error sound
-  end
- end
-end
-function screens.snacks:draw()
- for i, prefab in ipairs(all_items) do
-  local amount = inventory[i]
-  local sx = 8 + (i - 1) % 3 * 44
-  local sy = 8 + (i - 1) \ 3 * 44
-
-  spr_scaled(prefab.sprite, sx, sy, 3)
-
-  print_centered(amount, sx - 5, sy, 7)
-  if i == self.selection then
-   rect(sx - 1, sy - 1, sx + 24, sy + 24, 10)
-   print_centered(prefab.name, 64, 100, 7)
-  end
- end
- print_centered("🅾️ exit    ❎ use", 64, 110, 7)
-end
-
-screens.collection = {
- selection = 1
-}
-function screens.collection:update()
- self.selection = min(#all_pets, grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 4, 2))
- if btnp(🅾️) then
-  switch_screen()
- end
-end
-function screens.collection:draw()
- --draw all pets
- for i, pet_cls in pairs(all_pets) do
-  local sx = 8 + (i - 1) % 4 * 32
-  local sy = 8 + (i - 1) \ 4 * 32
-  local name = pet_cls.name
-
-  if discovered_pets[pet_cls.id] then
-   pet_cls:spr_scaled(sx, sy, 1)
-  else
-   pet_cls:pal(true)
-   pet_cls:spr_scaled(sx, sy, 1, true)
-   name = "???"
-  end
-
-  if i == self.selection then
-   rect(sx - 1, sy - 1, sx + 16, sy + 16, 10)
-   print_centered(name, 64, 100, 7)
-  end
- end
- print_centered("🅾️ exit", 64, 110, 5)
-end
-
-screens.adoption = {}
-function screens.adoption:update()
- if btnp(🅾️) then
-  switch_screen()
- end
-end
-function screens.adoption:draw()
- print("killing menu in the works", 10, 40, 7)
-end
-
--->8
---MARK: gacha page and animation
-
-screens.gacha = {
- selection = 1,
- pulls = {
-  {
-   label = "1-pull", desc1 = "20% chance for", desc2 = "pet egg", color = 4,
-   cost = 1, rolls = 1
-  },
-  {
-   label = "10-pull", desc1 = "guaranteed 3", desc2 = "pet eggs", color = 9,
-   cost = 10, rolls = 10
+   { name = "snacks", sprite = 17, screen = "snacks" },
+   { name = "left", sprite = 18 },
+   { name = "right", sprite = 19 },
+   { name = "pets", sprite = 20, screen = "collection" },
+   { name = "adopt", sprite = 21, screen = "loose_pet" }
   }
- }
-}
-function screens.gacha:update()
- self.selection = mod(self.selection + btnp_axis(⬅️, ➡️), #self.pulls)
+ })
+ local _ENV, scn = rescope(screens.home, _ENV)
+ function update()
+  local _, icon = update_sel(scn)
+  glide(scn)
 
- if btnp(🅾️) then
-  switch_screen()
- elseif btnp(❎) then
-  local pull_type = self.pulls[self.selection]
-  if tokens >= pull_type.cost then
-   tokens -= pull_type.cost
-   screens.gacha_anim.pull_type = pull_type
-   switch_screen(screens.gacha_anim)
-   t = time()
-  end
- end
-end
-function screens.gacha:draw()
- cls()
- --rectfill(0,0,128,128,15)
- --tickets icon
- spr(37, 105, 0)
- print(tokens, 115, 2, 9)
- for i, pull_type in ipairs(self.pulls) do
-  local x, y = grid_coords(3, 49, 63, 34, i, 2)
-  self.draw_card(x, y, pull_type, self.selection == i)
-  if self.selection == i and tokens < pull_type.cost then
-   print("not enough tokens", 30, 90, 8)
-  end
- end
+  if btnp(❎) then
+   --disallows feeding or playing after death to prevent revives
+   if pets[current_pet]:is_dead() and (icon.name == "food" or icon.name == "game") then
+    return
+   end
 
- --back icon
- print_centered("🅾️ back", 64, 110, 5)
-end
-function screens.gacha.draw_card(x, y, pull_type, selected)
- rectfill(x, y, x + 59, y + 30, pull_type.color)
- print(pull_type.label, x + 2, y + 2, 7)
- line(x + 2, y + 10, x + 57, y + 10)
- print(pull_type.desc1, x + 2, y + 14)
- print(pull_type.desc2)
- if selected then
-  rect(x, y, x + 59, y + 30, 10)
- end
-end
+   if icon.screen then
+    switch_screen(screens[icon.screen])
+   end
 
---------------------------------
---animation and selection
---------------------------------
-screens.gacha_anim = {
- pull_type = nil,
- selection = 1,
- prizes_to_delete = {},
- draw_list = {}
-}
-function screens.gacha_anim:init()
- if not self.pull_type then
-  return
- end
-
- self.prizes_to_delete = {}
- self.draw_list = {}
- for _ = 1, self.pull_type.rolls do
-  add(self.draw_list, pull_gacha())
- end
-
- self.selection = 1
-end
-
-function pull_gacha()
- local rolled_pet = rnd(1) < 0.2
- return rolled_pet and rnd(all_pets) or rnd(all_items)
-end
-
-function screens.gacha_anim:update()
- --skip animation button
- if btnp(🅾️) and under(6) then
-  t -= 3
- elseif btnp(🅾️) then
-  -- exit the screen
-  --add inventory/pets list
-  for i, prize in pairs(self.draw_list) do
-   if self.prizes_to_delete[i] then
-    food += 10
-   elseif is_instance(prize, class__pet) then
-    add(pets, prize.new())
-    discovered_pets[prize.id] = true
-   else
-    -- MARK: ToDo make item class
-    inventory[prize.id] += 1
+   if icon.name == "food" then
+    feed_pet()
+   elseif icon.name == "left" then
+    current_pet = mod(current_pet - 1, #pets)
+   elseif icon.name == "right" then
+    current_pet = mod(current_pet + 1, #pets)
    end
   end
-  switch_screen()
  end
+ function draw()
+  local pet = pets[current_pet]
 
- if btnp(❎) then
-  --mark obj for deletion
-  self.prizes_to_delete[self.selection] = true
-  if #self.draw_list == 1 then
-   --start blender animation
+  for i, icon in ipairs(selectables) do
+   local x, y = grid_vec(scn, i):unpack()
+   spr(icon.sprite, x, y)
+   if i == selection then
+    print_centered(icon.name, 64, 110, 7)
+   end
+  end
+
+  --stats icon reflecting pet status
+  fillp(█)
+  local hunger_x = pet.hunger / 15 * 6
+  local happy_x = pet.happiness / 15 * 6
+  if hunger_x > 1 then
+   rectfill(61, 4, 60 + hunger_x, 4, hunger_x > 3 and 11 or 8)
+  end
+  if happy_x > 1 then
+   rectfill(61, 6, 60 + happy_x, 6, happy_x > 3 and 11 or 8)
+  end
+
+  --print food counter
+  print(food, 3, 13, 7)
+
+  --draw current pet
+  fillp(★)
+  circfill(64, 64, 44, 3)
+  print_centered(pet.name, 64, 20, 7)
+  if pet:is_dead() then
+   spr_scaled(50, 52, 62, 4)
+  else
+   pet:spr_scaled(32, 32, 4)
+  end
+
+  --draw number of pets and current pet indicator
+  pal()
+  fillp(█)
+  for i = 1, #pets do
+   circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
+  end
+
+  rect_vec(sel_glider - vec2_1, vec2_9, 10, false, true)
+ end
+end
+
+-- MARK: game_select
+do
+ screens.game_select = classfactory__gridmenu({
+  x = 8, y = 8, dx = 60, dy = 60, w = 2, h = 2,
+  selectables = {
+   { name = "math", key = "math" },
+   { name = "maze", key = nil },
+   { name = "fishing", key = "fishing" },
+   { name = "you shouldn't see this", key = nil }
+  }
+ })
+ local _ENV, scn = rescope(screens.game_select, _ENV)
+ function update()
+  local _, game = update_sel(scn)
+  glide(scn)
+
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   screens.minigame.current_game = games[game.key]
+   switch_screen(screens.minigame)
+  end
+ end
+ function screens.game_select:draw()
+  fillp(█)
+  for i, game in ipairs(selectables) do
+   local x, y = grid_vec(scn, i):unpack()
+   local col = 3
+
+   -- MARK: ToDo: whatever this is
+   if i == 4 then
+    if settings.grim then
+     game.name = grim_progress .. "/3"
+    else
+     game.name = "tbd"
+     col = 5
+    end
+   end
+
+   draw_panel(game.name, x, y, 52, 52, col)
+  end
+  rect_vec(sel_glider, vec2.new(52), 10, false, true)
+ end
+ function draw_panel(label, x, y, w, h, col)
+  rectfill(x, y, x + w, y + h, col)
+  print_centered(label, x + flr(w / 2), y + flr(h / 2) - 3, 7)
+ end
+end
+
+-- MARK: stats
+do
+ screens.stats = {}
+ local _ENV, scn = rescope(screens.stats, _ENV)
+ function update()
+  if btnp(🅾️) then
    switch_screen()
   end
  end
-
- if #self.draw_list ~= 1 and not under(6) then
-  self.selection = grid_wrap(self.selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 5, 2)
+ function draw()
+  local pet = pets[current_pet]
+  print(pet.name, 20, 40, 7)
+  fillp(█)
+  --hunger bar
+  print("hunger", 20, 52, 7)
+  rectfill(20, 60, 108, 65, 5)
+  rectfill(20, 60, 20 + 5.87 * pet.hunger, 65, 11)
+  --happy bar
+  print("happiness", 20, 72, 7)
+  rectfill(20, 80, 108, 85, 5)
+  rectfill(20, 80, 20 + 5.87 * pet.happiness, 85, 11)
  end
 end
 
-function under(length)
- return time() - t <= length
-end
-
-function screens.gacha_anim:draw()
- cls()
- --skip button
- if under(6) then
-  print_centered("🅾️ skip", 64, 110, 5)
- end
- --1 pull
- if #self.draw_list == 1 then
-  local prize = self.draw_list[1]
-  if under(0.3) then
-   self.draw_item(prize, 48, 48, 4)
-  elseif under(0.6) then
-   self.draw_item(prize, 47, 48, 4)
-  elseif under(0.9) then
-   self.draw_item(prize, 48, 48, 4)
-  elseif under(1.2) then
-   self.draw_item(prize, 49, 48, 4)
-  elseif under(3) then
-   self.draw_item(prize, 48, 48, 4)
-  elseif under(6) then
-   self.draw_item(prize, 48, 48, 4, true)
-  else
-   self.draw_item(prize, 48, 48, 4, true)
+-- MARK: settings
+do
+ screens.settings = {
+  selection = 1,
+  options = {
+   -- not called 'settings' to reduce confusion
+   { name = "sound", key = "mute" },
+   { name = "grim mode", key = "grim" }
+  }
+ }
+ local _ENV, scn = rescope(screens.settings, _ENV)
+ function update()
+  selection = grid_wrap(selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   local key = scn.options[selection].key
+   -- assumes settings are boolean
+   settings[key] = not settings[key]
   end
- else
-  for i, prize in pairs(self.draw_list) do
-   local ix, iy = grid_coords(4, 33, 26, 46, i, 5)
-   local shake = prize.sprite % 2 * 2 - 1
+ end
+ function draw()
+  for i, option in ipairs(options) do
+   local y = 20 + (i - 1) * 40
+   local setting = settings[option.key]
 
-   if under(0.3) then
-    self.draw_item(prize, ix, iy, 2)
-   elseif under(0.6) then
-    self.draw_item(prize, ix + shake, iy, 2)
-   elseif under(0.9) then
-    self.draw_item(prize, ix, iy, 2)
-   elseif under(1.2) then
-    self.draw_item(prize, ix - shake, iy, 2)
-   elseif under(3) then
-    self.draw_item(prize, ix, iy, 2)
-   elseif under(6) then
-    self.draw_item(prize, ix, iy, 2, true)
+   print_centered(option.name, 64, y, i == selection and 10 or 7)
+   draw_checkbox(45, y + 14, setting)
+  end
+
+  spr_scaled(16, 62, 30, 2, 1, 1)
+  if settings.mute then
+   color(8)
+   line(75, 35, 81, 41)
+   line(75, 41, 81, 35)
+  else
+   line(76, 35, 76, 41)
+   line(79, 32, 79, 44)
+  end
+
+  if settings.grim then
+   pal(6, 8)
+   print("✽", 67, 81, 8)
+   print("★", 71, 78, 2)
+   spr_scaled(50, 64, 70, 2, 1, 1)
+   pal()
+  else
+   spr_scaled(50, 64, 70, 2, 1, 1)
+  end
+
+  print_centered("❎ select  🅾️ exit", 64, 110, 5)
+ end
+ function screens.settings.draw_checkbox(x, y, checked)
+  rect(x, y, x + 8, y + 8, 7)
+  if checked then
+   print("🐱", x + 1, y + 2, 8)
+  end
+ end
+end
+
+-- MARK: snacks
+do
+ screens.snacks = classfactory__gridmenu({
+  x = 8, y = 8, dx = 44, dy = 44, w = 3, h = 2,
+  selectables = all_items
+ })
+ local _ENV, scn = rescope(screens.snacks, _ENV)
+ function update()
+  update_sel(scn)
+  glide(scn)
+
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   if inventory[selection] > 0 then
+    inventory[selection] -= 1
+    --give pet status or ailment
    else
-    self.draw_item(prize, ix, iy, 2, true)
-    --draw selector
-    if self.selection == i then
-     rect(ix - 1, iy - 1, ix + 16, iy + 16, 10)
+    -- play error sound
+   end
+  end
+ end
+ function draw()
+  for i, prefab in ipairs(selectables) do
+   local amount = inventory[i]
+   local sx, sy = grid_vec(scn, i):unpack()
+
+   spr_scaled(prefab.sprite, sx, sy, 3)
+
+   print_centered(amount, sx - 5, sy, 7)
+   if i == selection then
+    print_centered(prefab.name, 64, 100, 7)
+   end
+  end
+  rect_vec(sel_glider, vec2.new(24), 10, false, true)
+  print_centered("🅾️ exit    ❎ use", 64, 110, 7)
+ end
+end
+
+-- MARK: collection
+do
+ screens.collection = classfactory__gridmenu({
+  x = 8, y = 8, dx = 32, dy = 32, w = 4, h = 4,
+  selectables = all_pets
+ })
+ local _ENV, scn = rescope(screens.collection, _ENV)
+ function update()
+  update_sel(scn)
+  glide(scn)
+
+  if btnp(🅾️) then
+   switch_screen()
+  end
+ end
+ function draw()
+  --draw all pets
+  for i, pet_cls in pairs(selectables) do
+   local sx, sy = grid_vec(scn, i):unpack()
+   local name = pet_cls.name
+
+   if discovered_pets[pet_cls.id] then
+    pet_cls:spr_scaled(sx, sy, 1)
+   else
+    pet_cls:pal(true)
+    pet_cls:spr_scaled(sx, sy, 1, true)
+    name = "???"
+   end
+
+   if i == selection then
+    print_centered(name, 64, 100, 7)
+   end
+  end
+  rect_vec(sel_glider, vec2.new(16), 10, false, true)
+  print_centered("🅾️ exit", 64, 110, 5)
+ end
+end
+
+-- MARK: loose_pet
+do
+ screens.loose_pet = {}
+ local _ENV = rescope(screens.loose_pet, _ENV)
+ function with(self, pet_)
+  pet = pet_
+  return self
+ end
+ function init()
+  local pet = pet or deli(pets, current_pet)
+  local target = decide(pet)
+  if (target) target.pet = pet
+  switch_screen(target)
+  pet = nil
+ end
+ function decide(pet)
+  if (pet.immortal) return screens.abandon
+  if (not settings.grim) return screens.abandon
+  if (pet.happiness == 0) return screens.talljump
+  return screens.blender
+ end
+end
+-- MARK: abandon
+do
+ screens.abandon = {
+  timeline = anim_timeline.new({})
+ }
+ local _ENV = rescope(screens.abandon, _ENV)
+ function init()
+  _ENV.timeline:start()
+ end
+ function update()
+  local step, t = timeline:update()
+  if t > 4 and btnp(🅾️) then
+   switch_screen()
+  end
+ end
+ function draw()
+  local step, t = timeline:get()
+  local x = accelerp(24, 50, 0, t)
+  pal()
+  clip(0, 0, x + 8, 128)
+  print_centered(pet.name .. " has left you", 64, 60, 6)
+  clip()
+  circfill(x + 2, 52, 4, 8)
+  for i = 0, 2 do
+   line(x + 2, 48 + i, x + 22, 68 + i, 4)
+  end
+
+  pet:spr_scaled(x, 44, 2, false, true, false)
+  if t > 4 then
+   print_centered("🅾️ exit", 64, 110, 5)
+  end
+ end
+end
+-- MARK: talljump
+do
+ screens.talljump = {
+  timeline = anim_timeline.new({ 1, 1.5, 2, 60, 6, 1 })
+ }
+ local _ENV = rescope(screens.talljump, _ENV)
+ function init()
+  timeline:start()
+  gore_pool = {}
+  splash = false
+  y4 = 0
+  load_music("pet_loss", true)
+ end
+ function update()
+  local step, t = timeline:update()
+
+  if #gore_pool < 2100 then
+   for i = 1, 100 do
+    local p = add(gore_pool, particle.new())
+    p:set_pos(vec2.rng(80, 96, 96, nil))
+    local vel = vec2.rng(1, 0, 7, 1):to_cartesian()
+    if i < 25 then
+     vel.y = -abs(vel.y)
+     vel.x *= 0.4
     end
-    if self.prizes_to_delete[i] then
-     line(ix - 1, iy - 1, ix + 16, iy + 16, 8)
-     line(ix - 1, iy + 16, ix + 16, iy - 1, 8)
-     --thicker lines
-     line(ix - 2, iy - 1, ix + 15, iy + 16, 8)
-     line(ix - 2, iy + 16, ix + 15, iy - 1, 8)
+    vel.y *= abs(vel.y) * 0.5
+
+    p:set_vel(vel)
+    p:set_acc(vec2.new(0, 0.1))
+   end
+  end
+
+  if step == 4 then
+   if y4 > 88 then
+    timeline:start(5)
+   end
+  elseif step >= 5 then
+   for p in all(gore_pool) do
+    if p.pos.y < -32 then
+     p.vel.x *= 0.1
+     p.vel.y = min(p.vel.y, 10)
+    end
+    if p.pos.y > 96 and rnd() < 0.75 then
+     p:stop()
+    end
+    if p.pos.x < 49 and rnd() < 0.5 then
+     p:stop()
+    end
+    p:update()
+   end
+
+   if step == 6 then
+    load_music("pet_loss")
+   elseif step == 7 then
+    if btnp(🅾️) then
+     pet = nil
+     switch_screen()
+     return
     end
    end
   end
  end
- if not under(6) then
-  print_centered("❎ trash  🅾️ exit", 64, 110, 7)
+ function draw()
+  cls(12)
+  local step, t = timeline:get()
+
+  if step == 1 then
+   rectfill(0, 64, 64, 128, 5)
+   pet:spr_scaled(48, 50, 1, false, true, false)
+   rectfill(0, 62, 66, 70, 6)
+  elseif step == 2 then
+   rectfill(0, 64, 64, 128, 5)
+   pet:spr_scaled(
+    accelerp(48, 50, -25, t),
+    accelerp(50, -50, 200, t),
+    1, false, true, false
+   )
+   rectfill(0, 62, 66, 70, 6)
+  elseif step == 3 then
+   rectfill(0, 0, 64, 128, 5)
+   for i = -1, 5 do
+    for x = 8, 48, 32 do
+     local y = (t % 0.15) / 0.15 * -48 + i * 48
+     rectfill(x, y, x + 16, y + 24, 0)
+    end
+   end
+   pet:spr_scaled(
+    88,
+    accelerp(32, 32, 0, t),
+    1, false, true, false
+   )
+  elseif step >= 4 then
+   if step == 4 then
+    y4 = accelerp(-128, 256 * 4, 0, t)
+    pet:spr_scaled(80, y4, 1, false, true, false)
+   end
+
+   -- grass
+   rectfill(0, 90, 127, 127, 3)
+   -- building
+   rectfill(0, 0, 48, 127, 5)
+   for y = 80, 0, -48 do
+    rectfill(1, y, 17, y - 24, 0)
+   end
+   -- road
+   rectfill(0, 96, 127, 127, 0)
+   if step >= 5 then
+    draw_particles()
+   end
+
+   if step >= 6 then
+    print_centered(pet.name .. " was sad.", 90, 48, 7)
+   end
+   if step == 7 then
+    print_centered("🅾️ exit", 64, 110, 5)
+   end
+  end
+ end
+ function draw_particles()
+  for particle in all(gore_pool) do
+   pset(particle.pos.x, particle.pos.y, 8)
+  end
  end
 end
-
-function screens.gacha_anim.draw_item(item, x, y, size, open)
- local item_size = 1
- if is_instance(item, class__pet) and open then
-  item_size = 2
-  size /= 2
+-- MARK: blender
+do
+ screens.blender = {
+  timeline = anim_timeline.new({ 1, 0.5, 1.5, 1.5, 3 }),
+  frame = 1
+ }
+ local _ENV = rescope(screens.blender, _ENV)
+ function init()
+  timeline:start()
+  gore_pool = {}
+  splash = false
+  load_music("pet_loss", true)
  end
+ function update()
+  local step, t = timeline:update()
 
- local sprite = 49
- --present box
- if open then
-  sprite = item.sprite
-  palt(item.transparent, true)
- elseif item.pet then
-  sprite = 48 --egg
-  palt()
+  if step >= 2 and step < 5 then
+   update_particles()
+   add_particles(2)
+  elseif step == 5 then
+   if not splash then
+    splash = true
+    add_particles(80)
+    add_particles(pet.meat, 36)
+    add_particles(pet.bone, 66)
+   end
+   update_particles()
+  elseif step == 6 then
+   load_music("pet_loss")
+   if btnp(🅾️) then
+    pet = nil
+    switch_screen()
+   end
+  end
  end
+ function draw()
+  local step, t = timeline:get()
 
- spr_scaled(sprite, x, y, size, item_size, item_size)
- pal()
+  draw_blender(55 + frame % 2, 52, step)
+
+  if step == 1 then
+   clip(0, 0, 128, 52)
+   pet:spr_scaled(56, accelerp(-16, 20, 100, t))
+   clip()
+  elseif step >= 2 then
+   draw_particles()
+   if (step < 5) frame += 1
+  end
+  if (step > 5) print_centered("🅾️ exit", 64, 110, 5)
+ end
+ function draw_blender(x, y, step)
+  pal()
+  if step >= 4 then
+   pal(6, 8)
+  elseif step == 3 then
+   pal(6, 14)
+  end
+
+  palt(0x0010)
+  spr_scaled(64, x, y, 1, 2, 3)
+ end
+ function add_particles(num, sprite)
+  for _ = 1, num do
+   local p = add(gore_pool, particle.new())
+   p:set_pos(vec2.rng(56, 51, 72, nil))
+   p:set_vel(vec2.rng(-0.75, -1.75, 0.75, -0.5))
+   p:set_acc(vec2.new(0, 0.1))
+   if sprite then
+    p.sprite = sprite
+    p.flip = rnd() < 0.5
+   end
+  end
+ end
+ function update_particles()
+  for p in all(gore_pool) do
+   p:update()
+   if p.pos.y > 76 then
+    p.pos.y = 76
+    p:stop()
+   end
+  end
+ end
+ function draw_particles()
+  pal()
+  for p in all(gore_pool) do
+   if p.sprite then
+    spr(p.sprite, p.pos.x - 4, p.pos.y - 7, 1, 1, p.flip)
+   else
+    pset(p.pos.x, p.pos.y, 8)
+   end
+  end
+ end
 end
+-->8
+--MARK: gacha
 
+do
+ screens.gacha = classfactory__gridmenu({
+  x = 3, y = 49, dx = 63, dy = 34, w = 2, h = 1,
+  selectables = {
+   {
+    label = "1-pull", desc1 = "20% chance for", desc2 = "pet egg", color = 4,
+    cost = 1, rolls = 1
+   },
+   {
+    label = "10-pull", desc1 = "guaranteed 3", desc2 = "pet eggs", color = 9,
+    cost = 10, rolls = 10
+   }
+  }
+ })
+ local _ENV, scn = rescope(screens.gacha, _ENV)
+ function update()
+  local _, pull_type = update_sel(scn)
+  glide(scn)
+
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   if tokens >= pull_type.cost then
+    tokens -= pull_type.cost
+    screens.gacha_anim.pull_type = pull_type
+    switch_screen(screens.gacha_anim)
+    t = time()
+   end
+  end
+ end
+ function draw()
+  cls()
+  --rectfill(0,0,128,128,15)
+  --tickets icon
+  spr(37, 105, 0)
+  print(tokens, 115, 2, 9)
+
+  for i, pull_type in ipairs(selectables) do
+   local x, y = grid_vec(scn, i):unpack()
+   draw_card(x, y, pull_type)
+   if selection == i and tokens < pull_type.cost then
+    print("not enough tokens", 30, 90, 8)
+   end
+  end
+
+  rect_vec(sel_glider, vec2.new(59, 30), 10, false, true)
+  --back icon
+  print_centered("🅾️ back", 64, 110, 5)
+ end
+ function draw_card(x, y, pull_type)
+  rectfill(x, y, x + 59, y + 30, pull_type.color)
+  print(pull_type.label, x + 2, y + 2, 7)
+  line(x + 2, y + 10, x + 57, y + 10)
+  print(pull_type.desc1, x + 2, y + 14)
+  print(pull_type.desc2)
+ end
+end
+--MARK: gacha_anim
+do
+ screens.gacha_anim = classfactory__gridmenu({
+  pull_type = nil,
+  prizes_to_delete = {},
+  timeline = anim_timeline.new({ 3, 1 }),
+  monopull = nil,
+  prizes = {}
+ })
+ local _ENV, scn = rescope(screens.gacha_anim, _ENV)
+ function init()
+  monopull = nil
+  prizes_to_delete = {}
+  prizes = {}
+  for _ = 1, scn.pull_type.rolls do
+   add(prizes, pull_gacha())
+  end
+
+  if (pull_type.rolls == 1) monopull = prizes[1]
+  if monopull then
+   x, y, dx, dy, w, h = 32, 108, 32, 8, 2, 1
+   selectables = { "keep", "recycle" }
+   if is_instance(monopull, class__pet) and not settings.grim or monopull.immortal then
+    selectables[2] = "release"
+   end
+  else
+   x, y, dx, dy, w, h = 4, 33, 26, 46, 5, 2
+   selectables = prizes
+  end
+
+  selection = 1
+  sel_glider:teleport(grid_vec(scn))
+
+  timeline:start()
+ end
+
+ function pull_gacha()
+  local rolled_pet = rnd(1) < 0.2
+  return rolled_pet and rnd(all_pets).new():set_color() or rnd(all_items)
+ end
+
+ function update()
+  step, t = timeline:update()
+  if btnp(🅾️) and step < 3 then
+   step, t = timeline:start(3)
+  elseif step == 3 then
+   update_sel(scn)
+   glide(scn)
+
+   if monopull then
+    if btnp(🅾️) then
+     selection = 1
+    end
+    if btnp(❎) then
+     if selection == 1 then
+      keep_item(monopull)
+      switch_screen()
+      return
+     elseif selection == 2 then
+      if discard_item(monopull) then
+       switch_screen(screens.surrender:with(monopull))
+      else
+       switch_screen()
+      end
+      return
+     end
+    end
+   else
+    if btnp(❎) then
+     prizes_to_delete[selection] = not prizes_to_delete[selection]
+    end
+    if btnp(🅾️) then
+     for i, prize in pairs(prizes) do
+      if prizes_to_delete[selection] then
+       discard_item(prize)
+      else
+       keep_item(prize)
+      end
+     end
+     switch_screen()
+     return
+    end
+   end
+  end
+ end
+ function draw()
+  local step, t = timeline:get()
+
+  local shake = 0
+  if step == 1 then
+   print_centered("🅾️ skip", 64, 110, 5)
+   shake = sin(t)
+  end
+
+  if monopull then
+   draw_item(monopull, 48 + shake, 48, 4, step > 1)
+  else
+   for i, prize in pairs(selectables) do
+    local x, y = scn:grid_vec(i):unpack()
+    shake *= -1
+    draw_item(prize, x + shake, y, 2, step > 1)
+
+    if i == selection then
+     print_centered(prize.name, 64, 102, 7)
+    end
+
+    if prizes_to_delete[i] then
+     for j = 0, 3 do
+      cx = x + j % 2
+      cy = y + j \ 2
+      line(cx, cy, cx + 15, cy + 15, 8)
+      line(cx, cy + 15, cx + 15, cy, 8)
+     end
+    end
+   end
+  end
+
+  if step == 3 then
+   if monopull then
+    for i, label in pairs(selectables) do
+     local x, y = scn:grid_vec(i):unpack()
+     print_centered(label, x + dx / 2, y + 1, 7)
+    end
+    print_centered(monopull.name, 64, 20, 7)
+    rect_vec(sel_glider - vec2_1, vec2.new(dx, dy), 10, false, true)
+   else
+    print_centered("❎ discard  🅾️ exit", 64, 110, 7)
+    rect_vec(sel_glider - vec2_1, vec2.new(17), 10, false, true)
+   end
+  end
+ end
+ function draw_item(item, x, y, size, open)
+  local is_pet = is_instance(item, class__pet)
+  if is_pet and open then
+   item:spr_scaled(x, y, size / 2)
+   return
+  end
+
+  pal()
+
+  --present box
+  local sprite = 49
+
+  if open then
+   sprite = item.sprite
+   palt(item.transparent, true)
+  elseif is_pet then
+   sprite = 48 --egg
+  end
+
+  spr_scaled(sprite, x, y, size, 1, 1)
+ end
+ function keep_item(item)
+  if is_instance(item, class__pet) then
+   add(pets, item)
+   discovered_pets[item.id] = true
+  else
+   inventory[item.id] += 1
+  end
+ end
+ function discard_item(item)
+  if is_instance(item, class__pet) then
+   food += item.meat * 5
+   bones += item.bone
+   return true
+  else
+   inventory[item.id] += 1
+   return false
+  end
+ end
+end
 -->8
 --MARK: games
 
@@ -1056,7 +1496,7 @@ games.fishing = {
  }
 }
 function games.fishing:init()
- local _ENV = setmetatable(self, { __index = _ENV })
+ local _ENV = rescope(self, _ENV)
 
  fish_x = 50
  --ui ranges from 20 to 108
@@ -1071,7 +1511,7 @@ function games.fishing:init()
 end
 
 function games.fishing:update()
- local _ENV = setmetatable(self, { __index = _ENV })
+ local _ENV = rescope(self, _ENV)
 
  if fish_x > 130 then
   --leave loss
@@ -1117,7 +1557,7 @@ function games.fishing:update()
 end
 
 function games.fishing:draw()
- local _ENV = setmetatable(self, { __index = _ENV })
+ local _ENV = rescope(self, _ENV)
 
  if fish_x > 130 then
   --lose
@@ -1165,26 +1605,50 @@ __gfx__
 000000000700000000600600000000000444400007677570b999333bbbbbbbbbb9999999bbbbbbbbbb49aaaa99a0b444bb4effffeef0bbbbf66666bbb6666bbb
 000000000000000000000000000000000000000000076000b999333bbbbbbb7bb9099099bbb9bbbbbb40a0a099a0b440bb42f2f2eef0bbbbb6666566bb6665bb
 000077000000000000000000000000000000000000000000bb33333bbbbb777bb9999999bbb999bbbbb40a0aaa0b440bbbb42f2fff0bbbbbbb5556666b66665b
-0007770000000600000700000000700007007000000d1000bb3333444444477bb99999999bbbb99bbbbb4aaaa0b44bbbbbbb4ffff0bbbbbbbbbd666666b6655b
-777777000007e66000770000000077000777700000d11100bb4444444444444bbb9979999bbbbb9bbbbbb4aa0bb044bbbbbbb4ff0bbbbbbbbb5dd56666bb655b
+0007770000600000000700000000700007007000000d1000bb3333444444477bb99999999bbbb99bbbbb4aaaa0b44bbbbbbb4ffff0bbbbbbbbbd666666b6655b
+77777700066e700000770000000077000777700000d11100bb4444444444444bbb9979999bbbbb9bbbbbb4aa0bb044bbbbbbb4ff0bbbbbbbbb5dd56666bb655b
 7777770000eeee000777777777777770067760600dd11110bb444444999444bbbb977794499bbb9bbbbb40a0a4bb0440bbbb45f5f4bbbbbbbbbd566666b655bb
-7777770000eee20077777777777777770077006000655500bb444499944444bbbb777794999bb99bbbb4a0a0aa00440bbbb4f5f5ff0bbbbbbbbbd66666655bbb
-777777000662200007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbbbbbb6666655bbbbb
-000777000060000000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbbbb55bb666bbbbbbb
+77777700002eee0077777777777777770077006000655500bb444499944444bbbb777794999bb99bbbb4a0a0aa00440bbbb4f5f5ff0bbbbbbbbbd66666655bbb
+777777000002266007777777777777700077707000655500bbbb44444444bbbbbb777799999b99bbbbb0aaaaa9900bbbbbb0fffffee0bbbbbbbb6666655bbbbb
+000777000000060000770000000077000076770000655500bbbbbbbbbbbbbbbbb9777949999999bbbb4909099090bbbbbb5e0e0ee0e0bbbbbb55bb666bbbbbbb
 000077000000000000070000000070000000000000000000bbbbbbbbbbbbbbbbb977949999999bbbbb00000000000bbbbb00d0d00d000bbbbbbbb55bbbbbbbbb
-00004400077000000000000000767700000044000000a000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
-004444400767000000f87f000677776000444440000a9a00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
-04444444076700000f88fff0777767760444444400a999a0bbbbbbbbbbbbbbbbbbb44bbbbbb44bbb000000000000000000000000000000000000000000000000
-11664444007670000ffff87076777777444444450a99a99abbbbbbbbbbbbbbbbbbb44bbbbbb44bbb000000000000000000000000000000000000000000000000
-1116664400aaaaa008fff8806776776748844445a9a999a0bbbbbbbb44444bbbbbb4444444444bbb000000000000000000000000000000000000000000000000
-111116660a99aa0a0f78ff7015555551078844500a9a9a00bbbbbb4994444bbbbbb4444444444bbb000000000000000000000000000000000000000000000000
-011111060909aaa00088ff00115555117768550000a9a000bb44bb499449944bbbb4444444444bbb000000000000000000000000000000000000000000000000
-00110000000099aa000000000111111066000000000a0000bb044b449499444bbbb4004440044bbb000000000000000000000000000000000000000000000000
-000770000007700000777700000006608888888888888888b8444b44999444bbbbb4444444444bbb000000000000000000000000000000000000000000000000
-007777000078870007777770000060a88888a8888a888888b8b99444994499bbbbb4449994444bbb000000000000000000000000000000000000000000000000
-00777700077228700556557000756588888aaa8888888888bbb9994449994bbbbbb4449994444bbb000000000000000000000000000000000000000000000000
-077777700788776005575560075555508aaaaaaa88a88888bbb999999994bbbbbbb4444944444bbb000000000000000000000000000000000000000000000000
-0777777007777660076577607555555588aaaaa888888888bbb4444444bbbbbbbbb444444444bbbb000000000000000000000000000000000000000000000000
-07777770077766600677760075555555888aaa8888a88888bbbbb4444bbbbbbbbbbb44bbbb4bbbbb000000000000000000000000000000000000000000000000
-0777777007776660056565000755555088aa8aa888888888bbbbbb4bbbbbbbbbbbbbb4bbbb4bbbbb000000000000000000000000000000000000000000000000
-007777000077660000000000005555008aa888aa8a888888bbbbb444bbbbbbbbbbbb444bb444bbbb000000000000000000000000000000000000000000000000
+00004400077000000000000000767700000044000000a000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000
+004444400767000000f87f000677776000444440000a9a00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb4bb4bbbbbbbbbb00000000000000000000000000000000
+04444444076700000f88fff0777767760444444400a999a0bbbbbbbbbbbbbbbbbbb44bbbbbb44bbbbbb114bbbbbbbbbb00000000000000000000000000000000
+11664444007670000ffff87076777777044444450a99a99abbbbbbbbbbbbbbbbbbb44bbbbbb44bbbbb17111bbbbbbbbb00000000000000000000000000000000
+1116664400aaaaa008fff8806776776708844445a9a999a0bbbbbbbb44444bbbbbb4444444444bbbbb40411bbbbbbbbb00000000000000000000000000000000
+111116660a99aa0a0f78ff7015555551078844500a9a9a00bbbbbb4994444bbbbbb4444444444bbbb644e111bbbbbbbb00000000000000000000000000000000
+011111060909aaa00088ff00115555117768550000a9a000bb44bb499449944bbbb4444444444bbb74444111bb444bbb00000000000000000000000000000000
+00110000000099aa000000000111111066000000000a0000bb044b449499444bbbb4004440044bbbb5411411144444bb00000000000000000000000000000000
+000770000007700000777700000006608888888888888888b8444b44999444bbbbb4444444444bbbbbb11411414444bb00000000000000000000000000000000
+007777000078870007777770000060a88888a8888a888888b8b99444994499bbbbb4449994444bbbbbbb14414444441b00000000000000000000000000000000
+00777700077228700556557000756588888aaa8888888888bbb9994449994bbbbbb4449994444bbbbbb1b4441444441100000000000000000000000000000000
+077777700788776005575560075555508aaaaaaa88a88888bbb999999994bbbbbbb4444944444bbbbbbb44b44bb4b44100000000000000000000000000000000
+0777777007777660076577607555555588aaaaa888888888bbb4444444bbbbbbbbb444444444bbbbbbbb4bb4bbb6bb4100000000000000000000000000000000
+07777770077766600677760075555555888aaa8888a88888bbbbb4444bbbbbbbbbbb44bbbb4bbbbbbbbb7bb4bbb5bb7b00000000000000000000000000000000
+0777777007776660056565000755555088aa8aa888888888bbbbbb4bbbbbbbbbbbbbb4bbbb4bbbbbbbbbb5b7bbbbbb5b00000000000000000000000000000000
+007777000077660000000000005555008aa888aa8a888888bbbbb444bbbbbbbbbbbb444bb444bbbbbbbbbbb5bbbbbbbb00000000000000000000000000000000
+77777777777777770000077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+76666666666666670000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+76766666666666670000777700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+76766666666666670007770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b76766666666667b0077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b76766666666667b7777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b76666666666667b7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b76666666666667b0770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb766666666667bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb766666666667bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb766666666667bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb766666666667bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbb7666666667bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbb7666666667bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbb7666666667bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbb7777777777bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbb1111111111bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbb1111111011bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb110111100011bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb111101110111bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb111111111111bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b11111111111111b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b11111111111111b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b11111111111111b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
