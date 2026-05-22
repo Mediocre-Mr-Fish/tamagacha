@@ -88,7 +88,7 @@ function load_music(key, preload)
   reload(0X3200, 0X3200, 0x1100, entry.file)
   current_music.file = entry.file
  end
- if not preload and current_music.track ~= entry.track then
+ if not settings.mute and not preload and current_music.track ~= entry.track then
   current_music.track = entry.track
   music(entry.track)
  end
@@ -868,60 +868,61 @@ do
   if (pet.immortal) return screens.abandon
   if (not settings.grim) return screens.abandon
   if (pet.happiness == 0) return screens.talljump
-  return screens.talljump
+  return screens.blender
  end
-
- -- MARK: abandon
- local scn = {
+end
+-- MARK: abandon
+do
+ screens.abandon = {
   timeline = anim_timeline.new({})
  }
- screens.abandon = scn
- function scn:init()
-  self.timeline:start()
+ local _ENV = rescope(screens.abandon, _ENV)
+ function init()
+  _ENV.timeline:start()
  end
- function scn:update()
-  local step, t = self.timeline:update()
+ function update()
+  local step, t = timeline:update()
   if t > 4 and btnp(🅾️) then
    switch_screen()
   end
  end
- function scn:draw()
-  local step, t = self.timeline:get()
+ function draw()
+  local step, t = timeline:get()
   local x = accelerp(24, 50, 0, t)
   pal()
   clip(0, 0, x + 8, 128)
-  print_centered(self.pet.name .. " has left you", 64, 60, 6)
+  print_centered(pet.name .. " has left you", 64, 60, 6)
   clip()
   circfill(x + 2, 52, 4, 8)
   for i = 0, 2 do
    line(x + 2, 48 + i, x + 22, 68 + i, 4)
   end
 
-  self.pet:spr_scaled(x, 44, 2, false, true, false)
+  pet:spr_scaled(x, 44, 2, false, true, false)
   if t > 4 then
    print_centered("🅾️ exit", 64, 110, 5)
   end
  end
-
- -- MARK: talljump
- local scn = {
-  acc = vec2.new(0, 0.1),
+end
+-- MARK: talljump
+do
+ screens.talljump = {
   timeline = anim_timeline.new({ 1, 1.5, 2, 60, 6, 1 })
  }
- screens.talljump = scn
- function scn:init()
-  self.timeline:start()
-  self.gore_pool = {}
-  self.splash = false
-  self.y4 = 0
+ local _ENV = rescope(screens.talljump, _ENV)
+ function init()
+  timeline:start()
+  gore_pool = {}
+  splash = false
+  y4 = 0
   load_music("pet_loss", true)
  end
- function scn:update()
-  local step, t = self.timeline:update()
+ function update()
+  local step, t = timeline:update()
 
-  if #self.gore_pool < 2100 then
+  if #gore_pool < 2100 then
    for i = 1, 100 do
-    local p = add(self.gore_pool, particle.new())
+    local p = add(gore_pool, particle.new())
     p:set_pos(vec2.rng(80, 96, 96, nil))
     local vel = vec2.rng(1, 0, 7, 1):to_cartesian()
     if i < 25 then
@@ -931,16 +932,16 @@ do
     vel.y *= abs(vel.y) * 0.5
 
     p:set_vel(vel)
-    p:set_acc(self.acc)
+    p:set_acc(vec2.new(0, 0.1))
    end
   end
 
   if step == 4 then
-   if self.y4 > 88 then
-    self.timeline:start(5)
+   if y4 > 88 then
+    timeline:start(5)
    end
   elseif step >= 5 then
-   for p in all(self.gore_pool) do
+   for p in all(gore_pool) do
     if p.pos.y < -32 then
      p.vel.x *= 0.1
      p.vel.y = min(p.vel.y, 10)
@@ -958,21 +959,20 @@ do
     load_music("pet_loss")
    elseif step == 7 then
     if btnp(🅾️) then
-     self.pet = nil
+     pet = nil
      switch_screen()
      return
     end
    end
   end
  end
- function scn:draw()
+ function draw()
   cls(12)
-  local _ENV = rescope(self, _ENV)
   local step, t = timeline:get()
 
   if step == 1 then
    rectfill(0, 64, 64, 128, 5)
-   self.pet:spr_scaled(48, 50, 1, false, true, false)
+   pet:spr_scaled(48, 50, 1, false, true, false)
    rectfill(0, 62, 66, 70, 6)
   elseif step == 2 then
    rectfill(0, 64, 64, 128, 5)
@@ -1011,7 +1011,7 @@ do
    -- road
    rectfill(0, 96, 127, 127, 0)
    if step >= 5 then
-    self:draw_particles()
+    draw_particles()
    end
 
    if step >= 6 then
@@ -1022,27 +1022,26 @@ do
    end
   end
  end
- function scn:draw_particles()
-  for particle in all(self.gore_pool) do
+ function draw_particles()
+  for particle in all(gore_pool) do
    pset(particle.pos.x, particle.pos.y, 8)
   end
  end
-
- -- MARK: blender
- local scn = {
-  acc = vec2.new(0, 0.1),
+end
+-- MARK: blender
+do
+ screens.blender = {
   timeline = anim_timeline.new({ 1, 0.5, 1.5, 1.5, 3 }),
   frame = 1
  }
- local _ENV = rescope(scn, _ENV)
- screens.blender = scn
+ local _ENV = rescope(screens.blender, _ENV)
  function init()
   timeline:start()
   gore_pool = {}
   splash = false
   load_music("pet_loss", true)
  end
- function scn:update()
+ function update()
   local step, t = timeline:update()
 
   if step >= 2 and step < 5 then
@@ -1064,7 +1063,7 @@ do
    end
   end
  end
- function scn:draw()
+ function draw()
   local step, t = timeline:get()
 
   draw_blender(55 + frame % 2, 52, step)
@@ -1095,7 +1094,7 @@ do
    local p = add(gore_pool, particle.new())
    p:set_pos(vec2.rng(56, 51, 72, nil))
    p:set_vel(vec2.rng(-0.75, -1.75, 0.75, -0.5))
-   p:set_acc(acc)
+   p:set_acc(vec2.new(0, 0.1))
    if sprite then
     p.sprite = sprite
     p.flip = rnd() < 0.5
