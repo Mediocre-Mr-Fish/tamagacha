@@ -5,7 +5,7 @@ __lua__
 is_runtime = false
 function _init()
  is_runtime = true
- tokens = 10
+ gacha_tickets = 10
  food = 1
  bones = 0
  --multiplier for too many pets
@@ -17,11 +17,6 @@ function _init()
 
  last_fed = time()
  last_play = time()
- --general use timer
- t = time()
-
- --allows for the use of clamp function
- clamp = mid
 
  settings = {
   --optional turn sound off
@@ -122,9 +117,19 @@ end
 function accelerp(x0, v0, a, t)
  return x0 + v0 * t + a * t * t / 2
 end
+function lerp(a, b, t)
+ return a + t * (b - a)
+end
+function rngf(a, b)
+ return lerp(a, b, rnd())
+end
 
-function rngf(lower, upper)
- return lower + rnd() * (upper - lower)
+function pad(str, len)
+ str = tostring(str)
+ while #str < (len or 2) do
+  str = " " .. str
+ end
+ return str
 end
 
 -- encode a bool array as an integer
@@ -323,6 +328,17 @@ function glider:teleport(vec)
  return self
 end
 
+loot_tables = {
+ { name = "common", color = 6, weight = 5 },
+ { name = "uncommon", color = 11, weight = 4 },
+ { name = "rare", color = 12, weight = 3 },
+ { name = "epic", color = 14, weight = 2 },
+ { name = "legendary", color = 9, weight = 1 }
+}
+for loot_table in all(loot_tables) do
+ loot_table.pool = {}
+end
+
 all_pets = {}
 num_pet_types = 15
 function classfactory__pet(static_vars, parent)
@@ -340,6 +356,7 @@ class__pet = classfactory({
  sprite_height = 2,
  transparent = 11, --lime
  color_variants = {},
+ rarity = 3, -- rare
  meat = 3,
  bone = 2
 })
@@ -403,23 +420,48 @@ function class__pet:is_dead()
  return not self.immortal and self.hunger == 0 and self.happiness == 0
 end
 
-pet_duck = classfactory__pet({
- name = "arb duck", sprite = 6, color_variants = {
+classfactory__pet({
+ name = "arb duck",
+ sprite = 6,
+ rarity = 2,
+ color_variants = {
   { [3] = 4, [4] = 15 }
  }
 })
-pet_cheeto = classfactory__pet({ name = "cheeto", immortal = true, sprite = 8 })
-pet_mimikyu = classfactory__pet({ name = "mimikyu", sprite = 10 })
-pet_not_mimikyu = classfactory__pet({ name = "not mimikyu", sprite = 12 })
-pet_squirrel = classfactory__pet({
- name = "squirrel", sprite = 14, color_variants = {
+classfactory__pet({
+ name = "cheeto",
+ sprite = 8,
+ rarity = 5,
+ immortal = true
+})
+classfactory__pet({
+ name = "yoomimmick",
+ sprite = 12,
+ rarity = 4
+})
+classfactory__pet({
+ name = "squirrel",
+ sprite = 14,
+ rarity = 2,
+ color_variants = {
   { [6] = 9, [5] = 4 }
  }
 })
-pet_turkey = classfactory__pet({ name = "turkey", sprite = 38 })
-pet_owl = classfactory__pet({ name = "owl", sprite = 40 })
-pet_horse = classfactory__pet({
- name = "horse", sprite = 42, color_variants = {
+classfactory__pet({
+ name = "turkey",
+ sprite = 38,
+ rarity = 2
+})
+classfactory__pet({
+ name = "owl",
+ sprite = 40,
+ rarity = 3
+})
+classfactory__pet({
+ name = "horse",
+ sprite = 42,
+ rarity = 4,
+ color_variants = {
   { [4] = 5, [5] = 4, [1] = 0 },
   { [4] = 6, [6] = 7, [1] = 5 }
  }
@@ -429,18 +471,19 @@ pet_horse = classfactory__pet({
 discovered_pets = {}
 for i = 1, num_pet_types do
  local pet = all_pets[i]
- if (pet) discovered_pets[i] = false
+ if pet then
+  discovered_pets[i] = false
+  add(loot_tables[pet.rarity].pool, pet)
+ end
 end
 
-discovered_pets[pet_duck.id] = true
-
 all_items = {
- { name = "chocolate", sprite = 32 },
- { name = "banana", sprite = 33 },
- { name = "meatball", sprite = 34 },
- { name = "rice", sprite = 35 },
- { name = "drumstick", sprite = 36 },
- { name = "bomb", sprite = 51 }
+ { sprite = 32, rarity = 1, name = "chocolate" },
+ { sprite = 33, rarity = 1, name = "banana" },
+ { sprite = 34, rarity = 2, name = "meatball" },
+ { sprite = 35, rarity = 3, name = "rice" },
+ { sprite = 36, rarity = 2, name = "drumstick" },
+ { sprite = 51, rarity = 3, name = "bomb" }
 }
 num_item_types = 16
 
@@ -450,12 +493,14 @@ for i = 1, num_item_types do
  if item then
   all_items[i].id = i
   inventory[i] = 0
+  add(loot_tables[item.rarity].pool, item)
  end
 end
 max_item_stack = 0xff
 
+discovered_pets[all_pets[1].id] = true
 pets = {
- pet_duck.new():set_color()
+ all_pets[1].new():set_color()
 }
 --1 based counting to access pet table
 current_pet = 1
@@ -465,7 +510,7 @@ max_pets = 16
 
 function load_data()
  -- username_title_version
- if not cartdata("real-fancy-fire_tama-gatcha_1-2") then
+ if not cartdata("real-fancy-fire_tama-gatcha_1-3") then
   return false
  end
 
@@ -1147,62 +1192,77 @@ end
 --MARK: gacha
 
 do
- screens.gacha = classfactory__gridmenu({
-  x = 3, y = 49, dx = 63, dy = 34, w = 2, h = 1,
-  selectables = {
-   {
-    label = "1-pull", desc1 = "20% chance for", desc2 = "pet egg", color = 4,
-    cost = 1, rolls = 1
-   },
-   {
-    label = "10-pull", desc1 = "guaranteed 3", desc2 = "pet eggs", color = 9,
-    cost = 10, rolls = 10
-   }
-  }
- })
+ screens.gacha = {}
  local _ENV, scn = rescope(screens.gacha, _ENV)
+
+ function apply_bonus()
+  weights = {}
+  local sum = 0
+
+  for loot_table in all(loot_tables) do
+   sum += loot_table.weight
+   add(weights, loot_table.weight)
+  end
+  local average = sum / #loot_tables
+  sum = 0
+
+  for i = 1, #weights do
+   weights[i] = max(0, lerp(weights[i], average, bonus / 10))
+   sum += weights[i]
+  end
+
+  for i = 1, #weights do
+   weights[i] /= sum
+  end
+ end
+
+ function init()
+  rolls = 1
+  bonus = 0
+  apply_bonus()
+ end
  function update()
-  local _, pull_type = update_sel(scn)
-  glide(scn)
+  local x, y = btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️)
+  rolls = mid(rolls - y, 1, 10)
+  bonus = mid(bonus + x, 0, 64)
+  if x ~= 0 then
+   apply_bonus()
+  end
 
   if btnp(🅾️) then
    switch_screen()
   elseif btnp(❎) then
-   if tokens >= pull_type.cost then
-    tokens -= pull_type.cost
-    screens.gacha_anim.pull_type = pull_type
-    switch_screen(screens.gacha_anim)
-    t = time()
+   if gacha_tickets >= rolls and bones >= bonus * rolls then
+    gacha_tickets -= rolls
+    bones -= bonus * rolls
+    switch_screen(screens.gacha_anim.with(weights, rolls))
    end
   end
  end
  function draw()
-  cls()
-  --rectfill(0,0,128,128,15)
   --tickets icon
-  spr(37, 105, 0)
-  print(tokens, 115, 2, 9)
+  spr(37, 0, 0)
+  print(gacha_tickets, 10, 2, 9)
+  spr(66, 0, 8)
+  print(bones, 10, 10, 9)
 
-  for i, pull_type in ipairs(selectables) do
-   local x, y = grid_vec(scn, i):unpack()
-   draw_card(x, y, pull_type)
-   if selection == i and tokens < pull_type.cost then
-    print("not enough tokens", 30, 90, 8)
-   end
+  print("⬆️", 8, 48, 9)
+  print(pad(rolls) .. "   rolls")
+  print("⬇️")
+
+  print("⬅️" .. pad(bonus) .. "➡️ bones", 0, 80)
+
+  for i, loot_table in ipairs(loot_tables) do
+   local x, y = lerp(64, 127, weights[i]), 24 + 12 * i
+   rectfill(127, y, x, y + 2, 5)
+   rectfill(64, y, x, y + 2, loot_table.color)
+   print(pad(flr(weights[i] * 100)) .. "% " .. loot_table.name, 64, y - 6)
   end
 
-  rect_vec(sel_glider, vec2.new(59, 30), 10, false, true)
-  --back icon
-  print_centered("🅾️ back", 64, 110, 5)
- end
- function draw_card(x, y, pull_type)
-  rectfill(x, y, x + 59, y + 30, pull_type.color)
-  print(pull_type.label, x + 2, y + 2, 7)
-  line(x + 2, y + 10, x + 57, y + 10)
-  print(pull_type.desc1, x + 2, y + 14)
-  print(pull_type.desc2)
+  print_centered("❎ confirm   🅾️ back", 64, 110, 5)
  end
 end
+
 --MARK: gacha_anim
 do
  screens.gacha_anim = classfactory__gridmenu({
@@ -1213,19 +1273,37 @@ do
   prizes = {}
  })
  local _ENV, scn = rescope(screens.gacha_anim, _ENV)
+
+ function pull_gacha()
+  local roll = rnd()
+  for i, weight in ipairs(weights) do
+   roll -= weight
+   if roll <= 0 then
+    local prize = rnd(loot_tables[i].pool)
+    return is_instance(prize, class__pet) and prize.new():set_color() or prize
+   end
+  end
+ end
+
+ function with(weights_, rolls_)
+  weights = weights_
+  rolls = rolls_
+  return scn
+ end
+
  function init()
   monopull = nil
   prizes_to_delete = {}
   prizes = {}
-  for _ = 1, scn.pull_type.rolls do
+  for _ = 1, rolls do
    add(prizes, pull_gacha())
   end
 
-  if (pull_type.rolls == 1) monopull = prizes[1]
+  if (rolls == 1) monopull = prizes[1]
   if monopull then
    x, y, dx, dy, w, h = 32, 108, 32, 8, 2, 1
    selectables = { "keep", "recycle" }
-   if is_instance(monopull, class__pet) and not settings.grim or monopull.immortal then
+   if is_instance(monopull, class__pet) and screens.loose_pet.decide(monopull) == screens.abandon then
     selectables[2] = "release"
    end
   else
@@ -1238,12 +1316,6 @@ do
 
   timeline:start()
  end
-
- function pull_gacha()
-  local rolled_pet = rnd(1) < 0.2
-  return rolled_pet and rnd(all_pets).new():set_color() or rnd(all_items)
- end
-
  function update()
   step, t = timeline:update()
   if btnp(🅾️) and step < 3 then
@@ -1258,12 +1330,12 @@ do
     end
     if btnp(❎) then
      if selection == 1 then
-      keep_item(monopull)
+      keep_prize(monopull)
       switch_screen()
       return
      elseif selection == 2 then
-      if discard_item(monopull) then
-       switch_screen(screens.surrender:with(monopull))
+      if discard_prize(monopull) then
+       switch_screen(screens.loose_pet:with(monopull))
       else
        switch_screen()
       end
@@ -1277,9 +1349,9 @@ do
     if btnp(🅾️) then
      for i, prize in pairs(prizes) do
       if prizes_to_delete[selection] then
-       discard_item(prize)
+       discard_prize(prize)
       else
-       keep_item(prize)
+       keep_prize(prize)
       end
      end
      switch_screen()
@@ -1298,15 +1370,15 @@ do
   end
 
   if monopull then
-   draw_item(monopull, 48 + shake, 48, 4, step > 1)
+   draw_prize(monopull, 48 + shake, 48, 4, step > 1)
   else
    for i, prize in pairs(selectables) do
     local x, y = scn:grid_vec(i):unpack()
     shake *= -1
-    draw_item(prize, x + shake, y, 2, step > 1)
+    draw_prize(prize, x + shake, y, 2, step > 1)
 
-    if i == selection then
-     print_centered(prize.name, 64, 102, 7)
+    if i == selection and step == 3 then
+     print_centered(prize.name, 64, 102, loot_tables[prize.rarity].color)
     end
 
     if prizes_to_delete[i] then
@@ -1326,7 +1398,7 @@ do
      local x, y = scn:grid_vec(i):unpack()
      print_centered(label, x + dx / 2, y + 1, 7)
     end
-    print_centered(monopull.name, 64, 20, 7)
+    print_centered(monopull.name, 64, 20, loot_tables[monopull.rarity].color)
     rect_vec(sel_glider - vec2_1, vec2.new(dx, dy), 10, false, true)
    else
     print_centered("❎ discard  🅾️ exit", 64, 110, 7)
@@ -1334,10 +1406,10 @@ do
    end
   end
  end
- function draw_item(item, x, y, size, open)
-  local is_pet = is_instance(item, class__pet)
+ function draw_prize(prize, x, y, size, open)
+  local is_pet = is_instance(prize, class__pet)
   if is_pet and open then
-   item:spr_scaled(x, y, size / 2)
+   prize:spr_scaled(x, y, size / 2)
    return
   end
 
@@ -1348,28 +1420,31 @@ do
 
   if open then
    sprite = item.sprite
-   palt(item.transparent, true)
+   palt(prize.transparent, true)
   elseif is_pet then
    sprite = 48 --egg
+   if prize.rarity == 5 then
+    pal(7, 9)
+   end
   end
 
   spr_scaled(sprite, x, y, size, 1, 1)
  end
- function keep_item(item)
-  if is_instance(item, class__pet) then
-   add(pets, item)
-   discovered_pets[item.id] = true
+ function keep_prize(prize)
+  if is_instance(prize, class__pet) then
+   add(pets, prize)
+   discovered_pets[prize.id] = true
   else
-   inventory[item.id] += 1
+   inventory[prize.id] += 1
   end
  end
- function discard_item(item)
-  if is_instance(item, class__pet) then
-   food += item.meat * 5
-   bones += item.bone
+ function discard_prize(prize)
+  if is_instance(prize, class__pet) then
+   food += prize.meat * 4
+   bones += prize.bone
    return true
   else
-   inventory[item.id] += 1
+   food += 4
    return false
   end
  end
@@ -1399,7 +1474,7 @@ function screens.minigame:finish_game()
  if not self.current_game then return switch_screen() end
  local reward = self.current_game.reward or {}
 
- tokens += reward.tokens or 0
+ gacha_tickets += reward.gacha_tickets or 0
  food += reward.food or 3
  pets[current_pet]:change_happiness(reward.happiness or 0)
 
@@ -1411,7 +1486,7 @@ games = {}
 
 games.math = {
  reward = {
-  tokens = 2,
+  gacha_tickets = 2,
   food = 0,
   happiness = 15
  },
@@ -1465,7 +1540,7 @@ function games.math:update()
 
   self:setup_question()
  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-  self.progress = clamp(0, self.progress - 1, 5)
+  self.progress = mid(0, self.progress - 1, 5)
   self:setup_question()
  end
 end
@@ -1490,7 +1565,7 @@ end
 games.fishing = {
  reward = nil,
  reward_win = {
-  tokens = 1,
+  gacha_tickets = 1,
   food = 3,
   happiness = 15
  }
