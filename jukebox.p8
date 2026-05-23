@@ -22,82 +22,43 @@ do
  local _ENV = rescope(asset_loader, _ENV)
 
  loaded_file = nil
- music_last_used = {}
- music_allocation = {}
+ loaded_type = nil
+
  sfx_allocation = {
+  type = "sfx",
+  max_index = 63
   -- permanently reserve sfx here
  }
-
- music_list = {
-  piao_piao = { file = "music/1.p8", start = 0, length = 3 },
-  china = { file = "music/1.p8", start = 3, length = 1 },
-  baka_mitai = { file = "music/1.p8", start = 4, length = 5 },
-  binks_sake = { file = "music/main.p8", start = 0, length = 15 }
+ music_allocation = {
+  type = "muisc",
+  max_index = 63,
+  lru_list = {},
+  source_list = {
+   piao_piao = { file = "music/1.p8", start = 0, length = 3 },
+   china = { file = "music/1.p8", start = 3, length = 1 },
+   baka_mitai = { file = "music/1.p8", start = 4, length = 5 },
+   binks_sake = { file = "music/main.p8", start = 0, length = 15 }
+  }
  }
+ music_allocation.asset_alloc = sfx_allocation
+ sfx_allocation.wrapper_alloc = music_allocation
 
- --  deallocate music
- function release_music(key)
-  local sfx_released, music_released = 0, 0
-
-  -- if no key is specified, release the oldest used music
-  -- remove the key from the allocation list
-  key = del(music_last_used, key or music_last_used[1])
-  -- if that music wasn't allocated, abort
-  if (not key) return sfx_released, music_released
-  -- unmark list entry as allocated
-  music_list[key].allocation = nil
-
-  for i = 0, 63 do
-   -- free all associated sfx
-   if sfx_allocation[i] == key then
-    sfx_allocation[i] = nil
-    sfx_released += 1
-   end
-   -- free all associated music
-   if music_allocation[i] == key then
-    music_allocation[i] = nil
-    music_released += 1
-   end
-  end
-
-  return sfx_released, music_released
- end
-
- -- allocate a sfx to a free index and return that index
- -- if no space is available, try to release some music, assert if not possible
- function allocate_sfx(key)
-  -- iterate through sfx allocation
-  for i = 0, 63 do
-   -- if unallocated:
-   if not sfx_allocation[i] then
-    sfx_allocation[i] = key
-    return i
-   end
-  end
-
-  -- attempt to release sound memory
-  assert(release_music() > 0, "out of sfx space")
-  return allocate_sfx(key)
- end
-
- -- allocate music to a free chunk and return its index
- -- if no space is available, try to release some music, assert if not possible
- function allocate_music(key, length)
+ function allocate(tbl, key, length)
   local alloc = nil
 
-  -- iterate through music indexes
-  for i = 0, 63 do
-   if music_allocation[i] then
+  for i = 0, tbl.max_index do
+   if tbl[i] then
     -- reset if occupied
     alloc = nil
    else
-    -- set index if free
+    -- set start index
     alloc = alloc or i
+
     -- check if requisite length
     if i - alloc + 1 == length then
      -- mark allocation
      for a = alloc, i do
-      music_allocation[a] = key
+      tbl[a] = key
      end
 
      return alloc
@@ -105,33 +66,54 @@ do
    end
   end
 
-  -- attempt to release sound memory
-  local _, music_released = release_music()
-  assert(music_released > 0, "out of music space")
-  return allocate_music(key, length)
+  assert(free(tbl, nil), "out of space: " .. tbl.type)
+  return allocate(tbl, key, length)
+ end
+
+ function free(wrapper_table, key)
+  wrapper_table = wrapper_table.wrapper_alloc or wrapper_table
+  local asset_table = wrapper_table.asset_alloc
+
+  local freed = false
+
+  key = del(wrapper_table.lru_list, key or wrapper_table.lru_list[1])
+  if (not key) return freed
+  wrapper_table.source_list[key].allocation = nil
+
+  for tbl in all({ wrapper_table, asset_table }) do
+   for i = 0, tbl.max_index do
+    if tbl[i] == key then
+     tbl[i] = nil
+     freed = true
+    end
+   end
+  end
+  return freed
  end
 
  -- load music from a file
  function load_music(key)
   -- enforce that music info exists
-  local info = assert(music_list[key], key)
+  local info = assert(music_allocation.source_list[key], key)
 
   -- if the music has been allocated already,
   -- move it to the top of the list
-  if del(music_last_used, key) then
-   add(music_last_used, key)
+  if del(music_allocation.lru_list, key) then
+   add(music_allocation.lru_list, key)
    return info.allocation
   end
 
   -- use stop position if specified
-  if (info.stop) info.length = info.stop - info.start + 1
+  -- if (info.stop) info.length = info.stop - info.start + 1
+
   -- find space to allocate
-  info.allocation = allocate_music(key, info.length)
+  info.allocation = allocate(music_allocation, key, info.length)
   local alloc = 0x3100 + info.allocation * 4
 
   -- load the file if it isn't already
-  if loaded_file ~= info.file then
+  if loaded_file ~= info.file or loaded_type ~= music_allocation.type then
    loaded_file = info.file
+   loaded_type = music_allocation.type
    -- user data 0x4300 to 0x5600
 
    -- load music patterns
@@ -150,7 +132,7 @@ do
     if p_byte & 0x40 == 0 then
      dst_sfx = assigned[src_sfx]
      if not dst_sfx then
-      dst_sfx = allocate_sfx(key)
+      dst_sfx = allocate(music_allocation.asset_alloc, key, 1)
       memcpy(0x3200 + dst_sfx * 68, 0x4400 + src_sfx * 68, 68)
       assigned[src_sfx] = dst_sfx
      end
@@ -159,7 +141,7 @@ do
    end
   end
 
-  add(music_last_used, key)
+  add(music_allocation.lru_list, key)
 
   return info.allocation
  end
@@ -178,7 +160,7 @@ end
 function _init()
  select = 0
  tracks = {}
- for key, _ in pairs(asset_loader.music_list) do
+ for key, _ in pairs(asset_loader.music_allocation.source_list) do
   local i = 1
   while i <= #tracks and tracks[i] < key do
    i += 1
