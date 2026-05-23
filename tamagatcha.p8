@@ -1257,12 +1257,33 @@ do
  foreach(all_pets, add_loot)
  foreach(all_items, add_loot)
 
+ function apply_bonus(bonus)
+  weights = {}
+  local sum = 0
+
+  for loot_table in all(loot_tables) do
+   sum += loot_table.weight
+   add(weights, loot_table.weight)
+  end
+  local average = sum / #loot_tables
+  sum = 0
+
+  for i = 1, #weights do
+   weights[i] = max(0, weights[i] + bonus / 10 * (average - weights[i]))
+   sum += weights[i]
+  end
+
+  for i = 1, #weights do
+   weights[i] /= sum
+  end
+ end
+
  function pull_gacha()
-  local roll = flr(rnd(15)) + 1
-  for _, loot_table in ipairs(loot_tables) do
-   roll -= loot_table.weight
+  local roll = rnd()
+  for i, weight in ipairs(weights) do
+   roll -= weight
    if roll <= 0 then
-    local prize = rnd(loot_table.pool)
+    local prize = rnd(loot_tables[i].pool)
     return is_instance(prize, class__pet) and prize.new():set_color() or prize
    end
   end
