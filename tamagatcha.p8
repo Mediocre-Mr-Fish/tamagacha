@@ -122,9 +122,19 @@ end
 function accelerp(x0, v0, a, t)
  return x0 + v0 * t + a * t * t / 2
 end
+function lerp(a, b, t)
+ return a + t * (b - a)
+end
+function rngf(a, b)
+ return lerp(a, b, rnd())
+end
 
-function rngf(lower, upper)
- return lower + rnd() * (upper - lower)
+function pad(str, len)
+ str = tostring(str)
+ while #str < (len or 2) do
+  str = " " .. str
+ end
+ return str
 end
 
 -- encode a bool array as an integer
@@ -1172,73 +1182,8 @@ end
 --MARK: gacha
 
 do
- screens.gacha = classfactory__gridmenu({
-  x = 3, y = 49, dx = 63, dy = 34, w = 2, h = 1,
-  selectables = {
-   {
-    label = "1-pull", desc1 = "20% chance for", desc2 = "pet egg", color = 4,
-    cost = 1, rolls = 1
-   },
-   {
-    label = "10-pull", desc1 = "guaranteed 3", desc2 = "pet eggs", color = 9,
-    cost = 10, rolls = 10
-   }
-  }
- })
+ screens.gacha = {}
  local _ENV, scn = rescope(screens.gacha, _ENV)
- function update()
-  local _, pull_type = update_sel(scn)
-  glide(scn)
-
-  if btnp(🅾️) then
-   switch_screen()
-  elseif btnp(❎) then
-   if tokens >= pull_type.cost then
-    tokens -= pull_type.cost
-    screens.gacha_anim.pull_type = pull_type
-    switch_screen(screens.gacha_anim)
-    t = time()
-   end
-  end
- end
- function draw()
-  cls()
-  --rectfill(0,0,128,128,15)
-  --tickets icon
-  spr(37, 105, 0)
-  print(tokens, 115, 2, 9)
-
-  for i, pull_type in ipairs(selectables) do
-   local x, y = grid_vec(scn, i):unpack()
-   draw_card(x, y, pull_type)
-   if selection == i and tokens < pull_type.cost then
-    print("not enough tokens", 30, 90, 8)
-   end
-  end
-
-  rect_vec(sel_glider, vec2.new(59, 30), 10, false, true)
-  --back icon
-  print_centered("🅾️ back", 64, 110, 5)
- end
- function draw_card(x, y, pull_type)
-  rectfill(x, y, x + 59, y + 30, pull_type.color)
-  print(pull_type.label, x + 2, y + 2, 7)
-  line(x + 2, y + 10, x + 57, y + 10)
-  print(pull_type.desc1, x + 2, y + 14)
-  print(pull_type.desc2)
- end
-end
-
---MARK: gacha_anim
-do
- screens.gacha_anim = classfactory__gridmenu({
-  pull_type = nil,
-  prizes_to_delete = {},
-  timeline = anim_timeline.new({ 3, 1 }),
-  monopull = nil,
-  prizes = {}
- })
- local _ENV, scn = rescope(screens.gacha_anim, _ENV)
 
  -- generate the loot pools
  loot_tables = {
@@ -1257,7 +1202,7 @@ do
  foreach(all_pets, add_loot)
  foreach(all_items, add_loot)
 
- function apply_bonus(bonus)
+ function apply_bonus()
   weights = {}
   local sum = 0
 
@@ -1269,7 +1214,7 @@ do
   sum = 0
 
   for i = 1, #weights do
-   weights[i] = max(0, weights[i] + bonus / 10 * (average - weights[i]))
+   weights[i] = max(0, lerp(weights[i], average, bonus / 10))
    sum += weights[i]
   end
 
@@ -1277,6 +1222,64 @@ do
    weights[i] /= sum
   end
  end
+
+ function init()
+  rolls = 1
+  bonus = 0
+  apply_bonus()
+ end
+ function update()
+  local x, y = btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️)
+  rolls = mid(rolls - y, 1, 10)
+  bonus = mid(bonus + x, 0, 64)
+  if x ~= 0 then
+   apply_bonus()
+  end
+
+  if btnp(🅾️) then
+   switch_screen()
+  elseif btnp(❎) then
+   if tokens >= rolls and bones >= bonus * rolls then
+    tokens -= rolls
+    bones -= bonus * rolls
+    switch_screen(screens.gacha_anim.with(loot_tables, weights, rolls))
+   end
+  end
+ end
+ function draw()
+  --tickets icon
+  spr(37, 0, 0)
+  print(tokens, 10, 2, 9)
+  spr(66, 0, 8)
+  print(bones, 10, 10, 9)
+
+  print("⬆️", 8, 48, 9)
+  print(pad(rolls) .. "   rolls")
+  print("⬇️")
+
+  print("⬅️" .. pad(bonus) .. "➡️ bones", 0, 80)
+
+  for i, loot_table in ipairs(loot_tables) do
+   local x, y = lerp(64, 127, weights[i]), 24 + 12 * i
+   rectfill(127, y, x, y + 2, 5)
+   rectfill(64, y, x, y + 2, loot_table.color)
+   print(pad(flr(weights[i] * 100)) .. "% " .. loot_table.name, 64, y - 6)
+  end
+
+  print_centered("❎ confirm   🅾️ back", 64, 110, 5)
+ end
+end
+
+--MARK: gacha_anim
+do
+ screens.gacha_anim = classfactory__gridmenu({
+  pull_type = nil,
+  prizes_to_delete = {},
+  timeline = anim_timeline.new({ 3, 1 }),
+  monopull = nil,
+  prizes = {}
+ })
+ local _ENV, scn = rescope(screens.gacha_anim, _ENV)
 
  function pull_gacha()
   local roll = rnd()
@@ -1289,19 +1292,26 @@ do
   end
  end
 
+ function with(loot_tables_, weights_, rolls_)
+  loot_tables = loot_tables_
+  weights = weights_
+  rolls = rolls_
+  return scn
+ end
+
  function init()
   monopull = nil
   prizes_to_delete = {}
   prizes = {}
-  for _ = 1, scn.pull_type.rolls do
+  for _ = 1, rolls do
    add(prizes, pull_gacha())
   end
 
-  if (pull_type.rolls == 1) monopull = prizes[1]
+  if (rolls == 1) monopull = prizes[1]
   if monopull then
    x, y, dx, dy, w, h = 32, 108, 32, 8, 2, 1
    selectables = { "keep", "recycle" }
-   if is_instance(monopull, class__pet) and not settings.grim or monopull.immortal then
+   if is_instance(monopull, class__pet) and screens.loose_pet.decide(monopull) == screens.abandon then
     selectables[2] = "release"
    end
   else
