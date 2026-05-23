@@ -340,6 +340,7 @@ class__pet = classfactory({
  sprite_height = 2,
  transparent = 11, --lime
  color_variants = {},
+ rarity = 3, -- rare
  meat = 3,
  bone = 2
 })
@@ -403,23 +404,48 @@ function class__pet:is_dead()
  return not self.immortal and self.hunger == 0 and self.happiness == 0
 end
 
-pet_duck = classfactory__pet({
- name = "arb duck", sprite = 6, color_variants = {
+classfactory__pet({
+ name = "arb duck",
+ sprite = 6,
+ rarity = 2,
+ color_variants = {
   { [3] = 4, [4] = 15 }
  }
 })
-pet_cheeto = classfactory__pet({ name = "cheeto", immortal = true, sprite = 8 })
-pet_mimikyu = classfactory__pet({ name = "mimikyu", sprite = 10 })
-pet_not_mimikyu = classfactory__pet({ name = "not mimikyu", sprite = 12 })
-pet_squirrel = classfactory__pet({
- name = "squirrel", sprite = 14, color_variants = {
+classfactory__pet({
+ name = "cheeto",
+ sprite = 8,
+ rarity = 4,
+ immortal = true
+})
+classfactory__pet({
+ name = "yoomimmick",
+ sprite = 12,
+ rarity = 4
+})
+classfactory__pet({
+ name = "squirrel",
+ sprite = 14,
+ rarity = 2,
+ color_variants = {
   { [6] = 9, [5] = 4 }
  }
 })
-pet_turkey = classfactory__pet({ name = "turkey", sprite = 38 })
-pet_owl = classfactory__pet({ name = "owl", sprite = 40 })
-pet_horse = classfactory__pet({
- name = "horse", sprite = 42, color_variants = {
+classfactory__pet({
+ name = "turkey",
+ sprite = 38,
+ rarity = 2
+})
+classfactory__pet({
+ name = "owl",
+ sprite = 40,
+ rarity = 3
+})
+classfactory__pet({
+ name = "horse",
+ sprite = 42,
+ rarity = 3,
+ color_variants = {
   { [4] = 5, [5] = 4, [1] = 0 },
   { [4] = 6, [6] = 7, [1] = 5 }
  }
@@ -432,15 +458,13 @@ for i = 1, num_pet_types do
  if (pet) discovered_pets[i] = false
 end
 
-discovered_pets[pet_duck.id] = true
-
 all_items = {
- { name = "chocolate", sprite = 32 },
- { name = "banana", sprite = 33 },
- { name = "meatball", sprite = 34 },
- { name = "rice", sprite = 35 },
- { name = "drumstick", sprite = 36 },
- { name = "bomb", sprite = 51 }
+ { sprite = 32, rarity = 1, name = "chocolate" },
+ { sprite = 33, rarity = 1, name = "banana" },
+ { sprite = 34, rarity = 2, name = "meatball" },
+ { sprite = 35, rarity = 3, name = "rice" },
+ { sprite = 36, rarity = 2, name = "drumstick" },
+ { sprite = 51, rarity = 3, name = "bomb" }
 }
 num_item_types = 16
 
@@ -454,8 +478,9 @@ for i = 1, num_item_types do
 end
 max_item_stack = 0xff
 
+discovered_pets[all_pets[1].id] = true
 pets = {
- pet_duck.new():set_color()
+ all_pets[1].new():set_color()
 }
 --1 based counting to access pet table
 current_pet = 1
@@ -465,7 +490,7 @@ max_pets = 16
 
 function load_data()
  -- username_title_version
- if not cartdata("real-fancy-fire_tama-gatcha_1-2") then
+ if not cartdata("real-fancy-fire_tama-gatcha_1-3") then
   return false
  end
 
@@ -1203,6 +1228,7 @@ do
   print(pull_type.desc2)
  end
 end
+
 --MARK: gacha_anim
 do
  screens.gacha_anim = classfactory__gridmenu({
@@ -1213,6 +1239,35 @@ do
   prizes = {}
  })
  local _ENV, scn = rescope(screens.gacha_anim, _ENV)
+
+ -- generate the loot pools
+ loot_tables = {
+  { name = "common", color = 6, weight = 5 },
+  { name = "uncommon", color = 11, weight = 4 },
+  { name = "rare", color = 12, weight = 3 },
+  { name = "epic", color = 14, weight = 2 },
+  { name = "legendary", color = 9, weight = 1 }
+ }
+ local function add_loot(obj)
+  local loot_table = loot_tables[obj.rarity]
+  loot_table.pool = loot_table.pool or {}
+  add(loot_table.pool, obj)
+ end
+
+ foreach(all_pets, add_loot)
+ foreach(all_items, add_loot)
+
+ function pull_gacha()
+  local roll = flr(rnd(15)) + 1
+  for _, loot_table in ipairs(loot_tables) do
+   roll -= loot_table.weight
+   if roll <= 0 then
+    local prize = rnd(loot_table.pool)
+    return is_instance(prize, class__pet) and prize.new():set_color() or prize
+   end
+  end
+ end
+
  function init()
   monopull = nil
   prizes_to_delete = {}
@@ -1238,12 +1293,6 @@ do
 
   timeline:start()
  end
-
- function pull_gacha()
-  local rolled_pet = rnd(1) < 0.2
-  return rolled_pet and rnd(all_pets).new():set_color() or rnd(all_items)
- end
-
  function update()
   step, t = timeline:update()
   if btnp(🅾️) and step < 3 then
