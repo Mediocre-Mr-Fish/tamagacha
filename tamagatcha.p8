@@ -618,6 +618,38 @@ function classfactory__gridmenu(static_vars)
  return classfactory(static_vars, class__gridmenu)
 end
 
+do
+ local cloud = vec2_0
+ function background_house()
+  if cloud.x > 53 then
+   cloud = vec2.rng(0, 15, nil, 40)
+  end
+
+  --house
+  fillp(█)
+  rectfill(0, 0, 128, 70, 15)
+
+  --window
+  rectfill(20, 15, 56, 50, 12)
+  rect(20, 15, 56, 50, 7)
+  rect(19, 14, 57, 51, 7)
+  --add clouds here
+  clip(21, 15, 35, 35)
+  sspr(112, 16, 16, 16, cloud.x, cloud.y, 16, 16)
+  clip()
+  --middle
+  line(38, 15, 38, 50, 7)
+  line(37, 15, 37, 50, 7)
+
+  --floor
+  rectfill(0, 70, 128, 128, 4)
+  rectfill(0, 70, 128, 65, 7)
+  for i = 0, 40 do
+   line(i * 10, 71, i * 10 - 20, 127, 9)
+  end
+ end
+end
+
 -- MARK: home
 do
  screens.home = classfactory__gridmenu({
@@ -661,6 +693,7 @@ do
   end
  end
  function draw()
+  background_house()
   local pet = pets[current_pet]
 
   for i, icon in ipairs(selectables) do
@@ -672,7 +705,7 @@ do
   end
 
   --stats icon reflecting pet status
-  fillp(█)
+  -- fillp(█)
   local hunger_x = pet.hunger / 15 * 6
   local happy_x = pet.happiness / 15 * 6
   if hunger_x > 1 then
@@ -686,8 +719,8 @@ do
   print(food, 3, 13, 7)
 
   --draw current pet
-  fillp(★)
-  circfill(64, 64, 44, 3)
+  -- fillp(★)
+  -- circfill(64, 64, 44, 3)
   print_centered(pet.name, 64, 20, 7)
   if pet:is_dead() then
    spr_scaled(50, 52, 62, 4)
@@ -697,7 +730,7 @@ do
 
   --draw number of pets and current pet indicator
   pal()
-  fillp(█)
+  -- fillp(█)
   for i = 1, #pets do
    circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
   end
@@ -1419,7 +1452,7 @@ do
   local sprite = 49
 
   if open then
-   sprite = item.sprite
+   sprite = prize.sprite
    palt(prize.transparent, true)
   elseif is_pet then
    sprite = 48 --egg
