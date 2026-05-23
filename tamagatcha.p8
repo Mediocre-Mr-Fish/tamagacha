@@ -5,7 +5,7 @@ __lua__
 is_runtime = false
 function _init()
  is_runtime = true
- tokens = 10
+ gacha_tickets = 10
  food = 1
  bones = 0
  --multiplier for too many pets
@@ -17,10 +17,6 @@ function _init()
 
  last_fed = time()
  last_play = time()
- t = time()
-
- --allows for the use of clamp function
- clamp = mid
 
  settings = {
   --optional turn sound off
@@ -1236,8 +1232,8 @@ do
   if btnp(🅾️) then
    switch_screen()
   elseif btnp(❎) then
-   if tokens >= rolls and bones >= bonus * rolls then
-    tokens -= rolls
+   if gacha_tickets >= rolls and bones >= bonus * rolls then
+    gacha_tickets -= rolls
     bones -= bonus * rolls
     switch_screen(screens.gacha_anim.with(weights, rolls))
    end
@@ -1246,7 +1242,7 @@ do
  function draw()
   --tickets icon
   spr(37, 0, 0)
-  print(tokens, 10, 2, 9)
+  print(gacha_tickets, 10, 2, 9)
   spr(66, 0, 8)
   print(bones, 10, 10, 9)
 
@@ -1334,11 +1330,11 @@ do
     end
     if btnp(❎) then
      if selection == 1 then
-      keep_item(monopull)
+      keep_prize(monopull)
       switch_screen()
       return
      elseif selection == 2 then
-      if discard_item(monopull) then
+      if discard_prize(monopull) then
        switch_screen(screens.loose_pet:with(monopull))
       else
        switch_screen()
@@ -1353,9 +1349,9 @@ do
     if btnp(🅾️) then
      for i, prize in pairs(prizes) do
       if prizes_to_delete[selection] then
-       discard_item(prize)
+       discard_prize(prize)
       else
-       keep_item(prize)
+       keep_prize(prize)
       end
      end
      switch_screen()
@@ -1434,21 +1430,21 @@ do
 
   spr_scaled(sprite, x, y, size, 1, 1)
  end
- function keep_item(item)
-  if is_instance(item, class__pet) then
-   add(pets, item)
-   discovered_pets[item.id] = true
+ function keep_prize(prize)
+  if is_instance(prize, class__pet) then
+   add(pets, prize)
+   discovered_pets[prize.id] = true
   else
-   inventory[item.id] += 1
+   inventory[prize.id] += 1
   end
  end
- function discard_item(item)
-  if is_instance(item, class__pet) then
-   food += item.meat * 5
-   bones += item.bone
+ function discard_prize(prize)
+  if is_instance(prize, class__pet) then
+   food += prize.meat * 4
+   bones += prize.bone
    return true
   else
-   inventory[item.id] += 1
+   food += 4
    return false
   end
  end
@@ -1478,7 +1474,7 @@ function screens.minigame:finish_game()
  if not self.current_game then return switch_screen() end
  local reward = self.current_game.reward or {}
 
- tokens += reward.tokens or 0
+ gacha_tickets += reward.gacha_tickets or 0
  food += reward.food or 3
  pets[current_pet]:change_happiness(reward.happiness or 0)
 
@@ -1490,7 +1486,7 @@ games = {}
 
 games.math = {
  reward = {
-  tokens = 2,
+  gacha_tickets = 2,
   food = 0,
   happiness = 15
  },
@@ -1544,7 +1540,7 @@ function games.math:update()
 
   self:setup_question()
  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-  self.progress = clamp(0, self.progress - 1, 5)
+  self.progress = mid(0, self.progress - 1, 5)
   self:setup_question()
  end
 end
@@ -1569,7 +1565,7 @@ end
 games.fishing = {
  reward = nil,
  reward_win = {
-  tokens = 1,
+  gacha_tickets = 1,
   food = 3,
   happiness = 15
  }
