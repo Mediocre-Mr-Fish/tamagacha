@@ -140,6 +140,7 @@ do
    reload(0x4400, 0x3200, 0x1100, loaded_file)
   end
 
+  local assigned = {}
   for i = 0, info.length - 1 do
    for p, p_byte in ipairs({ peek(0x4300 + (info.start + i) * 4, 4) }) do
     local src_sfx = p_byte & 0x3f
@@ -147,8 +148,12 @@ do
 
     -- only load sfx if not muted
     if p_byte & 0x40 == 0 then
-     dst_sfx = allocate_sfx(key)
-     memcpy(0x3200 + dst_sfx * 68, 0x4400 + src_sfx * 68, 68)
+     dst_sfx = assigned[src_sfx]
+     if not dst_sfx then
+      dst_sfx = allocate_sfx(key)
+      memcpy(0x3200 + dst_sfx * 68, 0x4400 + src_sfx * 68, 68)
+      assigned[src_sfx] = dst_sfx
+     end
     end
     poke(alloc + i * 4 + p - 1, p_byte & 0xc0 | dst_sfx)
    end
