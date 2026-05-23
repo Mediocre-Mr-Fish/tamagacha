@@ -17,7 +17,6 @@ function _init()
 
  last_fed = time()
  last_play = time()
- --general use timer
  t = time()
 
  --allows for the use of clamp function
@@ -333,6 +332,17 @@ function glider:teleport(vec)
  return self
 end
 
+loot_tables = {
+ { name = "common", color = 6, weight = 5 },
+ { name = "uncommon", color = 11, weight = 4 },
+ { name = "rare", color = 12, weight = 3 },
+ { name = "epic", color = 14, weight = 2 },
+ { name = "legendary", color = 9, weight = 1 }
+}
+for loot_table in all(loot_tables) do
+ loot_table.pool = {}
+end
+
 all_pets = {}
 num_pet_types = 15
 function classfactory__pet(static_vars, parent)
@@ -425,7 +435,7 @@ classfactory__pet({
 classfactory__pet({
  name = "cheeto",
  sprite = 8,
- rarity = 4,
+ rarity = 5,
  immortal = true
 })
 classfactory__pet({
@@ -454,7 +464,7 @@ classfactory__pet({
 classfactory__pet({
  name = "horse",
  sprite = 42,
- rarity = 3,
+ rarity = 4,
  color_variants = {
   { [4] = 5, [5] = 4, [1] = 0 },
   { [4] = 6, [6] = 7, [1] = 5 }
@@ -465,7 +475,10 @@ classfactory__pet({
 discovered_pets = {}
 for i = 1, num_pet_types do
  local pet = all_pets[i]
- if (pet) discovered_pets[i] = false
+ if pet then
+  discovered_pets[i] = false
+  add(loot_tables[pet.rarity].pool, pet)
+ end
 end
 
 all_items = {
@@ -484,6 +497,7 @@ for i = 1, num_item_types do
  if item then
   all_items[i].id = i
   inventory[i] = 0
+  add(loot_tables[item.rarity].pool, item)
  end
 end
 max_item_stack = 0xff
@@ -1185,23 +1199,6 @@ do
  screens.gacha = {}
  local _ENV, scn = rescope(screens.gacha, _ENV)
 
- -- generate the loot pools
- loot_tables = {
-  { name = "common", color = 6, weight = 5 },
-  { name = "uncommon", color = 11, weight = 4 },
-  { name = "rare", color = 12, weight = 3 },
-  { name = "epic", color = 14, weight = 2 },
-  { name = "legendary", color = 9, weight = 1 }
- }
- local function add_loot(obj)
-  local loot_table = loot_tables[obj.rarity]
-  loot_table.pool = loot_table.pool or {}
-  add(loot_table.pool, obj)
- end
-
- foreach(all_pets, add_loot)
- foreach(all_items, add_loot)
-
  function apply_bonus()
   weights = {}
   local sum = 0
@@ -1242,7 +1239,7 @@ do
    if tokens >= rolls and bones >= bonus * rolls then
     tokens -= rolls
     bones -= bonus * rolls
-    switch_screen(screens.gacha_anim.with(loot_tables, weights, rolls))
+    switch_screen(screens.gacha_anim.with(weights, rolls))
    end
   end
  end
@@ -1292,8 +1289,7 @@ do
   end
  end
 
- function with(loot_tables_, weights_, rolls_)
-  loot_tables = loot_tables_
+ function with(weights_, rolls_)
   weights = weights_
   rolls = rolls_
   return scn
@@ -1343,7 +1339,7 @@ do
       return
      elseif selection == 2 then
       if discard_item(monopull) then
-       switch_screen(screens.surrender:with(monopull))
+       switch_screen(screens.loose_pet:with(monopull))
       else
        switch_screen()
       end
@@ -1378,15 +1374,15 @@ do
   end
 
   if monopull then
-   draw_item(monopull, 48 + shake, 48, 4, step > 1)
+   draw_prize(monopull, 48 + shake, 48, 4, step > 1)
   else
    for i, prize in pairs(selectables) do
     local x, y = scn:grid_vec(i):unpack()
     shake *= -1
-    draw_item(prize, x + shake, y, 2, step > 1)
+    draw_prize(prize, x + shake, y, 2, step > 1)
 
-    if i == selection then
-     print_centered(prize.name, 64, 102, 7)
+    if i == selection and step == 3 then
+     print_centered(prize.name, 64, 102, loot_tables[prize.rarity].color)
     end
 
     if prizes_to_delete[i] then
@@ -1406,7 +1402,7 @@ do
      local x, y = scn:grid_vec(i):unpack()
      print_centered(label, x + dx / 2, y + 1, 7)
     end
-    print_centered(monopull.name, 64, 20, 7)
+    print_centered(monopull.name, 64, 20, loot_tables[monopull.rarity].color)
     rect_vec(sel_glider - vec2_1, vec2.new(dx, dy), 10, false, true)
    else
     print_centered("❎ discard  🅾️ exit", 64, 110, 7)
@@ -1414,10 +1410,10 @@ do
    end
   end
  end
- function draw_item(item, x, y, size, open)
-  local is_pet = is_instance(item, class__pet)
+ function draw_prize(prize, x, y, size, open)
+  local is_pet = is_instance(prize, class__pet)
   if is_pet and open then
-   item:spr_scaled(x, y, size / 2)
+   prize:spr_scaled(x, y, size / 2)
    return
   end
 
@@ -1428,9 +1424,12 @@ do
 
   if open then
    sprite = item.sprite
-   palt(item.transparent, true)
+   palt(prize.transparent, true)
   elseif is_pet then
    sprite = 48 --egg
+   if prize.rarity == 5 then
+    pal(7, 9)
+   end
   end
 
   spr_scaled(sprite, x, y, size, 1, 1)
