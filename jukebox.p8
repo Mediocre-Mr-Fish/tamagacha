@@ -22,16 +22,18 @@ do
  local _ENV = rescope(asset_loader, _ENV)
 
  loaded_file = nil
- loaded_type = nil
 
  sfx_allocation = {
   type = "sfx",
-  max_index = 63
+  max_index = 63,
+  addr = function(i) return 0x3200 + i * 68 end
   -- permanently reserve sfx here
  }
  music_allocation = {
-  type = "muisc",
+  type = "music",
   max_index = 63,
+  addr = function(i) return 0x3100 + i * 4 end,
+  row_width = 1,
   lru_list = {},
   source_list = {
    piao_piao = { file = "music/1.p8", start = 0, length = 3 },
@@ -91,61 +93,52 @@ do
   return freed
  end
 
- -- load music from a file
- function load_music(key)
-  -- enforce that music info exists
-  local info = assert(music_allocation.source_list[key], key)
+ function load_asset(wrapper_table, key)
+  -- enforce that source info exists
+  local info = assert(wrapper_table.source_list[key], key)
 
-  -- if the music has been allocated already,
-  -- move it to the top of the list
-  if del(music_allocation.lru_list, key) then
-   add(music_allocation.lru_list, key)
+  -- refresh least recently used list
+  if del(wrapper_table.lru_list, key) then
+   add(wrapper_table.lru_list, key)
    return info.allocation
   end
 
-  -- use stop position if specified
-  -- if (info.stop) info.length = info.stop - info.start + 1
-
   -- find space to allocate
-  info.allocation = allocate(music_allocation, key, info.length)
-  local alloc = 0x3100 + info.allocation * 4
+  info.allocation = allocate(wrapper_table, key, info.length)
 
   -- load the file if it isn't already
-  if loaded_file ~= info.file or loaded_type ~= music_allocation.type then
+  if loaded_file ~= info.file then
    loaded_file = info.file
-   loaded_type = music_allocation.type
-   -- user data 0x4300 to 0x5600
-
-   -- load music patterns
-   reload(0x4300, 0x3100, 0x0100, loaded_file)
-   -- load sfx
-   reload(0x4400, 0x3200, 0x1100, loaded_file)
+   reload(0x8000, 0, 0x4300, loaded_file)
   end
 
+  local asset_table = wrapper_table.asset_alloc
   local assigned = {}
-  for i = 0, info.length - 1 do
-   for p, p_byte in ipairs({ peek(0x4300 + (info.start + i) * 4, 4) }) do
-    local src_sfx = p_byte & 0x3f
-    local dst_sfx = src_sfx
-
-    -- only load sfx if not muted
-    if p_byte & 0x40 == 0 then
-     dst_sfx = assigned[src_sfx]
-     if not dst_sfx then
-      dst_sfx = allocate(music_allocation.asset_alloc, key, 1)
-      memcpy(0x3200 + dst_sfx * 68, 0x4400 + src_sfx * 68, 68)
-      assigned[src_sfx] = dst_sfx
+  for row = 0, info.length - 1 do
+   for column = 0, (info.height or 4) - 1 do
+    local byte = peek(0x8000 + wrapper_table.addr(info.start + row * wrapper_table.row_width) + column)
+    if wrapper_table.type == "music" then
+     -- not muted
+     if byte & 0x40 == 0 then
+      local src_sfx = byte & 0x3f
+      local dst_sfx = assigned[src_sfx]
+      if not dst_sfx then
+       dst_sfx = allocate(asset_table, key, 1)
+       memcpy(asset_table.addr(dst_sfx), 0x8000 + asset_table.addr(src_sfx), 68)
+       assigned[src_sfx] = dst_sfx
+      end
+      byte = byte & 0xc0 | dst_sfx
      end
     end
-    poke(alloc + i * 4 + p - 1, p_byte & 0xc0 | dst_sfx)
+    poke(wrapper_table.addr(info.allocation + row) + column, byte)
    end
   end
-
-  add(music_allocation.lru_list, key)
-
+  add(wrapper_table.lru_list, key)
   return info.allocation
  end
 
+ -- load music from a file
+ function load_music(key) return load_asset(music_allocation, key) end
  -- return the key of the currently playing music or nil
  function current_music() return music_allocation[stat(54)] end
 
