@@ -369,6 +369,7 @@ do
  function play_music(key, force)
   if (not force and key == current_music()) return
   if (not key) return music(-1)
+  if (settings.mute) return
   music(load_music(key).allocation / 4)
  end
 
@@ -684,7 +685,7 @@ pets = {
  all_pets[1].new():set_color()
 }
 --1 based counting to access pet table
-current_pet = 1
+local current_pet = 1
 max_pets = 16
 
 -- MARK: save data
