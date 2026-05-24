@@ -8,29 +8,7 @@ when space is unavailable, the oldest loaded asset is unloaded
 crucially, this means the assets can at any index on the source cart
 --[[]]
 
-function rescope(scope, env)
- return setmetatable(
-  {}, {
-   __index = function(_, k) return scope[k] or env[k] end,
-   __newindex = scope
-  }
- ), scope
-end
-
-function grid_coords(x1, y1, dx, dy, val, cols)
- return x1 + dx * ((val - 1) % cols), y1 + dy * ((val - 1) \ cols)
-end
-function grid_wrap(val, dx, dy, width, height)
- row = ((val - 1) \ width + dy) % height
- col = ((val - 1) % width + dx) % width
- return row * width + col + 1
-end
-
-function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
- scale = scale or 1
- sw, sh = (sw or 1) * 8, (sh or 1) * 8
- sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
-end
+#include asset_loader.lua
 
 do
  asset_loader = {}
@@ -50,12 +28,7 @@ do
   addr = function(i) return 0x3100 + i * 4 end,
   row_width = 1,
   lru_list = {},
-  source_list = {
-   piao_piao = { file = "music/1.p8", start = 0, length = 3 },
-   china = { file = "music/1.p8", start = 3, length = 1 },
-   baka_mitai = { file = "music/1.p8", start = 4, length = 5 },
-   binks_sake = { file = "music/main.p8", start = 0, length = 15 }
-  }
+  source_list = {}
  }
  music_allocation.asset_alloc = sfx_allocation
  sfx_allocation.wrapper_alloc = music_allocation
@@ -75,9 +48,7 @@ do
   addr = function(x, y) return 0x2000 + y * 128 + x end,
   row_width = 128,
   lru_list = {},
-  source_list = {
-   house = { file = "unused/background.p8", x = 0, y = 0, w = 16, h = 16 }
-  }
+  source_list = {}
  }
  map_allocation.asset_alloc = sprite_allocation
  sprite_allocation.wrapper_alloc = map_allocation
@@ -228,70 +199,6 @@ do
    end
   end
  end
-end
-
-function _init()
- sound_mode = true
- show_map = nil
- select = 0
- tracks = {}
- maps = {}
- for key, _ in pairs(asset_loader.music_allocation.source_list) do
-  local i = 1
-  while i <= #tracks and tracks[i] < key do
-   i += 1
-  end
-  add(tracks, key, i)
- end
- for key, _ in pairs(asset_loader.map_allocation.source_list) do
-  local i = 1
-  while i <= #maps and maps[i] < key do
-   i += 1
-  end
-  add(maps, key, i)
- end
-
- function sounds_used(tbl)
-  local ret = 0
-  for i = 0, 63 do
-   if (tbl[i]) ret += 1
-  end
-  return (ret < 10 and " " .. ret or ret) .. "/64"
- end
-end
-function _update()
- if (btnp() ~= 0) show_map = false
- if (btnp(⬅️) ~= btnp(➡️)) sound_mode = not sound_mode
- if (btnp(⬆️)) select -= 1
- if (btnp(⬇️)) select += 1
- select %= #tracks
- if (sound_mode and btnp(❎)) asset_loader.play_music(tracks[select + 1])
- if (sound_mode and btnp(🅾️)) asset_loader.play_music(nil)
- if (not sound_mode and btnp(❎)) show_map = maps[select + 1]
-end
-function _draw()
- cls()
- if show_map then
-  asset_loader.draw_map(show_map, 0, 0)
-  return
- end
-
- palt(11, true)
- sspr(0, 0, 16, 16, 96, 96, 32, 32)
-
- print("music loader demo", 30, 0)
- print("music: " .. sounds_used(asset_loader.music_allocation), 0, 18)
- print("sfx:   " .. sounds_used(asset_loader.sfx_allocation))
- print("playing: " .. tostr(asset_loader.current_music()))
- for i, t in ipairs(tracks) do
-  print((sound_mode and i == select + 1 and "> " or "  ") .. t)
- end
-
- print("maps", 64, 18)
- for i, m in ipairs(maps) do
-  print((not sound_mode and i == select + 1 and "> " or "  ") .. m)
- end
- print("❎ play 🅾️ stop", 0, 112)
 end
 
 __gfx__
