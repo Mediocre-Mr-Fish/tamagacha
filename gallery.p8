@@ -8,7 +8,7 @@ when space is unavailable, the oldest loaded asset is unloaded
 crucially, this means the assets can at any index on the source cart
 --[[]]
 
-#include asset_loader.lua
+#include _gallery.lua
 
 do
  asset_loader = {}

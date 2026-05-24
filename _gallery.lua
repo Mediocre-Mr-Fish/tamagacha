@@ -31,6 +31,11 @@ function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
     sspr(n % 16 * 8, flr(n / 16) * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
 end
 
+function print_centered(text, x, y, col)
+ if (col) then color(col) end
+ print(text, x - print(text, 0, -8) / 2, y)
+end
+
 -- MARK: info setup
 -- setup data to expore
 
@@ -139,7 +144,7 @@ function _draw()
     palt(11, true)
     sspr(0, 0, 16, 16, 96, 96, 32, 32)
 
-    print("asset loader demo", 30, 0, 6)
+    print_centered("gallery", 64, 0, 6)
 
     print("music:" .. capacity(asset_loader.music_allocation), 0, 18)
     print("sfx:  " .. capacity(asset_loader.sfx_allocation))
