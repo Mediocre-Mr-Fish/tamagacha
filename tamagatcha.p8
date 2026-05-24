@@ -206,7 +206,7 @@ do
   source_list = {
    piao_piao = { file = "music/1.p8", y = 0, h = 3 },
    china = { file = "music/1.p8", y = 3, h = 1 },
-   baka_mitai = { file = "music/1.p8", y = 4, h = 5 },
+   baka_mitai = { file = "music/1.p8", y = 4, h = 6 },
    binks_sake = { file = "music/main.p8", y = 0, h = 15 }
   }
  }
@@ -1211,7 +1211,7 @@ do
   gore_pool = {}
   splash = false
   y4 = 0
-  load_music("pet_loss", true)
+  asset_loader.load_music("baka_mitai")
  end
  function update()
   local step, t = timeline:update()
@@ -1242,17 +1242,18 @@ do
      p.vel.x *= 0.1
      p.vel.y = min(p.vel.y, 10)
     end
+
     if p.pos.y > 96 and rnd() < 0.75 then
      p:stop()
     end
-    if p.pos.x < 49 and rnd() < 0.5 then
+    if p.pos.x < 48 and rnd() < 0.5 then
      p:stop()
     end
     p:update()
    end
 
    if step == 6 then
-    load_music("pet_loss")
+    asset_loader.play_music("baka_mitai")
    elseif step == 7 then
     if btnp(🅾️) then
      pet = nil
@@ -1265,26 +1266,21 @@ do
  function draw()
   cls(12)
   local step, t = timeline:get()
+  local draw_map = asset_loader.draw_map
 
-  if step == 1 then
-   rectfill(0, 64, 64, 128, 5)
-   pet:spr_scaled(48, 50, 1, false, true, false)
-   rectfill(0, 62, 66, 70, 6)
-  elseif step == 2 then
-   rectfill(0, 64, 64, 128, 5)
-   pet:spr_scaled(
-    accelerp(48, 50, -25, t),
-    accelerp(50, -50, 200, t),
-    1, false, true, false
-   )
-   rectfill(0, 62, 66, 70, 6)
-  elseif step == 3 then
-   rectfill(0, 0, 64, 128, 5)
-   for i = -1, 5 do
-    for x = 8, 48, 32 do
-     local y = (t % 0.15) / 0.15 * -48 + i * 48
-     rectfill(x, y, x + 16, y + 24, 0)
-    end
+  if step <= 2 then
+   local x, y = 48, 50
+   if step == 2 then x, y = accelerp(48, 50, -25, t), accelerp(50, -50, 200, t) end
+   pet:spr_scaled(x, y, 1, false, true, false)
+   palt(0x0010)
+   draw_map("tower_segment", 0, 62)
+   draw_map("tower_segment", 0, 102)
+  end
+
+  if step == 3 then
+   palt(0x0010)
+   for i = 0, 5 do
+    draw_map("tower_segment", 0, i * 40 - (t * 240) % 40)
    end
    pet:spr_scaled(
     88,
@@ -1297,15 +1293,11 @@ do
     pet:spr_scaled(80, y4, 1, false, true, false)
    end
 
-   -- grass
-   rectfill(0, 90, 127, 127, 3)
-   -- building
-   rectfill(0, 0, 48, 127, 5)
-   for y = 80, 0, -48 do
-    rectfill(1, y, 17, y - 24, 0)
-   end
-   -- road
-   rectfill(0, 96, 127, 127, 0)
+   palt(0x0010)
+   draw_map("tower_segment", -16, -24)
+   draw_map("tower_segment", -16, 16)
+   draw_map("tower_ground", 0, 56)
+
    if step >= 5 then
     draw_particles()
    end

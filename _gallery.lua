@@ -43,7 +43,7 @@ function setup()
     asset_loader.music_allocation.source_list = {
         piao_piao = { file = "music/1.p8", y = 0, h = 3 },
         china = { file = "music/1.p8", y = 3, h = 1 },
-        baka_mitai = { file = "music/1.p8", y = 4, h = 5 },
+        baka_mitai = { file = "music/1.p8", y = 4, h = 6 },
         binks_sake = { file = "music/main.p8", y = 0, h = 15 }
     }
 
