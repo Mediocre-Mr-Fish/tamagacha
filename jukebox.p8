@@ -17,6 +17,21 @@ function rescope(scope, env)
  ), scope
 end
 
+function grid_coords(x1, y1, dx, dy, val, cols)
+ return x1 + dx * ((val - 1) % cols), y1 + dy * ((val - 1) \ cols)
+end
+function grid_wrap(val, dx, dy, width, height)
+ row = ((val - 1) \ width + dy) % height
+ col = ((val - 1) % width + dx) % width
+ return row * width + col + 1
+end
+
+function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
+ scale = scale or 1
+ sw, sh = (sw or 1) * 8, (sh or 1) * 8
+ sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
+end
+
 do
  asset_loader = {}
  local _ENV = rescope(asset_loader, _ENV)
@@ -45,6 +60,27 @@ do
  music_allocation.asset_alloc = sfx_allocation
  sfx_allocation.wrapper_alloc = music_allocation
 
+ sprite_allocation = {
+  type = "sprite",
+  max_index = 0xff,
+  addr = function(i)
+   local sx, sy = grid_coords(0, 0, 4, 8, i + 1, 16)
+   return sy * 64 + sx
+  end
+  -- permanently reserve sprites here
+ }
+ map_allocation = {
+  type = "map",
+  max_index = 0xfff,
+  addr = function(x, y) return 0x2000 + y * 128 + x end,
+  row_width = 128,
+  lru_list = {},
+  source_list = {
+   house = { file = "unused/background.p8", x = 0, y = 0, w = 16, h = 16 }
+  }
+ }
+ map_allocation.asset_alloc = sprite_allocation
+ sprite_allocation.wrapper_alloc = map_allocation
  function allocate(tbl, key, length)
   local alloc = nil
 
@@ -68,7 +104,7 @@ do
    end
   end
 
-  assert(free(tbl, nil), "out of space: " .. tbl.type)
+  assert(free(tbl, nil), tbl.type .. " out of space: " .. length)
   return allocate(tbl, key, length)
  end
 
@@ -100,11 +136,15 @@ do
   -- refresh least recently used list
   if del(wrapper_table.lru_list, key) then
    add(wrapper_table.lru_list, key)
-   return info.allocation
+   return info
   end
 
+  local length
+  if info.w then
+   length = info.w * info.h
+  end
   -- find space to allocate
-  info.allocation = allocate(wrapper_table, key, info.length)
+  info.allocation = allocate(wrapper_table, key, length)
 
   -- load the file if it isn't already
   if loaded_file ~= info.file then
@@ -114,31 +154,52 @@ do
 
   local asset_table = wrapper_table.asset_alloc
   local assigned = {}
-  for row = 0, info.length - 1 do
-   for column = 0, (info.height or 4) - 1 do
-    local byte = peek(0x8000 + wrapper_table.addr(info.start + row * wrapper_table.row_width) + column)
-    if wrapper_table.type == "music" then
-     -- not muted
-     if byte & 0x40 == 0 then
-      local src_sfx = byte & 0x3f
-      local dst_sfx = assigned[src_sfx]
-      if not dst_sfx then
-       dst_sfx = allocate(asset_table, key, 1)
-       memcpy(asset_table.addr(dst_sfx), 0x8000 + asset_table.addr(src_sfx), 68)
-       assigned[src_sfx] = dst_sfx
+
+  -- for row = 0, info.length - 1 do
+  --  for column = 0, (info.height or 4) - 1 do
+  --   local byte = peek(0x8000 + wrapper_table.addr(info.start + row * wrapper_table.row_width) + column)
+  --   if wrapper_table.type == "music" then
+  --    -- not muted
+  --    if byte & 0x40 == 0 then
+  --     local src_sfx = byte & 0x3f
+  --     local dst_sfx = assigned[src_sfx]
+  --     if not dst_sfx then
+  --      dst_sfx = allocate(asset_table, key, 1)
+  --      memcpy(asset_table.addr(dst_sfx), 0x8000 + asset_table.addr(src_sfx), 68)
+  --      assigned[src_sfx] = dst_sfx
+  --     end
+  --     byte = byte & 0xc0 | dst_sfx
+  --    end
+  --   end
+  --   poke(wrapper_table.addr(info.allocation + row) + column, byte)
+  --  end
+  -- end
+
+  for celx = 0, info.w - 1 do
+   for cely = 0, info.h - 1 do
+    local byte = peek(0x8000 + wrapper_table.addr(info.x + celx, info.y + cely))
+    if byte ~= 0 then
+     local dst = assigned[byte]
+     if not dst then
+      dst = allocate(asset_table, key, 1)
+      assigned[byte] = dst
+      for i = 0, 7 do
+       memcpy(asset_table.addr(dst) + i * 64, 0x8000 + asset_table.addr(byte) + i * 64, 4)
       end
-      byte = byte & 0xc0 | dst_sfx
      end
+     byte = dst
     end
-    poke(wrapper_table.addr(info.allocation + row) + column, byte)
+    poke(0x2000 + info.allocation + cely * info.w + celx, byte)
    end
   end
+
   add(wrapper_table.lru_list, key)
-  return info.allocation
+  return info
  end
 
  -- load music from a file
  function load_music(key) return load_asset(music_allocation, key) end
+ function load_map(key) return load_asset(map_allocation, key) end
  -- return the key of the currently playing music or nil
  function current_music() return music_allocation[stat(54)] end
 
@@ -146,19 +207,48 @@ do
  function play_music(key, force)
   if (not force and key == current_music()) return
   if (not key) return music(-1)
-  music(load_music(key))
+  music(load_music(key).allocation)
+ end
+
+ -- load map and draw it
+ function draw_map(key, x, y, scale, flip_x, flip_y)
+  local function flip(val, top, bool)
+   return (bool and top - 1 - val or val) * 8 * (scale or 1)
+  end
+
+  local info = load_map(key)
+  for celx = 0, info.w - 1 do
+   for cely = 0, info.h - 1 do
+    spr_scaled(
+     peek(0x2000 + info.allocation + cely * info.w + celx),
+     x + flip(celx, info.w, flip_x),
+     y + flip(cely, info.h, flip_y),
+     scale, 1, 1, flip_x, flip_y
+    )
+   end
+  end
  end
 end
 
 function _init()
+ sound_mode = true
+ show_map = nil
  select = 0
  tracks = {}
+ maps = {}
  for key, _ in pairs(asset_loader.music_allocation.source_list) do
   local i = 1
   while i <= #tracks and tracks[i] < key do
    i += 1
   end
   add(tracks, key, i)
+ end
+ for key, _ in pairs(asset_loader.map_allocation.source_list) do
+  local i = 1
+  while i <= #maps and maps[i] < key do
+   i += 1
+  end
+  add(maps, key, i)
  end
 
  function sounds_used(tbl)
@@ -170,14 +260,21 @@ function _init()
  end
 end
 function _update()
+ if (btnp() ~= 0) show_map = false
+ if (btnp(⬅️) ~= btnp(➡️)) sound_mode = not sound_mode
  if (btnp(⬆️)) select -= 1
  if (btnp(⬇️)) select += 1
  select %= #tracks
- if (btnp(❎)) asset_loader.play_music(tracks[select + 1])
- if (btnp(🅾️)) asset_loader.play_music(nil)
+ if (sound_mode and btnp(❎)) asset_loader.play_music(tracks[select + 1])
+ if (sound_mode and btnp(🅾️)) asset_loader.play_music(nil)
+ if (not sound_mode and btnp(❎)) show_map = maps[select + 1]
 end
 function _draw()
- cls(0)
+ cls()
+ if show_map then
+  asset_loader.draw_map(show_map, 0, 0)
+  return
+ end
 
  palt(11, true)
  sspr(0, 0, 16, 16, 96, 96, 32, 32)
@@ -187,7 +284,12 @@ function _draw()
  print("sfx:   " .. sounds_used(asset_loader.sfx_allocation))
  print("playing: " .. tostr(asset_loader.current_music()))
  for i, t in ipairs(tracks) do
-  print((i == select + 1 and "> " or "  ") .. t)
+  print((sound_mode and i == select + 1 and "> " or "  ") .. t)
+ end
+
+ print("maps", 64, 18)
+ for i, m in ipairs(maps) do
+  print((not sound_mode and i == select + 1 and "> " or "  ") .. m)
  end
  print("❎ play 🅾️ stop", 0, 112)
 end
