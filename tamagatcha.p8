@@ -69,30 +69,6 @@ function mod(a, b)
  return (a - 1) % b + 1
 end
 
-current_music = {}
-music_dir = {
- tbd0 = { file = "music/1.p8", track = 1 },
- rice_jingle = { file = "music/1.p8", track = 3 },
- pet_loss = { file = "music/1.p8", track = 4 }
-}
-function load_music(key, preload)
- if key == nil then
-  current_music.track = nil
-  return music(-1)
- end
- local entry = music_dir[key]
- if current_music.file ~= entry.file then
-  -- MARK: ToDo: half sfx load size
-  reload(0X3100, 0X3100, 0x0100, entry.file)
-  reload(0X3200, 0X3200, 0x1100, entry.file)
-  current_music.file = entry.file
- end
- if not settings.mute and not preload and current_music.track ~= entry.track then
-  current_music.track = entry.track
-  music(entry.track)
- end
-end
-
 function btnp_axis(neg, pos)
  if (btnp(neg) ~= btnp(pos)) return btnp(pos) and 1 or -1
  return 0
@@ -205,6 +181,210 @@ function feed_pet()
  if (food == 0) return
  pets[current_pet]:change_hunger(2)
  food -= 1
+end
+
+-->8
+-- MARK: asset loader
+do
+ asset_loader = {}
+ local _ENV = rescope(asset_loader, _ENV)
+
+ -- loaded_file = nil
+
+ sfx_allocation = {
+  type = "sfx",
+  max_index = 63,
+  addr = function(i) return 0x3200 + i * 68 end
+  -- permanently reserve sounds here
+ }
+ music_allocation = {
+  type = "music",
+  max_index = 63,
+  addr = function(channel, pattern) return 0x3100 + pattern * 4 + channel end,
+  asset_alloc = sfx_allocation,
+  lru_list = {},
+  source_list = {
+   piao_piao = { file = "music/1.p8", y = 0, h = 3 },
+   china = { file = "music/1.p8", y = 3, h = 1 },
+   baka_mitai = { file = "music/1.p8", y = 4, h = 5 },
+   binks_sake = { file = "music/main.p8", y = 0, h = 15 }
+  }
+ }
+ sfx_allocation.wrapper_alloc = music_allocation
+
+ spr_allocation = {
+  type = "sprite",
+  max_index = 0xff,
+  addr = function(i)
+   local sx, sy = grid_coords(0, 0, 4, 8, i + 1, 16)
+   return sy * 64 + sx
+  end
+  -- permanently reserve sprites here
+ }
+ map_allocation = {
+  type = "map",
+  max_index = 0xfff,
+  addr = function(x, y) return 0x2000 + y * 128 + x end,
+  asset_alloc = spr_allocation,
+  lru_list = {},
+  source_list = {
+   house = { file = "maps/home.p8", x = 0, y = 0, w = 16, h = 16 },
+   tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
+   tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
+  }
+ }
+ spr_allocation.wrapper_alloc = map_allocation
+
+ for i = 0, 63 do
+  asset_loader.spr_allocation[i] = true
+ end
+ for i = 64, 77 do
+  asset_loader.spr_allocation[i] = true
+  asset_loader.spr_allocation[i + 16] = true
+ end
+
+ function allocate(tbl, key, length)
+  local alloc
+
+  for i = 0, tbl.max_index do
+   if tbl[i] then
+    -- reset if occupied
+    alloc = nil
+   else
+    -- set start index
+    alloc = alloc or i
+
+    -- check if requisite length
+    if i - alloc + 1 == length then
+     -- mark allocation
+     for a = alloc, i do
+      tbl[a] = key
+     end
+
+     return alloc
+    end
+   end
+  end
+
+  assert(free(tbl), tbl.type .. " out of space: " .. length)
+  return allocate(tbl, key, length)
+ end
+
+ function free(wrapper_table, key)
+  wrapper_table = wrapper_table.wrapper_alloc or wrapper_table
+
+  local freed = false
+
+  key = del(wrapper_table.lru_list, key or wrapper_table.lru_list[1])
+  if (not key) return freed
+  wrapper_table.source_list[key].allocation = nil
+
+  for tbl in all({ wrapper_table, wrapper_table.asset_alloc }) do
+   for i = 0, tbl.max_index do
+    if tbl[i] == key then
+     tbl[i] = nil
+     freed = true
+    end
+   end
+  end
+  return freed
+ end
+
+ function load_asset(wrapper_table, key)
+  -- enforce that source info exists
+  local info = assert(wrapper_table.source_list[key], key)
+
+  -- refresh least recently used list
+  if del(wrapper_table.lru_list, key) then
+   add(wrapper_table.lru_list, key)
+   return info
+  end
+
+  local asset_table = wrapper_table.asset_alloc
+  local assigned = {}
+  local copy
+  if wrapper_table.type == "music" then
+   info.x = 0
+   info.w = 4
+   copy = function(byte)
+    -- check muted
+    if (byte & 0x40 ~= 0) return byte
+    -- check is duplicate
+    local src = byte & 0x3f
+    local dst = assigned[src]
+    if (dst) return byte & 0xc0 | dst
+    -- allocate data
+    dst = allocate(asset_table, key, 1)
+    assigned[src] = dst
+    memcpy(asset_table.addr(dst), 0x8000 + asset_table.addr(src), 68)
+    return byte & 0xc0 | dst
+   end
+  else
+   copy = function(byte)
+    -- check transparent
+    if (byte == 0) return byte
+    -- check is duplicate
+    local dst = assigned[byte]
+    if (dst) return dst
+    -- allocate data
+    dst = allocate(asset_table, key, 1)
+    assigned[byte] = dst
+    for i = 0, 7 do
+     memcpy(asset_table.addr(dst) + i * 64, 0x8000 + asset_table.addr(byte) + i * 64, 4)
+    end
+    return dst
+   end
+  end
+
+  -- find space to allocate
+  info.allocation = allocate(wrapper_table, key, info.w * info.h)
+
+  -- load the file if it isn't already
+  if loaded_file ~= info.file then
+   loaded_file = info.file
+   reload(0x8000, 0, 0x4300, loaded_file)
+  end
+
+  for celx = 0, info.w - 1 do
+   for cely = 0, info.h - 1 do
+    poke(
+     wrapper_table.addr(0, 0) + info.allocation + cely * info.w + celx,
+     copy(peek(0x8000 + wrapper_table.addr(info.x + celx, info.y + cely)))
+    )
+   end
+  end
+
+  add(wrapper_table.lru_list, key)
+  return info
+ end
+
+ -- load music from a file
+ function load_music(key) return load_asset(music_allocation, key) end
+ function load_map(key) return load_asset(map_allocation, key) end
+ -- return the key of the currently playing music or nil
+ function current_music() return music_allocation[stat(54) * 4] end
+
+ -- load music and play it
+ function play_music(key, force)
+  if (not force and key == current_music()) return
+  if (not key) return music(-1)
+  music(load_music(key).allocation / 4)
+ end
+
+ -- load map and draw it
+ function draw_map(key, x, y, scale, flip_x, flip_y)
+  local function flip(val, top, bool)
+   return (bool and top - 1 - val or val) * 8 * (scale or 1)
+  end
+
+  local info = load_map(key)
+  for celx = 0, info.w - 1 do
+   for cely = 0, info.h - 1 do
+    local spr = peek(0x2000 + info.allocation + cely * info.w + celx)
+    if (spr ~= 0) spr_scaled(spr, x + flip(celx, info.w, flip_x), y + flip(cely, info.h, flip_y), scale, 1, 1, flip_x, flip_y)
+   end
+  end
+ end
 end
 
 -->8
@@ -597,6 +777,13 @@ end
 -- MARK: screens
 class__gridmenu = classfactory({ selection = 1, selectables = {} })
 function class__gridmenu:init()
+ for m in all(self.load_music or {}) do
+  asset_loader.load_music(m)
+ end
+ for m in all(self.load_map or {}) do
+  asset_loader.load_map(m)
+ end
+
  self.sel_glider:teleport(self:grid_vec())
 end
 function class__gridmenu:update_sel()
@@ -625,28 +812,33 @@ do
    cloud = vec2.rng(0, 15, nil, 40)
   end
 
-  --house
-  fillp(█)
-  rectfill(0, 0, 128, 70, 15)
+  -- --house
+  -- fillp(█)
+  -- rectfill(0, 0, 128, 70, 15)
 
-  --window
-  rectfill(20, 15, 56, 50, 12)
-  rect(20, 15, 56, 50, 7)
-  rect(19, 14, 57, 51, 7)
-  --add clouds here
-  clip(21, 15, 35, 35)
+  -- --window
+  -- rectfill(20, 15, 56, 50, 12)
+  -- rect(20, 15, 56, 50, 7)
+  -- rect(19, 14, 57, 51, 7)
+  -- --add clouds here
+  -- clip(21, 15, 35, 35)
+  -- sspr(112, 16, 16, 16, cloud.x, cloud.y, 16, 16)
+  -- clip()
+  -- --middle
+  -- line(38, 15, 38, 50, 7)
+  -- line(37, 15, 37, 50, 7)
+
+  -- --floor
+  -- rectfill(0, 70, 128, 128, 4)
+  -- rectfill(0, 70, 128, 65, 7)
+  -- for i = 0, 40 do
+  --  line(i * 10, 71, i * 10 - 20, 127, 9)
+  -- end
+  cls(12)
+  cloud.x += 0.1
   sspr(112, 16, 16, 16, cloud.x, cloud.y, 16, 16)
-  clip()
-  --middle
-  line(38, 15, 38, 50, 7)
-  line(37, 15, 37, 50, 7)
-
-  --floor
-  rectfill(0, 70, 128, 128, 4)
-  rectfill(0, 70, 128, 65, 7)
-  for i = 0, 40 do
-   line(i * 10, 71, i * 10 - 20, 127, 9)
-  end
+  asset_loader.draw_map("house", 0, 0)
+  rectfill(35, 16, 36, 55, 7)
  end
 end
 
@@ -666,10 +858,13 @@ do
    { name = "right", sprite = 19 },
    { name = "pets", sprite = 20, screen = "collection" },
    { name = "adopt", sprite = 21, screen = "loose_pet" }
-  }
+  },
+  load_music = { "binks_sake" },
+  load_map = { "house" }
  })
  local _ENV, scn = rescope(screens.home, _ENV)
  function update()
+  asset_loader.play_music("binks_sake")
   local _, icon = update_sel(scn)
   glide(scn)
 
@@ -1139,7 +1334,7 @@ do
   timeline:start()
   gore_pool = {}
   splash = false
-  load_music("pet_loss", true)
+  asset_loader.load_music("baka_mitai")
  end
  function update()
   local step, t = timeline:update()
@@ -1156,7 +1351,7 @@ do
    end
    update_particles()
   elseif step == 6 then
-   load_music("pet_loss")
+   asset_loader.play_music("baka_mitai")
    if btnp(🅾️) then
     pet = nil
     switch_screen()

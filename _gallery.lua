@@ -48,7 +48,7 @@ function setup()
     }
 
     asset_loader.map_allocation.source_list = {
-        house = { file = "unused/background.p8", x = 0, y = 0, w = 16, h = 16 },
+        house = { file = "maps/home.p8", x = 0, y = 0, w = 16, h = 16 },
         tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
         tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
     }
