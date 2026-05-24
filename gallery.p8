@@ -85,6 +85,7 @@ do
 
   key = del(wrapper_table.lru_list, key or wrapper_table.lru_list[1])
   if (not key) return freed
+  if (current_music() == key) music(-1)
   wrapper_table.source_list[key].allocation = nil
 
   for tbl in all({ wrapper_table, wrapper_table.asset_alloc }) do
