@@ -4,6 +4,8 @@
 
 ---@diagnostic disable
 
+-- MARK: helper functions
+-- these functions should exist in the main cart already
 function rescope(scope, env)
     return setmetatable(
         {}, {
@@ -29,30 +31,48 @@ function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
     sspr(n % 16 * 8, flr(n / 16) * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
 end
 
-function _init()
-    sound_mode = true
-    show_map = nil
-    select = 0
-    tracks = {}
-    maps = {}
+-- MARK: info setup
+-- setup data to expore
 
-
-
+function setup()
     asset_loader.music_allocation.source_list = {
-        piao_piao = { file = "music/1.p8", start = 0, length = 3 },
-        china = { file = "music/1.p8", start = 3, length = 1 },
-        baka_mitai = { file = "music/1.p8", start = 4, length = 5 },
-        binks_sake = { file = "music/main.p8", start = 0, length = 15 }
+        piao_piao = { file = "music/1.p8", y = 0, h = 3 },
+        china = { file = "music/1.p8", y = 3, h = 1 },
+        baka_mitai = { file = "music/1.p8", y = 4, h = 5 },
+        binks_sake = { file = "music/main.p8", y = 0, h = 15 }
     }
 
     asset_loader.map_allocation.source_list = {
         house = { file = "unused/background.p8", x = 0, y = 0, w = 16, h = 16 }
     }
+
     for _, value in ipairs({ 0, 1, 16, 17 }) do
-        asset_loader.sprite_allocation[value] = true
+        asset_loader.spr_allocation[value] = true
     end
+    for _, value in ipairs({ 0 }) do
+        asset_loader.sfx_allocation[value] = true
+    end
+end
 
+-- MARK: operator functions
+-- functions to explore the gallery
 
+function sounds_used(tbl)
+    local ret = 0
+    for i = 0, 63 do
+        if (tbl[i]) then ret = ret + 1 end
+    end
+    return (ret < 10 and " " .. ret or ret) .. "/64"
+end
+
+function _init()
+    setup()
+
+    sound_mode = true
+    show_map = nil
+    select = 0
+    tracks = {}
+    maps = {}
 
     for key, _ in pairs(asset_loader.music_allocation.source_list) do
         local i = 1
@@ -68,21 +88,22 @@ function _init()
         end
         add(maps, key, i)
     end
-
-    function sounds_used(tbl)
-        local ret = 0
-        for i = 0, 63 do
-            if (tbl[i]) then ret = ret + 1 end
-        end
-        return (ret < 10 and " " .. ret or ret) .. "/64"
-    end
 end
 
 function _update()
     if (btnp() ~= 0) then show_map = false end
-    if (btnp(0) ~= btnp(1)) then sound_mode = not sound_mode end
-    if (btnp(2)) then select = select - 1 end
-    if (btnp(3)) then select = select + 1 end
+    if (btnp(0) ~= btnp(1)) then
+        sound_mode = not sound_mode
+        sfx(0)
+    end
+    if (btnp(2)) then
+        select = select - 1
+        sfx(0)
+    end
+    if (btnp(3)) then
+        select = select + 1
+        sfx(0)
+    end
     select = select % (sound_mode and #tracks or #maps)
     if (sound_mode and btnp(5)) then asset_loader.play_music(tracks[select + 1]) end
     if (sound_mode and btnp(4)) then asset_loader.play_music(nil) end
@@ -99,15 +120,16 @@ function _draw()
     palt(11, true)
     sspr(0, 0, 16, 16, 96, 96, 32, 32)
 
-    print("music loader demo", 30, 0)
+    print("music loader demo", 30, 0, 6)
     print("music: " .. sounds_used(asset_loader.music_allocation), 0, 18)
     print("sfx:   " .. sounds_used(asset_loader.sfx_allocation))
-    print("playing: " .. tostr(asset_loader.current_music()))
     for i, t in ipairs(tracks) do
-        print((sound_mode and i == select + 1 and "> " or "  ") .. t)
+        print((sound_mode and i == select + 1 and "> " or "  ") .. t,
+            asset_loader.current_music() == t and 10 or 6
+        )
     end
 
-    print("maps", 64, 18)
+    print("maps", 64, 18, 6)
     for i, m in ipairs(maps) do
         print((not sound_mode and i == select + 1 and "> " or "  ") .. m)
     end
