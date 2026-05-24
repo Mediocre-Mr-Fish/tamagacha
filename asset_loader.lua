@@ -43,7 +43,9 @@ function setup()
     }
 
     asset_loader.map_allocation.source_list = {
-        house = { file = "unused/background.p8", x = 0, y = 0, w = 16, h = 16 }
+        house = { file = "unused/background.p8", x = 0, y = 0, w = 16, h = 16 },
+        tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
+        tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
     }
 
     for _, value in ipairs({ 0, 1, 16, 17 }) do
@@ -57,12 +59,29 @@ end
 -- MARK: operator functions
 -- functions to explore the gallery
 
-function sounds_used(tbl)
-    local ret = 0
-    for i = 0, 63 do
-        if (tbl[i]) then ret = ret + 1 end
+
+
+function pad(str, len)
+    str = tostring(str)
+    while #str < (len or 2) do
+        str = " " .. str
     end
-    return (ret < 10 and " " .. ret or ret) .. "/64"
+    return str
+end
+
+function capacity(alloc_tbl)
+    local ret = 0
+    for i = 0, alloc_tbl.max_index do
+        if (alloc_tbl[i]) then ret = ret + 1 end
+    end
+    return pad(ret, #tostring(alloc_tbl.max_index + 1)) .. "/" .. tostring(alloc_tbl.max_index + 1)
+end
+
+function is_loaded(alloc_tbl, key)
+    for entry in all(alloc_tbl.lru_list) do
+        if (entry == key) then return true end
+    end
+    return false
 end
 
 function _init()
@@ -105,7 +124,7 @@ function _update()
         sfx(0)
     end
     select = select % (sound_mode and #tracks or #maps)
-    if (sound_mode and btnp(5)) then asset_loader.play_music(tracks[select + 1]) end
+    if (sound_mode and btnp(5)) then asset_loader.play_music(tracks[select + 1], true) end
     if (sound_mode and btnp(4)) then asset_loader.play_music(nil) end
     if (not sound_mode and btnp(5)) then show_map = maps[select + 1] end
 end
@@ -120,18 +139,35 @@ function _draw()
     palt(11, true)
     sspr(0, 0, 16, 16, 96, 96, 32, 32)
 
-    print("music loader demo", 30, 0, 6)
-    print("music: " .. sounds_used(asset_loader.music_allocation), 0, 18)
-    print("sfx:   " .. sounds_used(asset_loader.sfx_allocation))
+    print("asset loader demo", 30, 0, 6)
+
+    print("music:" .. capacity(asset_loader.music_allocation), 0, 18)
+    print("sfx:  " .. capacity(asset_loader.sfx_allocation))
     for i, t in ipairs(tracks) do
-        print((sound_mode and i == select + 1 and "> " or "  ") .. t,
-            asset_loader.current_music() == t and 10 or 6
-        )
+        local color = 6
+        if asset_loader.current_music() == t then
+            color = 10
+        elseif is_loaded(asset_loader.music_allocation, t) then
+            color = 14
+        end
+        print((sound_mode and i == select + 1 and "> " or "  ") .. t, color)
     end
 
-    print("maps", 64, 18, 6)
+    print("map:  " .. capacity(asset_loader.map_allocation), 64, 18, 6)
+    print("sprite:" .. capacity(asset_loader.spr_allocation))
     for i, m in ipairs(maps) do
-        print((not sound_mode and i == select + 1 and "> " or "  ") .. m)
+        local color = 6
+        if false then
+            color = 10
+        elseif is_loaded(asset_loader.map_allocation, m) then
+            color = 14
+        end
+        print((not sound_mode and i == select + 1 and "> " or "  ") .. m, color)
     end
-    print("❎ play 🅾️ stop", 0, 112)
+
+
+    print("❎ "
+        .. (sound_mode and "play" or "show")
+        .. (asset_loader.current_music() and " 🅾️ stop" or ""),
+        0, 112, 6)
 end

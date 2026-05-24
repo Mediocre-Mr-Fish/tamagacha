@@ -14,7 +14,7 @@ do
  asset_loader = {}
  local _ENV = rescope(asset_loader, _ENV)
 
- loaded_file = nil
+ -- loaded_file = nil
 
  sfx_allocation = {
   type = "sfx",
@@ -52,7 +52,7 @@ do
  spr_allocation.wrapper_alloc = map_allocation
 
  function allocate(tbl, key, length)
-  local alloc = nil
+  local alloc
 
   for i = 0, tbl.max_index do
    if tbl[i] then
@@ -74,13 +74,12 @@ do
    end
   end
 
-  assert(free(tbl, nil), tbl.type .. " out of space: " .. length)
+  assert(free(tbl), tbl.type .. " out of space: " .. length)
   return allocate(tbl, key, length)
  end
 
  function free(wrapper_table, key)
   wrapper_table = wrapper_table.wrapper_alloc or wrapper_table
-  local asset_table = wrapper_table.asset_alloc
 
   local freed = false
 
@@ -88,7 +87,7 @@ do
   if (not key) return freed
   wrapper_table.source_list[key].allocation = nil
 
-  for tbl in all({ wrapper_table, asset_table }) do
+  for tbl in all({ wrapper_table, wrapper_table.asset_alloc }) do
    for i = 0, tbl.max_index do
     if tbl[i] == key then
      tbl[i] = nil
@@ -144,10 +143,9 @@ do
     return dst
    end
   end
-  local length = info.w * info.h
 
   -- find space to allocate
-  info.allocation = allocate(wrapper_table, key, length)
+  info.allocation = allocate(wrapper_table, key, info.w * info.h)
 
   -- load the file if it isn't already
   if loaded_file ~= info.file then
@@ -190,12 +188,8 @@ do
   local info = load_map(key)
   for celx = 0, info.w - 1 do
    for cely = 0, info.h - 1 do
-    spr_scaled(
-     peek(0x2000 + info.allocation + cely * info.w + celx),
-     x + flip(celx, info.w, flip_x),
-     y + flip(cely, info.h, flip_y),
-     scale, 1, 1, flip_x, flip_y
-    )
+    local spr = peek(0x2000 + info.allocation + cely * info.w + celx)
+    if (spr ~= 0) spr_scaled(spr, x + flip(celx, info.w, flip_x), y + flip(cely, info.h, flip_y), scale, 1, 1, flip_x, flip_y)
    end
   end
  end
