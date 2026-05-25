@@ -17,7 +17,7 @@ function _init()
 
  last_fed = time()
  last_play = time()
- 
+
  happiness_prot⧗ = time()
  hunger_prot⧗ = time()
  happiness_2x⧗ = time()
@@ -999,44 +999,64 @@ do
  function draw()
   --make the pet and bg shift left
   --make the stats shift on screen
-  local ha = {80,100}
-  local hu = {100,100}
-  local 😐 = {48, 0}
-  local gold😐 = {56, 0}
-  local 🐱 = {48, 8} --hunger btw
-  local gold🐱 = {56, 8}
-  pet = pets[current_pet]
-  cls()
-	 pal()
-	 for i = 2,16,2 do
-	  if pet.happiness + 2 >= i then
-	   sspr(happiness_prot⧗>time() and gold😐[1] or 😐[1], happiness_prot⧗>time() and gold😐[2] or 😐[2], 8, 8, ha[1], ha[2] - i * 5, 8, 8)
-	  elseif pet.happiness + 1 < i then
-	   pal(10, 5)
-	   sspr(😐[1], 😐[2], 8, 8, ha[1], ha[2] - i * 5, 8, 8)
-	  end
-	  if pet.happiness + 2 == i then
-	   --draw top half grey
-	   pal(10, 5)
-	   sspr(😐[1], 😐[2], 8, 4, ha[1], ha[2] - i * 5, 8, 4) 
-	  end
-	 end
-	 pal()
-	 for i = 2,16,2 do
-	  if pet.hunger + 2 >= i then
-	   sspr(hunger_prot⧗>time() and gold🐱[1] or 🐱[1], hunger_prot⧗>time() and gold🐱[2] or 🐱[2], 8, 8, hu[1], hu[2] - i * 5, 8, 8)
-	  elseif pet.hunger + 1 < i then
-	   pal(4, 5)
-	   pal(8, 5)
-	   sspr(🐱[1], 🐱[2], 8, 8, hu[1], hu[2] - i * 5, 8, 8)
-	  end
-	  if pet.hunger + 2 == i then
-	   --draw top half grey
-	   pal(4, 5)
-	   pal(8, 5)
-	   sspr(🐱[1], 🐱[2], 8, 4, hu[1], hu[2] - i * 5, 8, 4) 
-	  end
-	 end
+  -- local ha = { 80, 100 }
+  -- local hu = { 100, 100 }
+  -- local 😐 = { 48, 0 }
+  -- local gold😐 = { 56, 0 }
+  -- local 🐱 = { 48, 8 }
+  --hunger btw
+  -- local gold🐱 = { 56, 8 }
+
+  pal()
+  local pet = pets[current_pet]
+
+  for props in all({
+   { stat = pet.happiness, x = 80, icon = happiness_prot⧗ > time() and 7 or 6 },
+   { stat = pet.hunger, x = 100, icon = hunger_prot⧗ > time() and 23 or 22 }
+  }) do
+   for _ = 0, 1 do
+    for i = 0, 7 do
+     spr(props.icon, props.x, 100 - i * 10)
+    end
+    clip(0, 0, 128, lerp(108, 30, (props.stat + 1) / 16))
+    for i = 0, 15 do
+     pal(i, 5)
+    end
+   end
+   clip()
+   pal()
+   print_centered(props.stat, props.x + 4, 112, 7)
+  end
+
+  -- for i = 2, 16, 2 do
+  --  if pet.happiness + 2 >= i then
+  -- sspr(happiness_prot⧗ > time() and gold😐[1] or 😐[1], happiness_prot⧗ > time() and gold😐[2] or 😐[2], 8, 8, ha[1], ha[2] - i * 5, 8, 8)
+  --  elseif pet.happiness + 1 < i then
+  --   pal(10, 5)
+  --   sspr(😐[1], 😐[2], 8, 8, ha[1], ha[2] - i * 5, 8, 8)
+  --  end
+  --  if pet.happiness + 2 == i then
+  --   --draw top half grey
+  --   pal(10, 5)
+  --   sspr(😐[1], 😐[2], 8, 4, ha[1], ha[2] - i * 5, 8, 4)
+  --  end
+  -- end
+  -- pal()
+  -- for i = 2, 16, 2 do
+  --  if pet.hunger + 2 >= i then
+  --   sspr(hunger_prot⧗ > time() and gold🐱[1] or 🐱[1], hunger_prot⧗ > time() and gold🐱[2] or 🐱[2], 8, 8, hu[1], hu[2] - i * 5, 8, 8)
+  --  elseif pet.hunger + 1 < i then
+  --   pal(4, 5)
+  --   pal(8, 5)
+  --   sspr(🐱[1], 🐱[2], 8, 8, hu[1], hu[2] - i * 5, 8, 8)
+  --  end
+  --  if pet.hunger + 2 == i then
+  --   --draw top half grey
+  --   pal(4, 5)
+  --   pal(8, 5)
+  --   sspr(🐱[1], 🐱[2], 8, 4, hu[1], hu[2] - i * 5, 8, 4)
+  --  end
+  -- end
  end
 end
 
