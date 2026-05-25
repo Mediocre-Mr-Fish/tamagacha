@@ -1010,13 +1010,14 @@ do
   pal()
   local pet = pets[current_pet]
 
-  for props in all({
-   { stat = pet.happiness, x = 80, icon = happiness_prot⧗ > time() and 7 or 6 },
-   { stat = pet.hunger, x = 100, icon = hunger_prot⧗ > time() and 23 or 22 }
+  for p, props in ipairs({
+   { stat = pet.happiness, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
+   { stat = pet.hunger, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
   }) do
+   local x = 60 + 20 * p
    for _ = 0, 1 do
     for i = 0, 7 do
-     spr(props.icon, props.x, 100 - i * 10)
+     spr(props.icon, x, 100 - i * 10)
     end
     clip(0, 0, 128, lerp(108, 30, (props.stat + 1) / 16))
     for i = 0, 15 do
@@ -1025,7 +1026,8 @@ do
    end
    clip()
    pal()
-   print_centered(props.stat, props.x + 4, 112, 7)
+   print_centered(props.stat, x + 4, 112, 7)
+   if (props.double⧗ > time()) print_centered("2X", x + 4, 22)
   end
 
   -- for i = 2, 16, 2 do
