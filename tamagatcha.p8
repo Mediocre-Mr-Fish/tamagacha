@@ -233,7 +233,7 @@ do
   asset_alloc = spr_allocation,
   lru_list = {},
   source_list = {
-   house = { file = "maps/home.p8", x = 0, y = 0, w = 16, h = 16 },
+   house = { file = "maps/home.p8", x = 0, y = 0, w = 24, h = 16 },
    tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
    tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
   }
@@ -505,8 +505,8 @@ function glider:move()
  return self
 end
 function glider:set_target(vec_or_nil, no_copy)
- if (vec_or_nil and not no_copy) vec_or_nil *= 1
- self.target = vec_or_nil
+ -- if (vec_or_nil and not no_copy) vec_or_nil *= 1
+ self.target = vec_or_nil * 1
  return self
 end
 function glider:teleport(vec)
@@ -813,7 +813,7 @@ function classfactory__gridmenu(static_vars)
 end
 
 do
- local cloud = vec2_0
+ local cloud = vec2.new(0)
  function background_house()
   if cloud.x > 53 then
    cloud = vec2.rng(0, 15, nil, 40)
@@ -856,7 +856,7 @@ do
   selectables = {
    { name = "food", sprite = 1 },
    { name = "game", sprite = 2, screen = "game_select" },
-   { name = "stats", sprite = 3, screen = "stats" },
+   { name = "stats", sprite = 3 },
    { name = "gacha", sprite = 4, screen = "gacha" },
    { name = "settings", sprite = 5, screen = "settings" },
 
@@ -870,9 +870,13 @@ do
   load_map = { "house" }
  })
  local _ENV, scn = rescope(screens.home, _ENV)
+ function init()
+  class__gridmenu.init(scn)
+  camera_glider = glider.new(0.5)
+ end
  function update()
   asset_loader.play_music("binks_sake")
-  local _, icon = update_sel(scn)
+  local sel, icon = update_sel(scn)
   glide(scn)
 
   if btnp(❎) then
@@ -891,12 +895,28 @@ do
     current_pet = mod(current_pet - 1, #pets)
    elseif icon.name == "right" then
     current_pet = mod(current_pet + 1, #pets)
+   elseif sel == 3 then
+    show_stats = not show_stats
+    camera_glider:set_target(show_stats and vec2.new(32, 0) or vec2_0)
    end
   end
+  camera_glider:move()
  end
  function draw()
+  camera(camera_glider.x, camera_glider.y)
   background_house()
   local pet = pets[current_pet]
+
+  --draw current pet
+  print_centered(pet.name, 64, 20, 7)
+  if pet:is_dead() then
+   spr_scaled(50, 52, 62, 4)
+  else
+   pet:spr_scaled(32, 32, 4)
+  end
+
+  screens.stats.draw()
+  camera()
 
   for i, icon in ipairs(selectables) do
    local x, y = grid_vec(scn, i):unpack()
@@ -907,7 +927,6 @@ do
   end
 
   --stats icon reflecting pet status
-  pet = pets[current_pet]
   local hunger_y = pet.hunger / 15 * 6
   local happy_y = pet.happiness / 15 * 6
   if happy_y > 1 then
@@ -919,14 +938,6 @@ do
 
   --print food counter
   print(food, 3, 13, 7)
-
-  --draw current pet
-  print_centered(pet.name, 64, 20, 7)
-  if pet:is_dead() then
-   spr_scaled(50, 52, 62, 4)
-  else
-   pet:spr_scaled(32, 32, 4)
-  end
 
   --draw number of pets and current pet indicator
   pal()
@@ -990,75 +1001,36 @@ end
 -- MARK: stats
 do
  screens.stats = {}
- local _ENV, scn = rescope(screens.stats, _ENV)
- function update()
-  if btnp(🅾️) then
-   switch_screen()
-  end
- end
- function draw()
-  --make the pet and bg shift left
-  --make the stats shift on screen
-  -- local ha = { 80, 100 }
-  -- local hu = { 100, 100 }
-  -- local 😐 = { 48, 0 }
-  -- local gold😐 = { 56, 0 }
-  -- local 🐱 = { 48, 8 }
-  --hunger btw
-  -- local gold🐱 = { 56, 8 }
-
+ -- local _ENV, scn = rescope(screens.stats, _ENV)
+ -- function update()
+ --  if btnp(🅾️) then
+ --   switch_screen()
+ --  end
+ -- end
+ function screens.stats.draw()
   pal()
   local pet = pets[current_pet]
 
   for p, props in ipairs({
-   { stat = pet.happiness, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
-   { stat = pet.hunger, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
+   { stat = pet.happiness + 1, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
+   { stat = pet.hunger + 1, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
   }) do
-   local x = 60 + 20 * p
+   local x = 116 + 16 * p
    for _ = 0, 1 do
-    for i = 0, 7 do
-     spr(props.icon, x, 100 - i * 10)
+    for i = 0, 3 do
+     spr(props.icon, x, 58 - i * 10)
     end
-    clip(0, 0, 128, lerp(108, 30, (props.stat + 1) / 16))
-    for i = 0, 15 do
-     pal(i, 5)
+    clip(0, 0, 256, 66 - (props.stat + props.stat \ 4) * 2)
+    -- rectfill(0, 0, 128, 56 - (props.stat + 1) * 2.5, 8)
+    for c = 0, 15 do
+     pal(c, 0)
     end
    end
    clip()
    pal()
-   print_centered(props.stat, x + 4, 112, 7)
-   if (props.double⧗ > time()) print_centered("2X", x + 4, 22)
+   print_centered(props.stat, x + 5, 68, 7)
+   if (props.double⧗ > time()) print_centered("2X", x + 4, 20)
   end
-
-  -- for i = 2, 16, 2 do
-  --  if pet.happiness + 2 >= i then
-  -- sspr(happiness_prot⧗ > time() and gold😐[1] or 😐[1], happiness_prot⧗ > time() and gold😐[2] or 😐[2], 8, 8, ha[1], ha[2] - i * 5, 8, 8)
-  --  elseif pet.happiness + 1 < i then
-  --   pal(10, 5)
-  --   sspr(😐[1], 😐[2], 8, 8, ha[1], ha[2] - i * 5, 8, 8)
-  --  end
-  --  if pet.happiness + 2 == i then
-  --   --draw top half grey
-  --   pal(10, 5)
-  --   sspr(😐[1], 😐[2], 8, 4, ha[1], ha[2] - i * 5, 8, 4)
-  --  end
-  -- end
-  -- pal()
-  -- for i = 2, 16, 2 do
-  --  if pet.hunger + 2 >= i then
-  --   sspr(hunger_prot⧗ > time() and gold🐱[1] or 🐱[1], hunger_prot⧗ > time() and gold🐱[2] or 🐱[2], 8, 8, hu[1], hu[2] - i * 5, 8, 8)
-  --  elseif pet.hunger + 1 < i then
-  --   pal(4, 5)
-  --   pal(8, 5)
-  --   sspr(🐱[1], 🐱[2], 8, 8, hu[1], hu[2] - i * 5, 8, 8)
-  --  end
-  --  if pet.hunger + 2 == i then
-  --   --draw top half grey
-  --   pal(4, 5)
-  --   pal(8, 5)
-  --   sspr(🐱[1], 🐱[2], 8, 4, hu[1], hu[2] - i * 5, 8, 4)
-  --  end
-  -- end
  end
 end
 
