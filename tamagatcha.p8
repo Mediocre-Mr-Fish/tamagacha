@@ -182,12 +182,6 @@ function update_happiness()
  end
 end
 
-function feed_pet()
- if (food == 0) return
- pets[current_pet]:change_hunger(2)
- food -= 1
-end
-
 -->8
 -- MARK: asset loader
 do
@@ -879,9 +873,11 @@ do
   local sel, icon = update_sel(scn)
   glide(scn)
 
+  local pet = pets[current_pet]
+
   if btnp(❎) then
    --disallows feeding or playing after death to prevent revives
-   if pets[current_pet]:is_dead() and (icon.name == "food" or icon.name == "game") then
+   if pet:is_dead() and (icon.name == "food" or icon.name == "game") then
     return
    end
 
@@ -890,7 +886,12 @@ do
    end
 
    if icon.name == "food" then
-    feed_pet()
+    if food > 0 then
+     pet:change_hunger(2)
+     food -= 1
+    else
+     -- sfx
+    end
    elseif icon.name == "left" then
     current_pet = mod(current_pet - 1, #pets)
    elseif icon.name == "right" then
@@ -915,7 +916,28 @@ do
    pet:spr_scaled(32, 32, 4)
   end
 
-  screens.stats.draw()
+  -- draw stats
+  for p, props in ipairs({
+   { stat = pet.happiness + 1, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
+   { stat = pet.hunger + 1, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
+  }) do
+   local x = 116 + 16 * p
+   for _ = 0, 1 do
+    for i = 0, 3 do
+     spr(props.icon, x, 58 - i * 10)
+    end
+    clip(0, 0, 256, 66 - (props.stat + props.stat \ 4) * 2)
+    -- rectfill(0, 0, 128, 56 - (props.stat + 1) * 2.5, 8)
+    for c = 0, 15 do
+     pal(c, 0)
+    end
+   end
+   clip()
+   pal()
+   print_centered(props.stat, x + 5, 68, 7)
+   if (props.double⧗ > time()) print_centered("2X", x + 4, 20)
+  end
+
   camera()
 
   for i, icon in ipairs(selectables) do
@@ -995,42 +1017,6 @@ do
  function draw_panel(label, x, y, w, h, col)
   rectfill(x, y, x + w, y + h, col)
   print_centered(label, x + flr(w / 2), y + flr(h / 2) - 3, 7)
- end
-end
-
--- MARK: stats
-do
- screens.stats = {}
- -- local _ENV, scn = rescope(screens.stats, _ENV)
- -- function update()
- --  if btnp(🅾️) then
- --   switch_screen()
- --  end
- -- end
- function screens.stats.draw()
-  pal()
-  local pet = pets[current_pet]
-
-  for p, props in ipairs({
-   { stat = pet.happiness + 1, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
-   { stat = pet.hunger + 1, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
-  }) do
-   local x = 116 + 16 * p
-   for _ = 0, 1 do
-    for i = 0, 3 do
-     spr(props.icon, x, 58 - i * 10)
-    end
-    clip(0, 0, 256, 66 - (props.stat + props.stat \ 4) * 2)
-    -- rectfill(0, 0, 128, 56 - (props.stat + 1) * 2.5, 8)
-    for c = 0, 15 do
-     pal(c, 0)
-    end
-   end
-   clip()
-   pal()
-   print_centered(props.stat, x + 5, 68, 7)
-   if (props.double⧗ > time()) print_centered("2X", x + 4, 20)
-  end
  end
 end
 
