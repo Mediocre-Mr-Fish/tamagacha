@@ -1259,6 +1259,9 @@ do
   local draw_map = asset_loader.draw_map
 
   if step <= 2 then
+   palt()
+   spr_scaled(62, 16, 16, 1, 2, 1)
+   spr_scaled(62, 96, 20, 1, 2, 1)
    local x, y = 48, 50
    if step == 2 then x, y = accelerp(48, 50, -25, t), accelerp(50, -50, 200, t) end
    pet:spr_scaled(x, y, 1, false, true, false)
@@ -1289,7 +1292,10 @@ do
    draw_map("tower_ground", 0, 56)
 
    if step >= 5 then
-    draw_particles()
+    -- draw particles
+    for particle in all(gore_pool) do
+     pset(particle.pos.x, particle.pos.y, 8)
+    end
    end
 
    if step >= 6 then
@@ -1298,11 +1304,6 @@ do
    if step == 7 then
     print_centered("🅾️ exit", 64, 110, 5)
    end
-  end
- end
- function draw_particles()
-  for particle in all(gore_pool) do
-   pset(particle.pos.x, particle.pos.y, 8)
   end
  end
 end
