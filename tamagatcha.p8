@@ -465,11 +465,17 @@ function class__pet.new()
  self.hunger = 15
  self.happiness = 15
  self.color_variant = 0
+ self.effects = {
+  hunger_prot = 0,
+  happiness_prot = 0,
+  hunger_2x = 0,
+  happiness_2x = 0
+ }
  return self
 end
 
 all_pets = {}
-num_pet_types = 15
+num_pet_types = 0xff
 function classfactory__pet(static_vars, parent)
  static_vars.id = #all_pets + 1
  assert(static_vars.id <= num_pet_types, "too many pet types!")
@@ -521,6 +527,12 @@ function class__pet:change_hunger(delta)
 end
 function class__pet:change_happiness(delta)
  self.happiness = mid(self.happiness + delta, 0, 0xf)
+ return self
+end
+function class__pet:update_effects(dt)
+ for key, time in pairs(self.effects) do
+  self.effects[key] = mid(time - dt, 0, 0xff)
+ end
  return self
 end
 
@@ -595,13 +607,18 @@ for i = 1, num_pet_types do
  end
 end
 
+-- MARK: item
 all_items = {
- { sprite = 32, rarity = 1, name = "chocolate" },
- { sprite = 33, rarity = 1, name = "banana" },
- { sprite = 34, rarity = 2, name = "meatball" },
- { sprite = 35, rarity = 3, name = "rice" },
- { sprite = 36, rarity = 2, name = "drumstick" },
- { sprite = 51, rarity = 3, name = "bomb" }
+ { sprite = 32, rarity = 1, name = "chocolate", func = function(pet) pet.effects.happiness_prot = 60 end },
+ { sprite = 33, rarity = 1, name = "banana", func = function(pet) pet.effects.happiness_2x = 60 end },
+ { sprite = 34, rarity = 2, name = "meatball", func = function(pet) pet.effects.hunger_2x = 60 end },
+ { sprite = 35, rarity = 3, name = "rice", func = function() asset_loader.play_music("china") end },
+ { sprite = 36, rarity = 2, name = "drumstick", func = function(pet) pet.effects.hunger_prot = 60 end },
+ {
+  sprite = 51, rarity = 3, name = "bomb", func = function(pet, pets)
+   switch_screen(screens.loose_pet:with(del(pets, pet), screens.bomb))
+  end
+ }
 }
 
 for i, item in ipairs(all_items) do
@@ -637,16 +654,6 @@ local stat_timers = {
  { last_check = time(), base_interval = 7, func = class__pet.change_happiness },
  { last_check = time(), base_interval = 5, func = class__pet.change_hunger }
 }
-function update_stats()
- for stat in all(stat_timers) do
-  if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
-   stat.last_check = time()
-   for pet in all(pets) do
-    stat.func(pet, -1)
-   end
-  end
- end
-end
 
 local screen = nil
 function switch_screen(screen_or_nil)
@@ -666,13 +673,10 @@ function bone_censor()
  return 55, "rocks"
 end
 
+local t = time()
+local dt = 0
 function _init()
  is_runtime = true
-
- happiness_prot⧗ = time()
- hunger_prot⧗ = time()
- happiness_2x⧗ = time()
- hunger_2x⧗ = time()
 
  settings = {
   --optional turn sound off
@@ -689,7 +693,21 @@ function _init()
 end
 
 function _update()
- update_stats()
+ dt = time() - t
+ t = time()
+
+ for pet in all(pets) do
+  pet:update_effects(dt)
+ end
+
+ for stat in all(stat_timers) do
+  if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
+   stat.last_check = time()
+   for pet in all(pets) do
+    stat.func(pet, -1)
+   end
+  end
+ end
  screen:update()
 end
 
@@ -860,6 +878,7 @@ do
  local _ENV, scn = rescope(screens.home, _ENV)
  camera_glider = glider.new(0.5)
  function update()
+  current_pet = mid(current_pet, 1, #pets)
   local pet = pets[current_pet]
   if (pet) asset_loader.play_music("binks_sake")
   local sel, icon = update_sel(scn)
@@ -923,8 +942,8 @@ do
 
    -- draw stats
    for p, props in ipairs({
-    { stat = pet.happiness + 1, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
-    { stat = pet.hunger + 1, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
+    { stat = pet.hunger + 1, double = pet.effects.hunger_2x, icon = pet.effects.hunger_prot > 0 and 23 or 22 },
+    { stat = pet.happiness + 1, double = pet.effects.happiness_2x, icon = pet.effects.happiness_prot > 0 and 7 or 6 }
    }) do
     local x = 116 + 16 * p
     for _ = 0, 1 do
@@ -939,7 +958,7 @@ do
     clip()
     pal()
     print_centered(props.stat, x + 5, 68, 7)
-    if (props.double⧗ > time()) print_centered("2X", x + 4, 20)
+    if (props.double > 0) print_centered("2X", x + 4, 20)
    end
   end
 
@@ -955,13 +974,12 @@ do
 
   if pet then
    --stats icon reflecting pet status
-   local hunger_y = (pet.hunger + 1) / 2
-   local happy_y = (pet.happiness + 1) / 2
-   if happy_y > 1 then
-    rectfill(61, 10 - happy_y, 62, 10, 11)
-   end
-   if hunger_y > 1 then
-    rectfill(65, 10 - hunger_y, 66, 10, 11)
+   for i, stat in ipairs({ pet.hunger, pet.happiness }) do
+    local x = 57 + i * 4
+    stat = stat \ 2
+    if not pet:is_dead() then
+     rectfill(x, 10 - stat, x + 1, 10, 11)
+    end
    end
   end
 
@@ -1108,9 +1126,9 @@ do
    switch_screen()
   elseif btnp(❎) then
    if item.count > 0 then
-    -- change_item_count is unnecessary here
+    -- change_item_count not needed here
     item.count -= 1
-    --give pet status or ailment
+    item.func(pets[current_pet], pets)
    else
     -- play error sound
    end
@@ -1175,12 +1193,12 @@ end
 do
  screens.loose_pet = {}
  local _ENV = rescope(screens.loose_pet, _ENV)
- function with(self, pet_)
+ function with(self, pet_, force)
   pet = pet_
+  target = force or decide(pet)
   return self
  end
  function init()
-  local target = decide(pet)
   if (target) target.pet = pet
   switch_screen(target)
 
@@ -1443,6 +1461,98 @@ do
   end
  end
 end
+-- MARK: bomb
+do
+ screens.bomb = {
+  timeline = anim_timeline.new({ 2, 1 })
+ }
+ local _ENV = rescope(screens.bomb, _ENV)
+ function init()
+  timeline:start()
+  gore_pool = {}
+  splash = false
+ end
+ function update()
+  local step, t = timeline:update()
+
+  if step > 2 then
+   if not splash then
+    splash = true
+    add_particles(1000)
+    add_particles(pet.bone * 2, 54)
+   end
+   update_particles()
+  end
+
+  if step == 3 and t > 4 then
+   asset_loader.play_music("baka_mitai")
+   if btnp(🅾️) then
+    switch_screen()
+   end
+  end
+ end
+ function draw()
+  local step, t = timeline:get()
+  print(step)
+  print(t)
+
+  local explodes = settings.grim and not pet.immortal
+
+  if step == 1 then
+   pet:spr_scaled(64, 56)
+   spr(51, accelerp(-8, 64, -32, t), 64)
+  elseif step == 2 then
+   pet:spr_scaled(64, 56)
+   spr(51, 56, 64)
+  elseif step == 3 then
+   if explodes then
+    draw_particles()
+   else
+    spr(51, 56, 64)
+    pet:spr_scaled(accelerp(64, 32, 0, t), 56, 1, nil, true)
+   end
+   if t > 3 then
+    print_centered(pet.name .. " did not like that.", 64, 80, 7)
+   end
+   if t > 4 then
+    print_centered("🅾️ exit", 64, 110, 5)
+   end
+  end
+ end
+ function add_particles(num, sprite)
+  for _ = 1, num do
+   local p = add(gore_pool, particle.new())
+   p:set_pos(vec2.new(72, 60) + vec2.rng(0, 0, 8, 1):to_cartesian())
+   p:set_vel(p.pos - vec2.new(64))
+   p:set_acc(vec2.new(0, 0.1))
+   if sprite then
+    p.vel /= 4
+    p.sprite = sprite
+    p.flip = rnd() < 0.5
+   end
+  end
+ end
+ function update_particles()
+  for p in all(gore_pool) do
+   p:update()
+   if p.pos.y > 76 then
+    p.pos.y = 76
+    p:stop()
+   end
+  end
+ end
+ function draw_particles()
+  pal()
+  for p in all(gore_pool) do
+   if p.sprite then
+    spr(p.sprite, p.pos.x - 4, p.pos.y - 7, 1, 1, p.flip)
+   else
+    pset(p.pos.x, p.pos.y, 8)
+   end
+  end
+ end
+end
+
 -->8
 --MARK: gacha
 
@@ -1706,222 +1816,211 @@ end
 -->8
 --MARK: games
 
-screens.minigame = {
+do
+ screens.minigame = {}
+ local _ENV = rescope(screens.minigame, _ENV)
  current_game = nil
-}
-function screens.minigame:init()
- if self.current_game then
-  self.current_game:init()
+ function init()
+  if (current_game) current_game:init()
+ end
+ function update()
+  if (current_game) current_game:update()
+ end
+ function screens.minigame:draw()
+  if (current_game) current_game:draw()
+ end
+
+ function finish_game()
+  if not current_game then return switch_screen() end
+  local reward = current_game.reward or {}
+
+  gacha_tickets += reward.gacha_tickets or 0
+  food += reward.food or 3
+  pets[current_pet]:change_happiness(reward.happiness or 0)
+
+  current_game = nil
+
+  switch_screen()
  end
 end
-function screens.minigame:update()
- if self.current_game then
-  self.current_game:update()
- end
-end
-function screens.minigame:draw()
- if self.current_game then
-  self.current_game:draw()
- end
-end
-function screens.minigame:finish_game()
- if not self.current_game then return switch_screen() end
- local reward = self.current_game.reward or {}
 
- gacha_tickets += reward.gacha_tickets or 0
- food += reward.food or 3
- pets[current_pet]:change_happiness(reward.happiness or 0)
-
- self.current_game = nil
-
- switch_screen()
-end
 games = {}
-
-games.math = {
+do
+ games.math = {}
+ local _ENV = rescope(games.math, _ENV)
  reward = {
   gacha_tickets = 2,
   food = 0,
   happiness = 15
- },
-
- operation_keys = { "+", "-", "*" },
+ }
+ operation_keys = { "+", "-", "*" }
  operations = {
   ["+"] = function(a, b) return a + b end,
   ["-"] = function(a, b) return a - b end,
   ["*"] = function(a, b) return a * b end
- },
+ }
 
- progress = 0,
- question_str = "",
- options = {},
- answer = 1
-}
-function games.math:init()
- self.progress = 0
- self:setup_question()
-end
-function games.math:setup_question()
- local a, b = flr(rnd(10)), flr(rnd(10))
- local op_key = rnd(self.operation_keys)
-
- local ans = self.operations[op_key](a, b)
- self.question_str = a .. op_key .. b
-
- self.options = {}
-
- --make sure no overlap answers
- local option_set = { [ans] = true }
- while #self.options < 3 do
-  local new = ans + flr(rnd(6)) - 2
-  if not option_set[new] then
-   option_set[new] = true
-   add(self.options, new)
-  end
+ function init()
+  progress = 0
+  setup_question()
  end
+ function setup_question()
+  local a, b = flr(rnd(10)), flr(rnd(10))
+  local op_key = rnd(operation_keys)
 
- self.answer = flr(rnd(4))
- add(self.options, ans, self.answer + 1)
-end
-function games.math:update()
- if btnp(self.answer) then
-  self.progress += 1
+  local ans = operations[op_key](a, b)
+  question_str = a .. op_key .. b
 
-  if self.progress == 5 then
-   screens.minigame:finish_game()
-   return
+  options = {}
+
+  --make sure no overlap answers
+  local option_set = { [ans] = true }
+  while #options < 3 do
+   local new = ans + flr(rnd(6)) - 2
+   if not option_set[new] then
+    option_set[new] = true
+    add(options, new)
+   end
   end
 
-  self:setup_question()
- elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-  self.progress = mid(0, self.progress - 1, 5)
-  self:setup_question()
+  answer = flr(rnd(4))
+  add(options, ans, answer + 1)
+ end
+ function update()
+  if btnp(answer) then
+   progress += 1
+
+   if progress == 5 then
+    screens.minigame:finish_game()
+    return
+   end
+
+   setup_question()
+  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
+   progress = mid(0, progress - 1, 5)
+   setup_question()
+  end
+ end
+ function games.math:draw()
+  print(progress .. "/5", 110, 3, 7)
+
+  print_centered(question_str, 64, 61)
+
+  print_centered(options[1], 34, 61)
+  draw_triangle(22, 63, 40, 77, 40, 49)
+
+  print_centered(options[2], 94, 61)
+  draw_triangle(104, 63, 86, 77, 86, 49)
+
+  print_centered(options[3], 64, 31)
+  draw_triangle(63, 104, 77, 86, 49, 86)
+
+  print_centered(options[4], 64, 91)
+  draw_triangle(63, 22, 77, 40, 49, 40)
  end
 end
-function games.math:draw()
- print(self.progress .. "/5", 110, 3, 7)
 
- print_centered(self.question_str, 64, 61)
-
- print_centered(self.options[1], 34, 61)
- draw_triangle(22, 63, 40, 77, 40, 49)
-
- print_centered(self.options[2], 94, 61)
- draw_triangle(104, 63, 86, 77, 86, 49)
-
- print_centered(self.options[3], 64, 31)
- draw_triangle(63, 104, 77, 86, 49, 86)
-
- print_centered(self.options[4], 64, 91)
- draw_triangle(63, 22, 77, 40, 49, 40)
-end
-
-games.fishing = {
- reward = nil,
+do
+ games.fishing = {}
+ local _ENV = rescope(games.fishing, _ENV)
  reward_win = {
   gacha_tickets = 1,
   food = 3,
   happiness = 15
  }
-}
-function games.fishing:init()
- local _ENV = rescope(self, _ENV)
+ function init()
+  fish_x = 50
+  --ui ranges from 20 to 108
 
- fish_x = 50
- --ui ranges from 20 to 108
+  escape_ui_x = 64
+  new_esc_ui_x = 64
 
- escape_ui_x = 64
- new_esc_ui_x = 64
-
- user_ui_x = 21
-
- last⧗ = time()
- fish⧗ = time()
-end
-
-function games.fishing:update()
- local _ENV = rescope(self, _ENV)
-
- if fish_x > 130 then
-  --leave loss
-  if time() - last⧗ > 3 then
-   reward = nil
-   screens.minigame:finish_game()
-  end
-  return
- elseif fish_x < 30 then
-  --leave win
-  if time() - last⧗ > 3 then
-   reward = self.reward_win
-   screens.minigame:finish_game()
-  end
-  return
- end
-
- if time() - last⧗ > 0.3 then
-  if fish_x > 80 then
-   fish_x += 5
-  elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
-   fish_x -= 3
-  else
-   fish_x += 1
-  end
+  user_ui_x = 21
 
   last⧗ = time()
- end
-
- --escape ui width == 20
- --ranges from 20 to 78
- if time() - fish⧗ > 2 then
-  new_esc_ui_x = flr(rnd(1) * 58) + 20
   fish⧗ = time()
  end
- --move the fish_ui to new_esc_ui_x
- escape_ui_x += (new_esc_ui_x - escape_ui_x) * 0.1
- if btn(❎) then
-  user_ui_x = min(user_ui_x + 3, 98)
- else
-  user_ui_x = max(user_ui_x - 3, 21)
+
+ function update()
+  if fish_x > 130 then
+   --leave loss
+   if time() - last⧗ > 3 then
+    reward = nil
+    screens.minigame:finish_game()
+   end
+   return
+  elseif fish_x < 30 then
+   --leave win
+   if time() - last⧗ > 3 then
+    reward = reward_win
+    screens.minigame:finish_game()
+   end
+   return
+  end
+
+  if time() - last⧗ > 0.3 then
+   if fish_x > 80 then
+    fish_x += 5
+   elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
+    fish_x -= 3
+   else
+    fish_x += 1
+   end
+
+   last⧗ = time()
+  end
+
+  --escape ui width == 20
+  --ranges from 20 to 78
+  if time() - fish⧗ > 2 then
+   new_esc_ui_x = flr(rnd(1) * 58) + 20
+   fish⧗ = time()
+  end
+  --move the fish_ui to new_esc_ui_x
+  escape_ui_x += (new_esc_ui_x - escape_ui_x) * 0.1
+  if btn(❎) then
+   user_ui_x = min(user_ui_x + 3, 98)
+  else
+   user_ui_x = max(user_ui_x - 3, 21)
+  end
  end
-end
 
-function games.fishing:draw()
- local _ENV = rescope(self, _ENV)
+ function draw()
+  if fish_x > 130 then
+   --lose
+   print_centered("you lost the fish", 63, 60, 7)
+   return
+  elseif fish_x < 30 then
+   --win
+   print_centered("you got the fish!", 63, 60, 7)
+   print_centered("+3 food", 63, 68, 4)
+   print_centered("+1 ticket", 63, 76, 9)
+   return
+  end
 
- if fish_x > 130 then
-  --lose
-  print_centered("you lost the fish", 63, 60, 7)
-  return
- elseif fish_x < 30 then
-  --win
-  print_centered("you got the fish!", 63, 60, 7)
-  print_centered("+3 food", 63, 68, 4)
-  print_centered("+1 ticket", 63, 76, 9)
-  return
+  print_centered("press ❎ to move hook", 63, 104, 7)
+  print_centered("keep hook in blue zone", 63, 112, 7)
+  fillp(█)
+  rectfill(20, 40, 0, 60, 5)
+  rectfill(0, 60, 128, 80, 1)
+
+  --pet + fishing pole
+  pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
+  line(13, 36, 28, 23, 4)
+
+  --fish
+  rectfill(fish_x, 69, fish_x + 6, 71, 12)
+  --fish ui
+  rectfill(escape_ui_x, 91, escape_ui_x + 25, 99)
+
+  --fishing line
+  line(min(fish_x, 80), 69, 6)
+
+  --line ui
+  rectfill(user_ui_x, 91, user_ui_x + 10, 99)
+  --ui box
+  rect(20, 90, 108, 100, 7)
  end
-
- print_centered("press ❎ to move hook", 63, 104, 7)
- print_centered("keep hook in blue zone", 63, 112, 7)
- fillp(█)
- rectfill(20, 40, 0, 60, 5)
- rectfill(0, 60, 128, 80, 1)
-
- --pet + fishing pole
- pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
- line(13, 36, 28, 23, 4)
-
- --fish
- rectfill(fish_x, 69, fish_x + 6, 71, 12)
- --fish ui
- rectfill(escape_ui_x, 91, escape_ui_x + 25, 99)
-
- --fishing line
- line(min(fish_x, 80), 69, 6)
-
- --line ui
- rectfill(user_ui_x, 91, user_ui_x + 10, 99)
- --ui box
- rect(20, 90, 108, 100, 7)
 end
 
 __gfx__
