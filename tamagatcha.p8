@@ -612,9 +612,13 @@ all_items = {
  { sprite = 32, rarity = 1, name = "chocolate", func = function(pet) pet.effects.happiness_prot = 60 end },
  { sprite = 33, rarity = 1, name = "banana", func = function(pet) pet.effects.happiness_2x = 60 end },
  { sprite = 34, rarity = 2, name = "meatball", func = function(pet) pet.effects.hunger_2x = 60 end },
- { sprite = 35, rarity = 3, name = "rice", func = function(_) asset_loader.play_music("china") end },
+ { sprite = 35, rarity = 3, name = "rice", func = function() asset_loader.play_music("china") end },
  { sprite = 36, rarity = 2, name = "drumstick", func = function(pet) pet.effects.hunger_prot = 60 end },
- { sprite = 51, rarity = 3, name = "bomb" }
+ {
+  sprite = 51, rarity = 3, name = "bomb", func = function(pet, pets)
+   switch_screen(screens.loose_pet:with(del(pets, pet), screens.bomb))
+  end
+ }
 }
 
 for i, item in ipairs(all_items) do
@@ -874,6 +878,7 @@ do
  local _ENV, scn = rescope(screens.home, _ENV)
  camera_glider = glider.new(0.5)
  function update()
+  current_pet = mid(current_pet, 1, #pets)
   local pet = pets[current_pet]
   if (pet) asset_loader.play_music("binks_sake")
   local sel, icon = update_sel(scn)
@@ -1123,7 +1128,7 @@ do
    if item.count > 0 then
     -- change_item_count not needed here
     item.count -= 1
-    item.func(pets[current_pet])
+    item.func(pets[current_pet], pets)
    else
     -- play error sound
    end
@@ -1188,12 +1193,12 @@ end
 do
  screens.loose_pet = {}
  local _ENV = rescope(screens.loose_pet, _ENV)
- function with(self, pet_)
+ function with(self, pet_, force)
   pet = pet_
+  target = force or decide(pet)
   return self
  end
  function init()
-  local target = decide(pet)
   if (target) target.pet = pet
   switch_screen(target)
 
@@ -1456,6 +1461,98 @@ do
   end
  end
 end
+-- MARK: bomb
+do
+ screens.bomb = {
+  timeline = anim_timeline.new({ 2, 1 })
+ }
+ local _ENV = rescope(screens.bomb, _ENV)
+ function init()
+  timeline:start()
+  gore_pool = {}
+  splash = false
+ end
+ function update()
+  local step, t = timeline:update()
+
+  if step > 2 then
+   if not splash then
+    splash = true
+    add_particles(1000)
+    add_particles(pet.bone * 2, 54)
+   end
+   update_particles()
+  end
+
+  if step == 3 and t > 4 then
+   asset_loader.play_music("baka_mitai")
+   if btnp(🅾️) then
+    switch_screen()
+   end
+  end
+ end
+ function draw()
+  local step, t = timeline:get()
+  print(step)
+  print(t)
+
+  local explodes = settings.grim and not pet.immortal
+
+  if step == 1 then
+   pet:spr_scaled(64, 56)
+   spr(51, accelerp(-8, 64, -32, t), 64)
+  elseif step == 2 then
+   pet:spr_scaled(64, 56)
+   spr(51, 56, 64)
+  elseif step == 3 then
+   if explodes then
+    draw_particles()
+   else
+    spr(51, 56, 64)
+    pet:spr_scaled(accelerp(64, 32, 0, t), 56, 1, nil, true)
+   end
+   if t > 3 then
+    print_centered(pet.name .. " did not like that.", 64, 80, 7)
+   end
+   if t > 4 then
+    print_centered("🅾️ exit", 64, 110, 5)
+   end
+  end
+ end
+ function add_particles(num, sprite)
+  for _ = 1, num do
+   local p = add(gore_pool, particle.new())
+   p:set_pos(vec2.new(72, 60) + vec2.rng(0, 0, 8, 1):to_cartesian())
+   p:set_vel(p.pos - vec2.new(64))
+   p:set_acc(vec2.new(0, 0.1))
+   if sprite then
+    p.vel /= 4
+    p.sprite = sprite
+    p.flip = rnd() < 0.5
+   end
+  end
+ end
+ function update_particles()
+  for p in all(gore_pool) do
+   p:update()
+   if p.pos.y > 76 then
+    p.pos.y = 76
+    p:stop()
+   end
+  end
+ end
+ function draw_particles()
+  pal()
+  for p in all(gore_pool) do
+   if p.sprite then
+    spr(p.sprite, p.pos.x - 4, p.pos.y - 7, 1, 1, p.flip)
+   else
+    pset(p.pos.x, p.pos.y, 8)
+   end
+  end
+ end
+end
+
 -->8
 --MARK: gacha
 
