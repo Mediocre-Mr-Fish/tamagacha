@@ -61,7 +61,6 @@ function pad(str, len)
 end
 
 -- encode a bool array as an integer
--- big-endian
 function encode_bitfield(bool_array)
  local ret = 0
  for i in all(bool_array) do
@@ -71,7 +70,6 @@ function encode_bitfield(bool_array)
  return ret
 end
 -- decode an integer as a bool array
--- big-endian
 function decode_bitfield(integer, length)
  local ret = {}
  for _ = 1, length do
@@ -444,15 +442,8 @@ for loot_table in all(loot_tables) do
  loot_table.pool = {}
 end
 
-all_pets = {}
-num_pet_types = 15
-function classfactory__pet(static_vars, parent)
- static_vars.id = #all_pets + 1
- assert(static_vars.id <= num_pet_types, "too many pet types!")
- return classfactory(static_vars, parent or class__pet, all_pets)
-end
-
 -- MARK: pet
+
 class__pet = classfactory({
  name = "default",
  immortal = false,
@@ -471,6 +462,14 @@ function class__pet.new()
  self.happiness = 15
  self.color_variant = 0
  return self
+end
+
+all_pets = {}
+num_pet_types = 15
+function classfactory__pet(static_vars, parent)
+ static_vars.id = #all_pets + 1
+ assert(static_vars.id <= num_pet_types, "too many pet types!")
+ return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
 -- set the color variant
@@ -576,8 +575,8 @@ classfactory__pet({
 local discovered_pets = {}
 for i = 1, num_pet_types do
  local pet = all_pets[i]
+ discovered_pets[i] = false
  if pet then
-  discovered_pets[i] = false
   add(loot_tables[pet.rarity].pool, pet)
  end
 end
@@ -590,17 +589,14 @@ all_items = {
  { sprite = 36, rarity = 2, name = "drumstick" },
  { sprite = 51, rarity = 3, name = "bomb" }
 }
-num_item_types = 16
 
 inventory = {}
-for i = 1, num_item_types do
- local item = all_items[i]
- if item then
-  all_items[i].id = i
-  inventory[i] = 0
-  add(loot_tables[item.rarity].pool, item)
- end
+for i, item in ipairs(all_items) do
+ item.id = i
+ inventory[i] = 0
+ add(loot_tables[item.rarity].pool, item)
 end
+
 max_item_stack = 0xff
 
 max_pets = 16
@@ -681,7 +677,7 @@ end
 
 function load_data()
  -- username_title_version
- if not cartdata("real-fancy-fire_tama-gatcha_1-3") then
+ if not cartdata("real-fancy-fire_tama-gatcha_1-4") then
   return false
  end
 
@@ -692,30 +688,33 @@ function load_data()
  addr += 1
 
  -- discovered pets
- discovered_pets = decode_bitfield(peek2(addr), num_pet_types)
+ local a, b = peek(addr, 2)
+ discovered_pets = decode_bitfield(a << 8 | b, num_pet_types)
  addr += 2
 
- -- food
- food = peek(addr)
- addr += 1
+ -- currencies
+ gacha_tickets, food, bones = peek(addr, 3)
+ addr += 3
 
  -- items
- for i = 1, num_item_types do
+ for i = 1, #inventory do
   inventory[i] = peek(addr)
   addr += 1
  end
 
  -- pets
  for i = 1, max_pets do
-  local id, color_variant, hunger, happiness = peek(addr, 4)
-  if all_pets[id] then
-   local pet = all_pets[id].new()
+  local class, color_variant, stats = peek(addr, 3)
+  class = all_pets[class]
+  -- nil or pet instance
+  local pet = class and class.new()
+  if pet then
    pet.color_variant = color_variant
-   pet.hunger = hunger
-   pet.happiness = happiness
-   pets[i] = pet
+   pet.hunger = stats \ 0xf
+   pet.happiness = stats & 0xf
   end
-  addr += 4
+  pets[i] = pet
+  addr += 3
  end
 
  printh("data loaded")
@@ -735,15 +734,16 @@ function save_data()
  addr += 1
 
  -- discovered pets
- poke2(addr, encode_bitfield(discovered_pets))
+ local bits = encode_bitfield(discovered_pets)
+ poke(addr, bits >> 8, bits & 0xff)
  addr += 2
 
- -- food
- poke(addr, food)
- addr += 1
+ -- currencies
+ poke(addr, gacha_tickets, food, bones)
+ addr += 3
 
  -- items
- for i = 1, num_item_types do
+ for i = 1, #inventory do
   poke(addr, inventory[i])
   addr += 1
  end
@@ -753,12 +753,12 @@ function save_data()
   local pet = pets[i]
 
   if pet then
-   poke(addr, pet.id, pet.color_variant, pet.hunger, pet.happiness)
+   poke(addr, pet.id, pet.color_variant, pet.hunger << 4 | pet.happiness)
   else
-   poke(addr, 0, 0, 0, 0)
+   poke(addr, 0, 0, 0)
   end
 
-  addr += 4
+  addr += 3
  end
 
  printh("data saved")
@@ -1107,7 +1107,7 @@ do
  function draw()
   --draw all pets
   for i, pet_cls in pairs(selectables) do
-   local sx, sy = grid_vec(scn, i):unpack()
+   local sx, sy = scn:grid_vec(i):unpack()
    local name = pet_cls.name
 
    if discovered_pets[pet_cls.id] then
