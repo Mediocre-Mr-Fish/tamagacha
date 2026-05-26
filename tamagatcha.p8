@@ -932,13 +932,13 @@ do
 
   if pet then
    --stats icon reflecting pet status
-   local hunger_y = pet.hunger / 15 * 6
-   local happy_y = pet.happiness / 15 * 6
+   local hunger_y = (pet.hunger + 1) / 2
+   local happy_y = (pet.happiness + 1) / 2
    if happy_y > 1 then
-    rectfill(61, 10 - happy_y, 62, 10, 10)
+    rectfill(61, 10 - happy_y, 62, 10, 11)
    end
    if hunger_y > 1 then
-    rectfill(65, 10 - hunger_y, 66, 10, 4)
+    rectfill(65, 10 - hunger_y, 66, 10, 11)
    end
   end
 
