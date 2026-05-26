@@ -1201,11 +1201,9 @@ do
   if t > 4 then
    asset_loader.play_music("baka_mitai")
    if pet.happiness > 0 then
-    print("you received:", 6)
-    print(pet.meat * 4)
-    print(pet.bone)
-    spr(36, 32, 70)
-    spr(bone_censor(), 32, 78)
+    print("you received: " .. (pet.meat * 4) .. "   " .. pad(pet.bone), 16, 70, 6)
+    spr(36, 82, 68)
+    spr(bone_censor(), 102, 68)
    end
 
    print_centered("🅾️ exit", 64, 110, 5)
