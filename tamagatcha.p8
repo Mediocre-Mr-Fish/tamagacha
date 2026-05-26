@@ -95,6 +95,11 @@ function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
  sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
 end
 
+-- toggle a value bewteen two presets
+function toggle_val(val, target, fallback)
+ return val == target and fallback or target
+end
+
 function accelerp(x0, v0, a, t)
  return x0 + v0 * t + a * t * t / 2
 end
@@ -228,6 +233,7 @@ do
   lru_list = {},
   source_list = {
    house = { file = "maps/home.p8", x = 0, y = 0, w = 24, h = 16 },
+   shelf = { file = "maps/home.p8", x = 24, y = 0, w = 3, h = 1 },
    tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
    tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
   }
@@ -816,7 +822,7 @@ do
   cls(12)
   cloud.x += 0.1
   spr_scaled(62, cloud.x, cloud.y, 1, 2, 1)
-  asset_loader.draw_map("house", 0, 0)
+  asset_loader.draw_map("house", -32, 0)
   rectfill(35, 16, 36, 55, 7)
  end
 end
@@ -839,13 +845,11 @@ do
    { name = "adopt", sprite = 21, screen = "loose_pet" }
   },
   load_music = { "binks_sake" },
-  load_map = { "house" }
+  load_map = { "house" },
+  camera_glider = glider.new(0.5),
+  shift = 0
  })
  local _ENV, scn = rescope(screens.home, _ENV)
- function init()
-  class__gridmenu.init(scn)
-  camera_glider = glider.new(0.5)
- end
  function update()
   asset_loader.play_music("binks_sake")
   local sel, icon = update_sel(scn)
@@ -875,23 +879,28 @@ do
    elseif icon.name == "right" then
     current_pet = mod(current_pet + 1, #pets)
    elseif sel == 3 then
-    show_stats = not show_stats
-    camera_glider:set_target(show_stats and vec2.new(32, 0) or vec2_0)
+    shift = toggle_val(shift, 32, 0)
+    -- elseif sel == 6 then
+    --  shift = toggle_val(shift, -32, 0)
    end
   end
-  camera_glider:move()
+  camera_glider:set_target(vec2.new(shift, 0)):move()
  end
  function draw()
   camera(camera_glider.x, camera_glider.y)
   background_house()
   local pet = pets[current_pet]
 
+  -- carpet
+  ovalfill(16, 72, 112, 104, 13)
+  oval(16, 72, 112, 104, 1)
+
   --draw current pet
   print_centered(pet.name, 64, 20, 7)
   if pet:is_dead() then
    spr_scaled(50, 52, 62, 4)
   else
-   pet:spr_scaled(32, 32, 4)
+   pet:spr_scaled(32, 32, 4, false, shift > 0)
   end
 
   -- draw stats
@@ -905,7 +914,6 @@ do
      spr(props.icon, x, 58 - i * 10)
     end
     clip(0, 0, 256, 66 - (props.stat + props.stat \ 4) * 2)
-    -- rectfill(0, 0, 128, 56 - (props.stat + 1) * 2.5, 8)
     for c = 0, 15 do
      pal(c, 0)
     end
