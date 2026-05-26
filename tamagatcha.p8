@@ -1,64 +1,6 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
--- MARK: main loop
-is_runtime = false
-function _init()
- is_runtime = true
- gacha_tickets = 10
- food = 1
- bones = 0
- --multiplier for too many pets
- --equation in get_penalty_mult
- swarm_penalty = 0.1
- --baseline of when to decrease vars (sec)
- hunger_tick = 5
- happiness_tick = 7
-
- last_fed = time()
- last_play = time()
-
- happiness_prot⧗ = time()
- hunger_prot⧗ = time()
- happiness_2x⧗ = time()
- hunger_2x⧗ = time()
-
- settings = {
-  --optional turn sound off
-  mute = false,
-  --optionally reveal the blender heh
-  grim = false
- }
-
- --progress of minigames
- grim_progress = 0
-
- load_data()
- switch_screen()
-end
-
-function _update()
- update_hunger()
- update_happiness()
- screen:update()
-end
-
-function _draw()
- cls()
- screen:draw()
-end
-
-screen = nil
-function switch_screen(screen_or_nil)
- screen = screen_or_nil or screens.home
- if screen.init then
-  screen:init()
- end
-
- save_data()
-end
-
--->8
 -- MARK: helper functions
 
 function rescope(scope, env)
@@ -95,6 +37,11 @@ function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
  sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
 end
 
+-- toggle a value bewteen two presets
+function toggle_val(val, target, fallback)
+ return val == target and fallback or target
+end
+
 function accelerp(x0, v0, a, t)
  return x0 + v0 * t + a * t * t / 2
 end
@@ -114,7 +61,6 @@ function pad(str, len)
 end
 
 -- encode a bool array as an integer
--- big-endian
 function encode_bitfield(bool_array)
  local ret = 0
  for i in all(bool_array) do
@@ -124,7 +70,6 @@ function encode_bitfield(bool_array)
  return ret
 end
 -- decode an integer as a bool array
--- big-endian
 function decode_bitfield(integer, length)
  local ret = {}
  for _ = 1, length do
@@ -156,30 +101,6 @@ function rect_vec(pos1, pos2, col, fill, as_dim)
  if (col) color(col)
  if (as_dim) pos2 += pos1
  (fill and rectfill or rect)(pos1.x, pos1.y, pos2.x, pos2.y)
-end
-
-function get_penalty_mult()
- return #pets * swarm_penalty + 1
-end
-
-function update_hunger()
- if time() - last_fed > hunger_tick / get_penalty_mult() then
-  last_fed = time()
-  --do this for all pets later
-  for pet in all(pets) do
-   pet:change_hunger(-1)
-  end
- end
-end
-
-function update_happiness()
- if time() - last_play > happiness_tick / get_penalty_mult() then
-  last_play = time()
-  --do this for all pets later
-  for pet in all(pets) do
-   pet:change_happiness(-1)
-  end
- end
 end
 
 -->8
@@ -228,6 +149,7 @@ do
   lru_list = {},
   source_list = {
    house = { file = "maps/home.p8", x = 0, y = 0, w = 24, h = 16 },
+   shelf = { file = "maps/home.p8", x = 24, y = 0, w = 3, h = 1 },
    tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
    tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
   }
@@ -520,15 +442,8 @@ for loot_table in all(loot_tables) do
  loot_table.pool = {}
 end
 
-all_pets = {}
-num_pet_types = 15
-function classfactory__pet(static_vars, parent)
- static_vars.id = #all_pets + 1
- assert(static_vars.id <= num_pet_types, "too many pet types!")
- return classfactory(static_vars, parent or class__pet, all_pets)
-end
-
 -- MARK: pet
+
 class__pet = classfactory({
  name = "default",
  immortal = false,
@@ -547,6 +462,14 @@ function class__pet.new()
  self.happiness = 15
  self.color_variant = 0
  return self
+end
+
+all_pets = {}
+num_pet_types = 15
+function classfactory__pet(static_vars, parent)
+ static_vars.id = #all_pets + 1
+ assert(static_vars.id <= num_pet_types, "too many pet types!")
+ return classfactory(static_vars, parent or class__pet, all_pets)
 end
 
 -- set the color variant
@@ -649,11 +572,11 @@ classfactory__pet({
 })
 
 -- map integer pet.id to bool
-discovered_pets = {}
+local discovered_pets = {}
 for i = 1, num_pet_types do
  local pet = all_pets[i]
+ discovered_pets[i] = false
  if pet then
-  discovered_pets[i] = false
   add(loot_tables[pet.rarity].pool, pet)
  end
 end
@@ -666,32 +589,95 @@ all_items = {
  { sprite = 36, rarity = 2, name = "drumstick" },
  { sprite = 51, rarity = 3, name = "bomb" }
 }
-num_item_types = 16
 
 inventory = {}
-for i = 1, num_item_types do
- local item = all_items[i]
- if item then
-  all_items[i].id = i
-  inventory[i] = 0
-  add(loot_tables[item.rarity].pool, item)
- end
+for i, item in ipairs(all_items) do
+ item.id = i
+ inventory[i] = 0
+ add(loot_tables[item.rarity].pool, item)
 end
+
 max_item_stack = 0xff
 
-discovered_pets[all_pets[1].id] = true
-pets = {
- all_pets[1].new():set_color()
-}
---1 based counting to access pet table
-local current_pet = 1
 max_pets = 16
+
+-->8
+-- MARK: main loop
+local is_runtime
+local gacha_tickets = 3
+local food = 5
+local bones = 0
+
+local current_pet = 1
+local pets = {}
+function pets:add(pet)
+ add(self, pet)
+ discovered_pets[pet.id] = true
+end
+pets:add(all_pets[1].new():set_color())
+
+local stat_timers = {
+ { last_check = time(), base_interval = 7, func = class__pet.change_happiness },
+ { last_check = time(), base_interval = 5, func = class__pet.change_hunger }
+}
+function update_stats()
+ for stat in all(stat_timers) do
+  if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
+   stat.last_check = time()
+   for pet in all(pets) do
+    stat.func(pet, -1)
+   end
+  end
+ end
+end
+
+local screen = nil
+function switch_screen(screen_or_nil)
+ screen = screen_or_nil or screens.home
+ if screen.init then
+  screen:init()
+ end
+
+ save_data()
+end
+
+function _init()
+ is_runtime = true
+
+ happiness_prot⧗ = time()
+ hunger_prot⧗ = time()
+ happiness_2x⧗ = time()
+ hunger_2x⧗ = time()
+
+ settings = {
+  --optional turn sound off
+  mute = false,
+  --optionally reveal the blender heh
+  grim = false
+ }
+
+ --progress of minigames
+ grim_progress = 0
+
+ load_data()
+ switch_screen()
+end
+
+function _update()
+ update_stats()
+ screen:update()
+end
+
+function _draw()
+ cls()
+ screen:draw()
+end
 
 -- MARK: save data
 
 function load_data()
  -- username_title_version
- if not cartdata("real-fancy-fire_tama-gatcha_1-3") then
+ if not cartdata("real-fancy-fire_tama-gatcha_1-4") then
   return false
  end
 
@@ -702,30 +688,33 @@ function load_data()
  addr += 1
 
  -- discovered pets
- discovered_pets = decode_bitfield(peek2(addr), num_pet_types)
+ local a, b = peek(addr, 2)
+ discovered_pets = decode_bitfield(a << 8 | b, num_pet_types)
  addr += 2
 
- -- food
- food = peek(addr)
- addr += 1
+ -- currencies
+ gacha_tickets, food, bones = peek(addr, 3)
+ addr += 3
 
  -- items
- for i = 1, num_item_types do
+ for i = 1, #inventory do
   inventory[i] = peek(addr)
   addr += 1
  end
 
  -- pets
  for i = 1, max_pets do
-  local id, color_variant, hunger, happiness = peek(addr, 4)
-  if all_pets[id] then
-   local pet = all_pets[id].new()
+  local class, color_variant, stats = peek(addr, 3)
+  class = all_pets[class]
+  -- nil or pet instance
+  local pet = class and class.new()
+  if pet then
    pet.color_variant = color_variant
-   pet.hunger = hunger
-   pet.happiness = happiness
-   pets[i] = pet
+   pet.hunger = stats \ 0xf
+   pet.happiness = stats & 0xf
   end
-  addr += 4
+  pets[i] = pet
+  addr += 3
  end
 
  printh("data loaded")
@@ -745,15 +734,16 @@ function save_data()
  addr += 1
 
  -- discovered pets
- poke2(addr, encode_bitfield(discovered_pets))
+ local bits = encode_bitfield(discovered_pets)
+ poke(addr, bits >> 8, bits & 0xff)
  addr += 2
 
- -- food
- poke(addr, food)
- addr += 1
+ -- currencies
+ poke(addr, gacha_tickets, food, bones)
+ addr += 3
 
  -- items
- for i = 1, num_item_types do
+ for i = 1, #inventory do
   poke(addr, inventory[i])
   addr += 1
  end
@@ -763,12 +753,12 @@ function save_data()
   local pet = pets[i]
 
   if pet then
-   poke(addr, pet.id, pet.color_variant, pet.hunger, pet.happiness)
+   poke(addr, pet.id, pet.color_variant, pet.hunger << 4 | pet.happiness)
   else
-   poke(addr, 0, 0, 0, 0)
+   poke(addr, 0, 0, 0)
   end
 
-  addr += 4
+  addr += 3
  end
 
  printh("data saved")
@@ -807,38 +797,16 @@ function classfactory__gridmenu(static_vars)
 end
 
 do
- local cloud = vec2.new(0)
+ local cloud
  function background_house()
-  if cloud.x > 53 then
+  if not cloud or cloud.x > 53 then
    cloud = vec2.rng(0, 15, nil, 40)
   end
 
-  -- --house
-  -- fillp(█)
-  -- rectfill(0, 0, 128, 70, 15)
-
-  -- --window
-  -- rectfill(20, 15, 56, 50, 12)
-  -- rect(20, 15, 56, 50, 7)
-  -- rect(19, 14, 57, 51, 7)
-  -- --add clouds here
-  -- clip(21, 15, 35, 35)
-  -- sspr(112, 16, 16, 16, cloud.x, cloud.y, 16, 16)
-  -- clip()
-  -- --middle
-  -- line(38, 15, 38, 50, 7)
-  -- line(37, 15, 37, 50, 7)
-
-  -- --floor
-  -- rectfill(0, 70, 128, 128, 4)
-  -- rectfill(0, 70, 128, 65, 7)
-  -- for i = 0, 40 do
-  --  line(i * 10, 71, i * 10 - 20, 127, 9)
-  -- end
   cls(12)
   cloud.x += 0.1
-  sspr(112, 16, 16, 16, cloud.x, cloud.y, 16, 16)
-  asset_loader.draw_map("house", 0, 0)
+  spr_scaled(62, cloud.x, cloud.y, 1, 2, 1)
+  asset_loader.draw_map("house", -32, 0)
   rectfill(35, 16, 36, 55, 7)
  end
 end
@@ -861,13 +829,11 @@ do
    { name = "adopt", sprite = 21, screen = "loose_pet" }
   },
   load_music = { "binks_sake" },
-  load_map = { "house" }
+  load_map = { "house" },
+  shift = 0
  })
  local _ENV, scn = rescope(screens.home, _ENV)
- function init()
-  class__gridmenu.init(scn)
-  camera_glider = glider.new(0.5)
- end
+ camera_glider = glider.new(0.5)
  function update()
   asset_loader.play_music("binks_sake")
   local sel, icon = update_sel(scn)
@@ -897,23 +863,28 @@ do
    elseif icon.name == "right" then
     current_pet = mod(current_pet + 1, #pets)
    elseif sel == 3 then
-    show_stats = not show_stats
-    camera_glider:set_target(show_stats and vec2.new(32, 0) or vec2_0)
+    shift = toggle_val(shift, 32, 0)
+    -- elseif sel == 6 then
+    --  shift = toggle_val(shift, -32, 0)
    end
   end
-  camera_glider:move()
+  camera_glider:set_target(vec2.new(shift, 0)):move()
  end
  function draw()
   camera(camera_glider.x, camera_glider.y)
   background_house()
   local pet = pets[current_pet]
 
+  -- carpet
+  ovalfill(16, 72, 112, 104, 13)
+  oval(16, 72, 112, 104, 1)
+
   --draw current pet
   print_centered(pet.name, 64, 20, 7)
   if pet:is_dead() then
    spr_scaled(50, 52, 62, 4)
   else
-   pet:spr_scaled(32, 32, 4)
+   pet:spr_scaled(32, 32, 4, false, shift > 0)
   end
 
   -- draw stats
@@ -927,7 +898,6 @@ do
      spr(props.icon, x, 58 - i * 10)
     end
     clip(0, 0, 256, 66 - (props.stat + props.stat \ 4) * 2)
-    -- rectfill(0, 0, 128, 56 - (props.stat + 1) * 2.5, 8)
     for c = 0, 15 do
      pal(c, 0)
     end
@@ -1137,7 +1107,7 @@ do
  function draw()
   --draw all pets
   for i, pet_cls in pairs(selectables) do
-   local sx, sy = grid_vec(scn, i):unpack()
+   local sx, sy = scn:grid_vec(i):unpack()
    local name = pet_cls.name
 
    if discovered_pets[pet_cls.id] then
@@ -1281,6 +1251,9 @@ do
   local draw_map = asset_loader.draw_map
 
   if step <= 2 then
+   palt()
+   spr_scaled(62, 16, 16, 1, 2, 1)
+   spr_scaled(62, 96, 20, 1, 2, 1)
    local x, y = 48, 50
    if step == 2 then x, y = accelerp(48, 50, -25, t), accelerp(50, -50, 200, t) end
    pet:spr_scaled(x, y, 1, false, true, false)
@@ -1311,7 +1284,10 @@ do
    draw_map("tower_ground", 0, 56)
 
    if step >= 5 then
-    draw_particles()
+    -- draw particles
+    for particle in all(gore_pool) do
+     pset(particle.pos.x, particle.pos.y, 8)
+    end
    end
 
    if step >= 6 then
@@ -1320,11 +1296,6 @@ do
    if step == 7 then
     print_centered("🅾️ exit", 64, 110, 5)
    end
-  end
- end
- function draw_particles()
-  for particle in all(gore_pool) do
-   pset(particle.pos.x, particle.pos.y, 8)
   end
  end
 end
@@ -1665,8 +1636,7 @@ do
  end
  function keep_prize(prize)
   if is_instance(prize, class__pet) then
-   add(pets, prize)
-   discovered_pets[prize.id] = true
+   pets:add(prize)
   else
    inventory[prize.id] += 1
   end
@@ -1928,14 +1898,14 @@ __gfx__
 111116660a99aa0a0f78ff7015555551078844500a9a9a000000000000000000000000000000000000000000000000000000000000000000b11111111111111b
 011111060909aaa00088ff00115555117768550000a9a0000000000000000000000000000000000000000000000000000000000000000000b11111111111111b
 00110000000099aa000000000111111066000000000a00000000000000000000000000000000000000000000000000000000000000000000b11111111111111b
-00077000000770000077770000000660888888888888888800000770000000000000000000000000000000000000000000000000000000000000000000000000
-007777000078870007777770000060a88888a8888a88888800000777000000000000000000000000000000000000000000000000000000000000000000000000
-00777700077228700556557000756588888aaa888888888800007777000000000000000000000000000000000000000000000000000000000000000000000000
-077777700788776005575560075555508aaaaaaa88a8888800077700000000000000000000000000000000000000000000000000000000000000000000000000
-0777777007777660076577607555555588aaaaa88888888800777000000000000000000000000000000000000000000000000000000000000000000000000000
-07777770077766600677760075555555888aaa8888a8888877770000000000000000000000000000000000000000000000000000000000000000000000000000
-0777777007776660056565000755555088aa8aa88888888877700000000000000000000000000000000000000000000000000000000000000000000000000000
-007777000077660000000000005555008aa888aa8a88888807700000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000080000800077770000000660888888888888888800000770000000000000000000000000000000000000000000000000000000000066000660000000
+007777008080080807777770000060a88888a8888a88888800000777000000000000000000000000000000000000000000000000000000000666606666066000
+00777700088888800556557000756588888aaa888888888800007777000000000000000000000000000000000000000000000000000000006666666666666600
+077777707778877705575560075555508aaaaaaa88a8888800077700000000000000000000000000000000000000000000000000000000006666666666666666
+0777777006622660076577607555555588aaaaa88888888800777000000000000000000000000000000000000000000000000000000000006666666666666600
+07777770077887700677760075555555888aaa8888a8888877770000000000000000000000000000000000000000000000000000000000000666666666660000
+0777777007788770056565000755555088aa8aa88888888877700000000000000000000000000000000000000000000000000000000000000006666066000000
+007777000778877000000000005555008aa888aa8a88888807700000000000000000000000000000000000000000000000000000000000000000000000000000
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb020bbbbbbbbbbbbbbbbbbbbbb66bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0000000000000000
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb52bbbbbb0000bbbbbbbbbbb666666bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb4bb4bbbbbbbbbb0000000000000000
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0eeebbb5fff220b6bb5bbbb6666556bbbbbbbbbbbbbbbbbbb44bbbbbb44bbbbbb114bbbbbbbbbb0000000000000000
