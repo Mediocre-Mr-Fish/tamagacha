@@ -826,7 +826,7 @@ do
    { name = "left", sprite = 18 },
    { name = "right", sprite = 19 },
    { name = "pets", sprite = 20, screen = "collection" },
-   { name = "adopt", sprite = 21, screen = "loose_pet" }
+   { name = "adopt", sprite = 21 }
   },
   load_music = { "binks_sake" },
   load_map = { "house" },
@@ -866,6 +866,8 @@ do
     shift = toggle_val(shift, 32, 0)
     -- elseif sel == 6 then
     --  shift = toggle_val(shift, -32, 0)
+   elseif sel == 10 then
+    switch_screen(screens.loose_pet:with(deli(pets, current_pet)))
    end
   end
   camera_glider:set_target(vec2.new(shift, 0)):move()
@@ -1136,10 +1138,15 @@ do
   return self
  end
  function init()
-  local pet = pet or deli(pets, current_pet)
   local target = decide(pet)
   if (target) target.pet = pet
   switch_screen(target)
+
+  if pet.happiness > 0 then
+   food += pet.meat * 4
+   bones += pet.bone
+  end
+
   pet = nil
  end
  function decide(pet)
