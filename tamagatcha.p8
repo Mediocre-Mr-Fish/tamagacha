@@ -1,55 +1,6 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
--- MARK: main loop
-local is_runtime
-local gacha_tickets = 3
-local food = 5
-local bones = 0
-
-function _init()
- is_runtime = true
-
- happiness_prot⧗ = time()
- hunger_prot⧗ = time()
- happiness_2x⧗ = time()
- hunger_2x⧗ = time()
-
- settings = {
-  --optional turn sound off
-  mute = false,
-  --optionally reveal the blender heh
-  grim = false
- }
-
- --progress of minigames
- grim_progress = 0
-
- load_data()
- switch_screen()
-end
-
-function _update()
- update_stats()
- screen:update()
-end
-
-function _draw()
- cls()
- screen:draw()
-end
-
-screen = nil
-function switch_screen(screen_or_nil)
- screen = screen_or_nil or screens.home
- if screen.init then
-  screen:init()
- end
-
- save_data()
-end
-
--->8
 -- MARK: helper functions
 
 function rescope(scope, env)
@@ -622,7 +573,7 @@ classfactory__pet({
 })
 
 -- map integer pet.id to bool
-discovered_pets = {}
+local discovered_pets = {}
 for i = 1, num_pet_types do
  local pet = all_pets[i]
  if pet then
@@ -652,20 +603,29 @@ for i = 1, num_item_types do
 end
 max_item_stack = 0xff
 
-discovered_pets[all_pets[1].id] = true
-pets = {
- all_pets[1].new():set_color()
-}
---1 based counting to access pet table
-local current_pet = 1
 max_pets = 16
 
-local stat_timer = {
+-->8
+-- MARK: main loop
+local is_runtime
+local gacha_tickets = 3
+local food = 5
+local bones = 0
+
+local current_pet = 1
+local pets = {}
+function pets:add(pet)
+ add(self, pet)
+ discovered_pets[pet.id] = true
+end
+pets:add(all_pets[1].new():set_color())
+
+local stat_timers = {
  { last_check = time(), base_interval = 7, func = class__pet.change_happiness },
  { last_check = time(), base_interval = 5, func = class__pet.change_hunger }
 }
 function update_stats()
- for stat in all(stat_timer) do
+ for stat in all(stat_timers) do
   if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
    stat.last_check = time()
    for pet in all(pets) do
@@ -673,6 +633,48 @@ function update_stats()
    end
   end
  end
+end
+
+local screen = nil
+function switch_screen(screen_or_nil)
+ screen = screen_or_nil or screens.home
+ if screen.init then
+  screen:init()
+ end
+
+ save_data()
+end
+
+function _init()
+ is_runtime = true
+
+ happiness_prot⧗ = time()
+ hunger_prot⧗ = time()
+ happiness_2x⧗ = time()
+ hunger_2x⧗ = time()
+
+ settings = {
+  --optional turn sound off
+  mute = false,
+  --optionally reveal the blender heh
+  grim = false
+ }
+
+ --progress of minigames
+ grim_progress = 0
+
+ load_data()
+ switch_screen()
+end
+
+function _update()
+ update_stats()
+ screen:update()
+end
+
+function _draw()
+ cls()
+ screen:draw()
 end
 
 -- MARK: save data
@@ -1634,8 +1636,7 @@ do
  end
  function keep_prize(prize)
   if is_instance(prize, class__pet) then
-   add(pets, prize)
-   discovered_pets[prize.id] = true
+   pets:add(prize)
   else
    inventory[prize.id] += 1
   end
