@@ -604,14 +604,17 @@ all_items = {
  { sprite = 51, rarity = 3, name = "bomb" }
 }
 
-inventory = {}
 for i, item in ipairs(all_items) do
  item.id = i
- inventory[i] = 0
+ item.count = 0
  add(loot_tables[item.rarity].pool, item)
 end
 
 max_item_stack = 0xff
+function change_item_count(id, delta)
+ local item = all_items[id]
+ if (item) item.count = mid(item.count + delta, 0, max_item_stack)
+end
 
 max_pets = 16
 
@@ -719,8 +722,8 @@ function load_data()
  addr += 3
 
  -- items
- for i = 1, #inventory do
-  inventory[i] = peek(addr)
+ for item in all(all_items) do
+  item.count = peek(addr)
   addr += 1
  end
 
@@ -765,8 +768,8 @@ function save_data()
  addr += 3
 
  -- items
- for i = 1, #inventory do
-  poke(addr, inventory[i])
+ for item in all(all_items) do
+  poke(addr, item.count)
   addr += 1
  end
 
@@ -1098,14 +1101,15 @@ do
  })
  local _ENV, scn = rescope(screens.snacks, _ENV)
  function update()
-  update_sel(scn)
+  local _, item = update_sel(scn)
   glide(scn)
 
   if btnp(🅾️) then
    switch_screen()
   elseif btnp(❎) then
-   if inventory[selection] > 0 then
-    inventory[selection] -= 1
+   if item.count > 0 then
+    -- change_item_count is unnecessary here
+    item.count -= 1
     --give pet status or ailment
    else
     -- play error sound
@@ -1113,15 +1117,15 @@ do
   end
  end
  function draw()
-  for i, prefab in ipairs(selectables) do
-   local amount = inventory[i]
+  for i, item in ipairs(selectables) do
+   local amount = item.count
    local sx, sy = grid_vec(scn, i):unpack()
 
-   spr_scaled(prefab.sprite, sx, sy, 3)
+   spr_scaled(item.sprite, sx, sy, 3)
 
    print_centered(amount, sx - 5, sy, 7)
    if i == selection then
-    print_centered(prefab.name, 64, 100, 7)
+    print_centered(item.name, 64, 100, 7)
    end
   end
   rect_vec(sel_glider, vec2.new(24), 10, false, true)
@@ -1685,7 +1689,7 @@ do
   if is_instance(prize, class__pet) then
    pets:add(prize)
   else
-   inventory[prize.id] += 1
+   change_item_count(prize.id, 1)
   end
  end
  function discard_prize(prize)
