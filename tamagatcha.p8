@@ -465,11 +465,17 @@ function class__pet.new()
  self.hunger = 15
  self.happiness = 15
  self.color_variant = 0
+ self.effects = {
+  hunger_prot = 0,
+  happiness_prot = 0,
+  hunger_2x = 0,
+  happiness_2x = 0
+ }
  return self
 end
 
 all_pets = {}
-num_pet_types = 15
+num_pet_types = 0xff
 function classfactory__pet(static_vars, parent)
  static_vars.id = #all_pets + 1
  assert(static_vars.id <= num_pet_types, "too many pet types!")
@@ -521,6 +527,12 @@ function class__pet:change_hunger(delta)
 end
 function class__pet:change_happiness(delta)
  self.happiness = mid(self.happiness + delta, 0, 0xf)
+ return self
+end
+function class__pet:update_effects(dt)
+ for key, time in pairs(self.effects) do
+  self.effects[key] = mid(time - dt, 0, 0xff)
+ end
  return self
 end
 
@@ -595,12 +607,13 @@ for i = 1, num_pet_types do
  end
 end
 
+-- MARK: item
 all_items = {
- { sprite = 32, rarity = 1, name = "chocolate" },
- { sprite = 33, rarity = 1, name = "banana" },
- { sprite = 34, rarity = 2, name = "meatball" },
- { sprite = 35, rarity = 3, name = "rice" },
- { sprite = 36, rarity = 2, name = "drumstick" },
+ { sprite = 32, rarity = 1, name = "chocolate", func = function(pet) pet.effects.happiness_prot = 60 end },
+ { sprite = 33, rarity = 1, name = "banana", func = function(pet) pet.effects.happiness_2x = 60 end },
+ { sprite = 34, rarity = 2, name = "meatball", func = function(pet) pet.effects.hunger_2x = 60 end },
+ { sprite = 35, rarity = 3, name = "rice", func = function(_) asset_loader.play_music("china") end },
+ { sprite = 36, rarity = 2, name = "drumstick", func = function(pet) pet.effects.hunger_prot = 60 end },
  { sprite = 51, rarity = 3, name = "bomb" }
 }
 
@@ -637,16 +650,6 @@ local stat_timers = {
  { last_check = time(), base_interval = 7, func = class__pet.change_happiness },
  { last_check = time(), base_interval = 5, func = class__pet.change_hunger }
 }
-function update_stats()
- for stat in all(stat_timers) do
-  if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
-   stat.last_check = time()
-   for pet in all(pets) do
-    stat.func(pet, -1)
-   end
-  end
- end
-end
 
 local screen = nil
 function switch_screen(screen_or_nil)
@@ -666,13 +669,10 @@ function bone_censor()
  return 55, "rocks"
 end
 
+local t = time()
+local dt = 0
 function _init()
  is_runtime = true
-
- happiness_prot⧗ = time()
- hunger_prot⧗ = time()
- happiness_2x⧗ = time()
- hunger_2x⧗ = time()
 
  settings = {
   --optional turn sound off
@@ -689,7 +689,21 @@ function _init()
 end
 
 function _update()
- update_stats()
+ dt = time() - t
+ t = time()
+
+ for pet in all(pets) do
+  pet:update_effects(dt)
+ end
+
+ for stat in all(stat_timers) do
+  if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
+   stat.last_check = time()
+   for pet in all(pets) do
+    stat.func(pet, -1)
+   end
+  end
+ end
  screen:update()
 end
 
@@ -923,8 +937,8 @@ do
 
    -- draw stats
    for p, props in ipairs({
-    { stat = pet.happiness + 1, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
-    { stat = pet.hunger + 1, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
+    { stat = pet.hunger + 1, double = pet.effects.hunger_2x, icon = pet.effects.hunger_prot > 0 and 23 or 22 },
+    { stat = pet.happiness + 1, double = pet.effects.happiness_2x, icon = pet.effects.happiness_prot > 0 and 7 or 6 }
    }) do
     local x = 116 + 16 * p
     for _ = 0, 1 do
@@ -939,7 +953,7 @@ do
     clip()
     pal()
     print_centered(props.stat, x + 5, 68, 7)
-    if (props.double⧗ > time()) print_centered("2X", x + 4, 20)
+    if (props.double > 0) print_centered("2X", x + 4, 20)
    end
   end
 
@@ -955,13 +969,12 @@ do
 
   if pet then
    --stats icon reflecting pet status
-   local hunger_y = (pet.hunger + 1) / 2
-   local happy_y = (pet.happiness + 1) / 2
-   if happy_y > 1 then
-    rectfill(61, 10 - happy_y, 62, 10, 11)
-   end
-   if hunger_y > 1 then
-    rectfill(65, 10 - hunger_y, 66, 10, 11)
+   for i, stat in ipairs({ pet.hunger, pet.happiness }) do
+    local x = 57 + i * 4
+    stat = stat \ 2
+    if not pet:is_dead() then
+     rectfill(x, 10 - stat, x + 1, 10, 11)
+    end
    end
   end
 
@@ -1108,9 +1121,9 @@ do
    switch_screen()
   elseif btnp(❎) then
    if item.count > 0 then
-    -- change_item_count is unnecessary here
+    -- change_item_count not needed here
     item.count -= 1
-    --give pet status or ailment
+    item.func(pets[current_pet])
    else
     -- play error sound
    end
