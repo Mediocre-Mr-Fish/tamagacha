@@ -843,15 +843,14 @@ do
  local _ENV, scn = rescope(screens.home, _ENV)
  camera_glider = glider.new(0.5)
  function update()
-  asset_loader.play_music("binks_sake")
+  local pet = pets[current_pet]
+  if (pet) asset_loader.play_music("binks_sake")
   local sel, icon = update_sel(scn)
   glide(scn)
 
-  local pet = pets[current_pet]
-
   if btnp(❎) then
    --disallows feeding or playing after death to prevent revives
-   if pet:is_dead() and (icon.name == "food" or icon.name == "game") then
+   if (not pet or pet:is_dead()) and (icon.name == "food" or icon.name == "game") then
     return
    end
 
@@ -874,8 +873,9 @@ do
     shift = toggle_val(shift, 32, 0)
     -- elseif sel == 6 then
     --  shift = toggle_val(shift, -32, 0)
-   elseif sel == 10 then
+   elseif pet and sel == 10 then
     switch_screen(screens.loose_pet:with(deli(pets, current_pet)))
+    current_pet = mid(current_pet, 1, #pets)
    end
   end
   camera_glider:set_target(vec2.new(shift, 0)):move()
@@ -889,33 +889,35 @@ do
   ovalfill(16, 72, 112, 104, 13)
   oval(16, 72, 112, 104, 1)
 
-  --draw current pet
-  print_centered(pet.name, 64, 20, 7)
-  if pet:is_dead() then
-   spr_scaled(50, 52, 62, 4)
-  else
-   pet:spr_scaled(32, 32, 4, false, shift > 0)
-  end
-
-  -- draw stats
-  for p, props in ipairs({
-   { stat = pet.happiness + 1, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
-   { stat = pet.hunger + 1, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
-  }) do
-   local x = 116 + 16 * p
-   for _ = 0, 1 do
-    for i = 0, 3 do
-     spr(props.icon, x, 58 - i * 10)
-    end
-    clip(0, 0, 256, 66 - (props.stat + props.stat \ 4) * 2)
-    for c = 0, 15 do
-     pal(c, 0)
-    end
+  if pet then
+   --draw current pet
+   print_centered(pet.name, 64, 20, 7)
+   if pet:is_dead() then
+    spr_scaled(50, 52, 62, 4)
+   else
+    pet:spr_scaled(32, 32, 4, false, shift > 0)
    end
-   clip()
-   pal()
-   print_centered(props.stat, x + 5, 68, 7)
-   if (props.double⧗ > time()) print_centered("2X", x + 4, 20)
+
+   -- draw stats
+   for p, props in ipairs({
+    { stat = pet.happiness + 1, double⧗ = happiness_2x⧗, icon = happiness_prot⧗ > time() and 7 or 6 },
+    { stat = pet.hunger + 1, double⧗ = hunger_2x⧗, icon = happiness_prot⧗ > time() and 23 or 22 }
+   }) do
+    local x = 116 + 16 * p
+    for _ = 0, 1 do
+     for i = 0, 3 do
+      spr(props.icon, x, 58 - i * 10)
+     end
+     clip(0, 0, 256, 66 - (props.stat + props.stat \ 4) * 2)
+     for c = 0, 15 do
+      pal(c, 0)
+     end
+    end
+    clip()
+    pal()
+    print_centered(props.stat, x + 5, 68, 7)
+    if (props.double⧗ > time()) print_centered("2X", x + 4, 20)
+   end
   end
 
   camera()
@@ -928,14 +930,16 @@ do
    end
   end
 
-  --stats icon reflecting pet status
-  local hunger_y = pet.hunger / 15 * 6
-  local happy_y = pet.happiness / 15 * 6
-  if happy_y > 1 then
-   rectfill(61, 10 - happy_y, 62, 10, 10)
-  end
-  if hunger_y > 1 then
-   rectfill(65, 10 - hunger_y, 66, 10, 4)
+  if pet then
+   --stats icon reflecting pet status
+   local hunger_y = pet.hunger / 15 * 6
+   local happy_y = pet.happiness / 15 * 6
+   if happy_y > 1 then
+    rectfill(61, 10 - happy_y, 62, 10, 10)
+   end
+   if hunger_y > 1 then
+    rectfill(65, 10 - hunger_y, 66, 10, 4)
+   end
   end
 
   --print food counter
