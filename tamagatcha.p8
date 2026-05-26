@@ -1680,6 +1680,7 @@ do
   sel_glider:teleport(grid_vec(scn))
 
   timeline:start()
+  asset_loader.play_music("piao_piao")
  end
  function update()
   step, t = timeline:update()
