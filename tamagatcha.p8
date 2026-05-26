@@ -1016,7 +1016,7 @@ do
   selection = 1,
   options = {
    -- not called 'settings' to reduce confusion
-   { name = "sound", key = "mute" },
+   { name = "mute sound", key = "mute" },
    { name = "grim mode", key = "grim" }
   }
  }
@@ -1024,11 +1024,15 @@ do
  function update()
   selection = grid_wrap(selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
   if btnp(🅾️) then
+   
    switch_screen()
   elseif btnp(❎) then
    local key = scn.options[selection].key
    -- assumes settings are boolean
    settings[key] = not settings[key]
+   if settings.mute then
+    asset_loader.play_music()
+   end
   end
  end
  function draw()
@@ -1038,27 +1042,30 @@ do
 
    print_centered(option.name, 64, y, i == selection and 10 or 7)
    draw_checkbox(45, y + 14, setting)
+   if i == selection then
+    print_centered(">           <", 64, y, 10)
+   end
   end
 
   spr_scaled(16, 62, 30, 2, 1, 1)
   if settings.mute then
-   color(8)
-   line(75, 35, 81, 41)
+   -- red x
+   line(75, 35, 81, 41, 8)
    line(75, 41, 81, 35)
   else
-   line(76, 35, 76, 41)
+   -- white sound waves
+   line(76, 35, 76, 41, 7)
    line(79, 32, 79, 44)
   end
 
   if settings.grim then
+   -- bloody
    pal(6, 8)
    print("✽", 67, 81, 8)
    print("★", 71, 78, 2)
-   spr_scaled(50, 64, 70, 2, 1, 1)
-   pal()
-  else
-   spr_scaled(50, 64, 70, 2, 1, 1)
   end
+  spr_scaled(50, 64, 70, 2, 1, 1)
+  pal()
 
   print_centered("❎ select  🅾️ exit", 64, 110, 5)
  end
