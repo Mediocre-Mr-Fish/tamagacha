@@ -1719,222 +1719,211 @@ end
 -->8
 --MARK: games
 
-screens.minigame = {
+do
+ screens.minigame = {}
+ local _ENV = rescope(screens.minigame, _ENV)
  current_game = nil
-}
-function screens.minigame:init()
- if self.current_game then
-  self.current_game:init()
+ function init()
+  if (current_game) current_game:init()
+ end
+ function update()
+  if (current_game) current_game:update()
+ end
+ function screens.minigame:draw()
+  if (current_game) current_game:draw()
+ end
+
+ function finish_game()
+  if not current_game then return switch_screen() end
+  local reward = current_game.reward or {}
+
+  gacha_tickets += reward.gacha_tickets or 0
+  food += reward.food or 3
+  pets[current_pet]:change_happiness(reward.happiness or 0)
+
+  current_game = nil
+
+  switch_screen()
  end
 end
-function screens.minigame:update()
- if self.current_game then
-  self.current_game:update()
- end
-end
-function screens.minigame:draw()
- if self.current_game then
-  self.current_game:draw()
- end
-end
-function screens.minigame:finish_game()
- if not self.current_game then return switch_screen() end
- local reward = self.current_game.reward or {}
 
- gacha_tickets += reward.gacha_tickets or 0
- food += reward.food or 3
- pets[current_pet]:change_happiness(reward.happiness or 0)
-
- self.current_game = nil
-
- switch_screen()
-end
 games = {}
-
-games.math = {
+do
+ games.math = {}
+ local _ENV = rescope(games.math, _ENV)
  reward = {
   gacha_tickets = 2,
   food = 0,
   happiness = 15
- },
-
- operation_keys = { "+", "-", "*" },
+ }
+ operation_keys = { "+", "-", "*" }
  operations = {
   ["+"] = function(a, b) return a + b end,
   ["-"] = function(a, b) return a - b end,
   ["*"] = function(a, b) return a * b end
- },
+ }
 
- progress = 0,
- question_str = "",
- options = {},
- answer = 1
-}
-function games.math:init()
- self.progress = 0
- self:setup_question()
-end
-function games.math:setup_question()
- local a, b = flr(rnd(10)), flr(rnd(10))
- local op_key = rnd(self.operation_keys)
-
- local ans = self.operations[op_key](a, b)
- self.question_str = a .. op_key .. b
-
- self.options = {}
-
- --make sure no overlap answers
- local option_set = { [ans] = true }
- while #self.options < 3 do
-  local new = ans + flr(rnd(6)) - 2
-  if not option_set[new] then
-   option_set[new] = true
-   add(self.options, new)
-  end
+ function init()
+  progress = 0
+  setup_question()
  end
+ function setup_question()
+  local a, b = flr(rnd(10)), flr(rnd(10))
+  local op_key = rnd(operation_keys)
 
- self.answer = flr(rnd(4))
- add(self.options, ans, self.answer + 1)
-end
-function games.math:update()
- if btnp(self.answer) then
-  self.progress += 1
+  local ans = operations[op_key](a, b)
+  question_str = a .. op_key .. b
 
-  if self.progress == 5 then
-   screens.minigame:finish_game()
-   return
+  options = {}
+
+  --make sure no overlap answers
+  local option_set = { [ans] = true }
+  while #options < 3 do
+   local new = ans + flr(rnd(6)) - 2
+   if not option_set[new] then
+    option_set[new] = true
+    add(options, new)
+   end
   end
 
-  self:setup_question()
- elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-  self.progress = mid(0, self.progress - 1, 5)
-  self:setup_question()
+  answer = flr(rnd(4))
+  add(options, ans, answer + 1)
+ end
+ function update()
+  if btnp(answer) then
+   progress += 1
+
+   if progress == 5 then
+    screens.minigame:finish_game()
+    return
+   end
+
+   setup_question()
+  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
+   progress = mid(0, progress - 1, 5)
+   setup_question()
+  end
+ end
+ function games.math:draw()
+  print(progress .. "/5", 110, 3, 7)
+
+  print_centered(question_str, 64, 61)
+
+  print_centered(options[1], 34, 61)
+  draw_triangle(22, 63, 40, 77, 40, 49)
+
+  print_centered(options[2], 94, 61)
+  draw_triangle(104, 63, 86, 77, 86, 49)
+
+  print_centered(options[3], 64, 31)
+  draw_triangle(63, 104, 77, 86, 49, 86)
+
+  print_centered(options[4], 64, 91)
+  draw_triangle(63, 22, 77, 40, 49, 40)
  end
 end
-function games.math:draw()
- print(self.progress .. "/5", 110, 3, 7)
 
- print_centered(self.question_str, 64, 61)
-
- print_centered(self.options[1], 34, 61)
- draw_triangle(22, 63, 40, 77, 40, 49)
-
- print_centered(self.options[2], 94, 61)
- draw_triangle(104, 63, 86, 77, 86, 49)
-
- print_centered(self.options[3], 64, 31)
- draw_triangle(63, 104, 77, 86, 49, 86)
-
- print_centered(self.options[4], 64, 91)
- draw_triangle(63, 22, 77, 40, 49, 40)
-end
-
-games.fishing = {
- reward = nil,
+do
+ games.fishing = {}
+ local _ENV = rescope(games.fishing, _ENV)
  reward_win = {
   gacha_tickets = 1,
   food = 3,
   happiness = 15
  }
-}
-function games.fishing:init()
- local _ENV = rescope(self, _ENV)
+ function init()
+  fish_x = 50
+  --ui ranges from 20 to 108
 
- fish_x = 50
- --ui ranges from 20 to 108
+  escape_ui_x = 64
+  new_esc_ui_x = 64
 
- escape_ui_x = 64
- new_esc_ui_x = 64
-
- user_ui_x = 21
-
- last⧗ = time()
- fish⧗ = time()
-end
-
-function games.fishing:update()
- local _ENV = rescope(self, _ENV)
-
- if fish_x > 130 then
-  --leave loss
-  if time() - last⧗ > 3 then
-   reward = nil
-   screens.minigame:finish_game()
-  end
-  return
- elseif fish_x < 30 then
-  --leave win
-  if time() - last⧗ > 3 then
-   reward = self.reward_win
-   screens.minigame:finish_game()
-  end
-  return
- end
-
- if time() - last⧗ > 0.3 then
-  if fish_x > 80 then
-   fish_x += 5
-  elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
-   fish_x -= 3
-  else
-   fish_x += 1
-  end
+  user_ui_x = 21
 
   last⧗ = time()
- end
-
- --escape ui width == 20
- --ranges from 20 to 78
- if time() - fish⧗ > 2 then
-  new_esc_ui_x = flr(rnd(1) * 58) + 20
   fish⧗ = time()
  end
- --move the fish_ui to new_esc_ui_x
- escape_ui_x += (new_esc_ui_x - escape_ui_x) * 0.1
- if btn(❎) then
-  user_ui_x = min(user_ui_x + 3, 98)
- else
-  user_ui_x = max(user_ui_x - 3, 21)
+
+ function update()
+  if fish_x > 130 then
+   --leave loss
+   if time() - last⧗ > 3 then
+    reward = nil
+    screens.minigame:finish_game()
+   end
+   return
+  elseif fish_x < 30 then
+   --leave win
+   if time() - last⧗ > 3 then
+    reward = reward_win
+    screens.minigame:finish_game()
+   end
+   return
+  end
+
+  if time() - last⧗ > 0.3 then
+   if fish_x > 80 then
+    fish_x += 5
+   elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
+    fish_x -= 3
+   else
+    fish_x += 1
+   end
+
+   last⧗ = time()
+  end
+
+  --escape ui width == 20
+  --ranges from 20 to 78
+  if time() - fish⧗ > 2 then
+   new_esc_ui_x = flr(rnd(1) * 58) + 20
+   fish⧗ = time()
+  end
+  --move the fish_ui to new_esc_ui_x
+  escape_ui_x += (new_esc_ui_x - escape_ui_x) * 0.1
+  if btn(❎) then
+   user_ui_x = min(user_ui_x + 3, 98)
+  else
+   user_ui_x = max(user_ui_x - 3, 21)
+  end
  end
-end
 
-function games.fishing:draw()
- local _ENV = rescope(self, _ENV)
+ function draw()
+  if fish_x > 130 then
+   --lose
+   print_centered("you lost the fish", 63, 60, 7)
+   return
+  elseif fish_x < 30 then
+   --win
+   print_centered("you got the fish!", 63, 60, 7)
+   print_centered("+3 food", 63, 68, 4)
+   print_centered("+1 ticket", 63, 76, 9)
+   return
+  end
 
- if fish_x > 130 then
-  --lose
-  print_centered("you lost the fish", 63, 60, 7)
-  return
- elseif fish_x < 30 then
-  --win
-  print_centered("you got the fish!", 63, 60, 7)
-  print_centered("+3 food", 63, 68, 4)
-  print_centered("+1 ticket", 63, 76, 9)
-  return
+  print_centered("press ❎ to move hook", 63, 104, 7)
+  print_centered("keep hook in blue zone", 63, 112, 7)
+  fillp(█)
+  rectfill(20, 40, 0, 60, 5)
+  rectfill(0, 60, 128, 80, 1)
+
+  --pet + fishing pole
+  pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
+  line(13, 36, 28, 23, 4)
+
+  --fish
+  rectfill(fish_x, 69, fish_x + 6, 71, 12)
+  --fish ui
+  rectfill(escape_ui_x, 91, escape_ui_x + 25, 99)
+
+  --fishing line
+  line(min(fish_x, 80), 69, 6)
+
+  --line ui
+  rectfill(user_ui_x, 91, user_ui_x + 10, 99)
+  --ui box
+  rect(20, 90, 108, 100, 7)
  end
-
- print_centered("press ❎ to move hook", 63, 104, 7)
- print_centered("keep hook in blue zone", 63, 112, 7)
- fillp(█)
- rectfill(20, 40, 0, 60, 5)
- rectfill(0, 60, 128, 80, 1)
-
- --pet + fishing pole
- pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
- line(13, 36, 28, 23, 4)
-
- --fish
- rectfill(fish_x, 69, fish_x + 6, 71, 12)
- --fish ui
- rectfill(escape_ui_x, 91, escape_ui_x + 25, 99)
-
- --fishing line
- line(min(fish_x, 80), 69, 6)
-
- --line ui
- rectfill(user_ui_x, 91, user_ui_x + 10, 99)
- --ui box
- rect(20, 90, 108, 100, 7)
 end
 
 __gfx__
