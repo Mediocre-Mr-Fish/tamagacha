@@ -2,21 +2,13 @@ pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
 -- MARK: main loop
-is_runtime = false
+local is_runtime
+local gacha_tickets = 3
+local food = 5
+local bones = 0
+
 function _init()
  is_runtime = true
- gacha_tickets = 10
- food = 1
- bones = 0
- --multiplier for too many pets
- --equation in get_penalty_mult
- swarm_penalty = 0.1
- --baseline of when to decrease vars (sec)
- hunger_tick = 5
- happiness_tick = 7
-
- last_fed = time()
- last_play = time()
 
  happiness_prot⧗ = time()
  hunger_prot⧗ = time()
@@ -38,8 +30,7 @@ function _init()
 end
 
 function _update()
- update_hunger()
- update_happiness()
+ update_stats()
  screen:update()
 end
 
@@ -161,30 +152,6 @@ function rect_vec(pos1, pos2, col, fill, as_dim)
  if (col) color(col)
  if (as_dim) pos2 += pos1
  (fill and rectfill or rect)(pos1.x, pos1.y, pos2.x, pos2.y)
-end
-
-function get_penalty_mult()
- return #pets * swarm_penalty + 1
-end
-
-function update_hunger()
- if time() - last_fed > hunger_tick / get_penalty_mult() then
-  last_fed = time()
-  --do this for all pets later
-  for pet in all(pets) do
-   pet:change_hunger(-1)
-  end
- end
-end
-
-function update_happiness()
- if time() - last_play > happiness_tick / get_penalty_mult() then
-  last_play = time()
-  --do this for all pets later
-  for pet in all(pets) do
-   pet:change_happiness(-1)
-  end
- end
 end
 
 -->8
@@ -693,6 +660,21 @@ pets = {
 local current_pet = 1
 max_pets = 16
 
+local stat_timer = {
+ { last_check = time(), base_interval = 7, func = class__pet.change_happiness },
+ { last_check = time(), base_interval = 5, func = class__pet.change_hunger }
+}
+function update_stats()
+ for stat in all(stat_timer) do
+  if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
+   stat.last_check = time()
+   for pet in all(pets) do
+    stat.func(pet, -1)
+   end
+  end
+ end
+end
+
 -- MARK: save data
 
 function load_data()
@@ -846,10 +828,10 @@ do
   },
   load_music = { "binks_sake" },
   load_map = { "house" },
-  camera_glider = glider.new(0.5),
   shift = 0
  })
  local _ENV, scn = rescope(screens.home, _ENV)
+ camera_glider = glider.new(0.5)
  function update()
   asset_loader.play_music("binks_sake")
   local sel, icon = update_sel(scn)
