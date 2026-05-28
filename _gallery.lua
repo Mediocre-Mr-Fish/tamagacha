@@ -32,8 +32,8 @@ function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
 end
 
 function print_centered(text, x, y, col)
- if (col) then color(col) end
- print(text, x - print(text, 0, -8) / 2, y)
+    if (col) then color(col) end
+    print(text, x - print(text, 0, -8) / 2, y)
 end
 
 -- MARK: info setup
@@ -44,11 +44,13 @@ function setup()
         piao_piao = { file = "music/1.p8", y = 0, h = 3 },
         china = { file = "music/1.p8", y = 3, h = 1 },
         baka_mitai = { file = "music/1.p8", y = 4, h = 6 },
-        binks_sake = { file = "music/main.p8", y = 0, h = 15 }
+        binks_sake = { file = "music/main.p8", y = 0, h = 15 },
+        jumping_machine = { file = "music/main2.p8", y = 0, h = 8 }
     }
 
     asset_loader.map_allocation.source_list = {
-        house = { file = "maps/home.p8", x = 0, y = 0, w = 16, h = 16 },
+        house = { file = "maps/home.p8", x = 0, y = 0, w = 24, h = 16 },
+        shelf = { file = "maps/home.p8", x = 24, y = 0, w = 3, h = 1 },
         tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
         tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
     }
