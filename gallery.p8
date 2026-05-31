@@ -9,7 +9,7 @@ crucially, this means the assets can at any index on the source cart
 --[[]]
 
 #include _gallery.lua
-
+-- MARK: asset_loader
 do
  asset_loader = {}
  local _ENV = rescope(asset_loader, _ENV)
@@ -101,6 +101,11 @@ do
   return freed
  end
 
+ function load_file(file)
+  loaded_file = (loaded_file == file or reload(0x8000, 0, 0x4300, file) > 0) and file
+  return loaded_file
+ end
+
  function load_asset(wrapper_table, key)
   -- enforce that source info exists
   local info = assert(wrapper_table.source_list[key], key)
@@ -113,48 +118,34 @@ do
 
   local asset_table = wrapper_table.asset_alloc
   local assigned = {}
-  local copy
+  local mem_rows, mem_cols, mask, byte_is_empty = 7, 4, 0x00, function(byte) return byte == 0 end
   if wrapper_table.type == "music" then
    info.x = 0
    info.w = 4
-   copy = function(byte)
-    -- check muted
-    if (byte & 0x40 ~= 0) return byte
-    -- check is duplicate
-    local src = byte & 0x3f
-    local dst = assigned[src]
-    if (dst) return byte & 0xc0 | dst
-    -- allocate data
-    dst = allocate(asset_table, key, 1)
-    assigned[src] = dst
-    memcpy(asset_table.addr(dst), 0x8000 + asset_table.addr(src), 68)
-    return byte & 0xc0 | dst
+   mem_rows, mem_cols, mask, byte_is_empty = 0, 68, 0xc0, function(byte) return byte & 0x40 ~= 0 end
+  end
+
+  local function copy(byte)
+   -- check muted
+   if (byte_is_empty(byte)) return byte
+   -- check is duplicate
+   local src = byte & (0xff - mask)
+   local dst = assigned[src]
+   if (dst) return byte & mask | dst
+   -- allocate data
+   dst = allocate(asset_table, key, 1)
+   assigned[src] = dst
+   for i = 0, mem_rows do
+    memcpy(asset_table.addr(dst) + i * 64, 0x8000 + asset_table.addr(src) + i * 64, mem_cols)
    end
-  else
-   copy = function(byte)
-    -- check transparent
-    if (byte == 0) return byte
-    -- check is duplicate
-    local dst = assigned[byte]
-    if (dst) return dst
-    -- allocate data
-    dst = allocate(asset_table, key, 1)
-    assigned[byte] = dst
-    for i = 0, 7 do
-     memcpy(asset_table.addr(dst) + i * 64, 0x8000 + asset_table.addr(byte) + i * 64, 4)
-    end
-    return dst
-   end
+   return byte & mask | dst
   end
 
   -- find space to allocate
   info.allocation = allocate(wrapper_table, key, info.w * info.h)
 
   -- load the file if it isn't already
-  if loaded_file ~= info.file then
-   loaded_file = info.file
-   reload(0x8000, 0, 0x4300, loaded_file)
-  end
+  assert(load_file(info.file), "missing file: " .. info.file)
 
   for celx = 0, info.w - 1 do
    for cely = 0, info.h - 1 do

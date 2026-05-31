@@ -81,6 +81,10 @@ function capacity(alloc_tbl)
     for i = 0, alloc_tbl.max_index do
         if (alloc_tbl[i]) then ret = ret + 1 end
     end
+    if alloc_tbl.type == "music" then
+        ret = ret / 4
+    end
+
     return pad(ret, #tostring(alloc_tbl.max_index + 1)) .. "/" .. tostring(alloc_tbl.max_index + 1)
 end
 
