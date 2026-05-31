@@ -38,8 +38,10 @@ do
   addr = function(i)
    local sx, sy = grid_coords(0, 0, 4, 8, i + 1, 16)
    return sy * 64 + sx
-  end
+  end,
   -- permanently reserve sprites here
+  -- spite 0 must be reserved if it isn't already
+  [0] = true
  }
  map_allocation = {
   type = "map",
