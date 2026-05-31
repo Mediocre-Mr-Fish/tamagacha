@@ -286,7 +286,8 @@ end
 -->8
 -- MARK: pet mock-up
 do
- pet_prefabs = { num = 0 }
+ pet_prefabs = {}
+ pet_list = {}
 
  class__pet = {}
  class__pet.__index = class__pet
@@ -313,11 +314,11 @@ do
    {
     id = id,
     file = file,
-    spr_maps = {}, variants = {}
+    variants = {}
    }, class__pet
   )
   pet_prefabs[id] = pet
-  pet_prefabs.num += 1
+  add(pet_list, id)
 
   for _ = 1, read() do
    local info = { file = file }
@@ -326,6 +327,7 @@ do
   end
 
   pet.transparent, pet.immortal, pet.rarity, pet.meat, pet.bone = read(5)
+  pet.immortal = pet.immortal ~= 0
 
   for _ = 1, read() do
    local variant = add(pet.variants, {})
@@ -359,18 +361,23 @@ function _update()
  if btnp(1) then selection += 1 end
  if btnp(2) then sel_var += 1 end
  if btnp(3) then sel_var -= 1 end
- selection = (selection - 1) % pet_prefabs.num + 1
+ selection = (selection - 1) % #pet_list + 1
  sel_var = (sel_var - 1) % #pet_prefabs[selection].variants + 1
 end
 
 function _draw()
- local pet = pet_prefabs[selection]
+ local pet = pet_prefabs[pet_list[selection]]
  local variant = pet.variants[sel_var]
 
  cls(1)
 
- print("pet: " .. selection .. "/" .. pet_prefabs.num, 0, 0)
+ print("pet: " .. selection .. "/" .. #pet_list, 0, 0)
  print("var: " .. sel_var .. "/" .. #pet.variants)
+ print("id: " .. pad(pet.id, 3, "0"))
+ print("immortal: " .. tostr(pet.immortal))
+ print("rarity: " .. pet.rarity)
+ print("meat: " .. pet.meat)
+ print("bone: " .. pet.bone)
 
  pal(variant)
  print(variant.name, 64, 56)
