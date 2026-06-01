@@ -99,6 +99,16 @@ function _init()
         end
         write_str(variant.name)
     end
+
+    local bytestr = ""
+    for i = 0, byte_streamer.offset - 1 do
+        if i % 64 == 0 then
+            bytestr = bytestr .. "\n"
+        end
+        local b = tostr(peek(byte_streamer.source + i), 0x1)
+        bytestr = bytestr .. sub(b, 6, 6) .. sub(b, 5, 5)
+    end
+    printh(bytestr)
 end
 
 function _draw()

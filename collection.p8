@@ -298,8 +298,9 @@ do
   asset_loader.draw_map(self.file .. key, x, y)
  end
 
- function class__pet.create_prefab(id)
-  local file = "pets/" .. pad(id, 3, "0") .. ".p8"
+ function class__pet.create_prefab(id, file)
+  -- local file = "pets/" .. pad(id, 3, "0") .. ".p8"
+
   if not asset_loader.load_file(file) then
    -- printh(file .. " not found")
    return
@@ -347,8 +348,13 @@ end
 -- MARK: main
 function _init()
  t, dt = time(), 0
- for i = 1, 15 do
-  class__pet.create_prefab(i)
+
+ ls = ls
+ for file in all(ls("pets/")) do
+  local id = tonum(sub(file, 1, -4))
+  if id > 0 and id <= 0xff then
+   class__pet.create_prefab(id, "pets/" .. file)
+  end
  end
 
  selection = 1
