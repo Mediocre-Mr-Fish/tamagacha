@@ -309,6 +309,63 @@ do
  end
 end
 
+do
+ byte_streamer = {}
+ local _ENV = rescope(byte_streamer, _ENV)
+ --  source = nil
+ --  offset = 0
+ -- source can be:
+ --   integer: location in memory
+ --   string: an ascii string
+ --   table: a list of integers
+
+ function set_source(src, pos)
+  source, offset = src, pos or 0
+ end
+
+ function write(...)
+  assert(source)
+
+  local bytes = { ... }
+  if type(source) == "number" then
+   poke(source + offset, ...)
+  elseif type(source) == "string" then
+   source = sub(source, 1, offset) .. chr(...) .. sub(source, offset + #bytes + 1)
+  elseif type(source) == "table" then
+   for i, byte in ipairs(bytes) do
+    source[offset + i] = byte
+   end
+  end
+  offset += #bytes
+ end
+
+ function read(num)
+  assert(source)
+  local o = offset
+  num = num or 1
+  offset += num
+  if type(source) == "number" then
+   return peek(source + o, num)
+  elseif type(source) == "string" then
+   return ord(source, o + 1, num)
+  elseif type(source) == "table" then
+   local ret = {}
+   for i = 1, num do
+    add(ret, source[o + i])
+   end
+   return unpack(ret)
+  end
+ end
+
+ function write_str(str)
+  write(#str, ord(str, 1, #str))
+ end
+
+ function read_str()
+  return chr(read(read()))
+ end
+end
+
 -->8
 -- MARK: structs
 
@@ -721,34 +778,28 @@ function load_data()
  -- MARK: DEMO
  -- if true then return false end
  -- username_title_version
- if not cartdata("real-fancy-fire_tama-gatcha_1-4") then
-  return false
- end
-
- local addr = 0x5e00
+ if (not cartdata("real-fancy-fire_tama-gatcha_1-4")) return false
+ byte_streamer.set_source(0x5e00)
+ local read = byte_streamer.read
 
  -- user data
- settings.mute, settings.grim = unpack(decode_bitfield(peek(addr), 8))
- addr += 1
+ settings.mute, settings.grim = unpack(decode_bitfield(read(), 8))
 
  -- discovered pets
- local a, b = peek(addr, 2)
+ local a, b = read(2)
  discovered_pets = decode_bitfield(a << 8 | b, num_pet_types)
- addr += 2
 
  -- currencies
- gacha_tickets, food, bones = peek(addr, 3)
- addr += 3
+ gacha_tickets, food, bones = read(3)
 
  -- items
  for item in all(all_items) do
-  item.count = peek(addr)
-  addr += 1
+  item.count = read()
  end
 
  -- pets
  for i = 1, max_pets do
-  local class, color_variant, stats = peek(addr, 3)
+  local class, color_variant, stats = read(3)
   class = all_pets[class]
   -- nil or pet instance
   local pet = class and class.new()
@@ -758,7 +809,6 @@ function load_data()
    pet.happiness = stats & 0xf
   end
   pets[i] = pet
-  addr += 3
  end
 
  printh("data loaded")
@@ -766,30 +816,25 @@ function load_data()
 end
 
 function save_data()
- local addr = 0x5e00
+ byte_streamer.set_source(0x5e00)
+ local write = byte_streamer.write
 
  -- user settings
- poke(
-  addr, encode_bitfield({
-   settings.mute, settings.grim, false, false,
-   false, false, false, false
-  })
- )
- addr += 1
+ write(encode_bitfield({
+  settings.mute, settings.grim, false, false,
+  false, false, false, false
+ }))
 
  -- discovered pets
  local bits = encode_bitfield(discovered_pets)
- poke(addr, bits >> 8, bits & 0xff)
- addr += 2
+ write(bits >> 8, bits & 0xff)
 
  -- currencies
- poke(addr, gacha_tickets, food, bones)
- addr += 3
+ write(addr, gacha_tickets, food, bones)
 
  -- items
  for item in all(all_items) do
-  poke(addr, item.count)
-  addr += 1
+  write(item.count)
  end
 
  -- pets
@@ -797,12 +842,10 @@ function save_data()
   local pet = pets[i]
 
   if pet then
-   poke(addr, pet.id, pet.color_variant, pet.hunger << 4 | pet.happiness)
+   write(pet.id, pet.color_variant, pet.hunger << 4 | pet.happiness)
   else
-   poke(addr, 0, 0, 0)
+   write(0, 0, 0)
   end
-
-  addr += 3
  end
 
  printh("data saved")

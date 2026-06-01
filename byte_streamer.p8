@@ -13,13 +13,13 @@ end
 do
  byte_streamer = {}
  local _ENV = rescope(byte_streamer, _ENV)
- source = nil
+--  source = nil
+--  offset = 0
  -- source can be:
  --   integer: location in memory
  --   string: an ascii string
  --   table: a list of integers
- offset = 0
-
+ 
  function set_source(src, pos)
   source, offset = src, pos or 0
  end
@@ -61,6 +61,7 @@ do
  function write_str(str)
   write(#str, ord(str, 1, #str))
  end
+ 
  function read_str()
   return chr(read(read()))
  end
