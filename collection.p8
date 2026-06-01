@@ -16,6 +16,22 @@ function rescope(...)
   }
  ), unpack(scopes)
 end
+
+function classfactory(static_vars, parent, class_list)
+ local class = parent and setmetatable(static_vars, parent) or static_vars
+ class.__index = class
+ if class_list then
+  add(class_list, class)
+ end
+ -- blank new() function
+ -- override if instance variables are needed
+ class.new = function()
+  return setmetatable(parent and parent.new() or {}, class)
+ end
+
+ return class
+end
+
 function grid_coords(x1, y1, dx, dy, val, cols)
  return x1 + dx * ((val - 1) % cols), y1 + dy * ((val - 1) \ cols)
 end
@@ -286,40 +302,88 @@ end
 -->8
 -- MARK: pet mock-up
 do
- pet_prefabs = {}
- pet_list = {}
+ class__pet = classfactory({})
+ function class__pet.new()
+  local self = setmetatable({}, class__pet)
+  self.hunger = 15
+  self.happiness = 15
+  self.effects = {
+   hunger_prot = 0,
+   happiness_prot = 0,
+   hunger_2x = 0,
+   happiness_2x = 0
+  }
+  self.variant = { index = 1, name = "default" }
+  return self
+ end
 
- class__pet = {}
- class__pet.__index = class__pet
+ all_pets = {}
 
- function class__pet:spr(key, x, y)
+ -- set the color variant
+ -- set 1 for default variant, set nil for random
+ function class__pet:set_color(int_or_nil)
+  self.variant = int_or_nil and self.variants[int_or_nil] or rnd(self.variants)
+  self.name = self.variant.name
+  return self
+ end
+
+ -- set the pet-specific palette
+ -- make sure to reset afterwards
+ function class__pet:pal(obscured)
+  pal()
+
+  if obscured then
+   for i = 0, 15 do
+    pal(i, 5)
+   end
+  else
+   pal(self.variant)
+  end
+
   palt(0, false)
   palt(self.transparent, true)
-  asset_loader.draw_map(self.file .. key, x, y)
+ end
+
+ -- draw the pet's sprite
+ function class__pet:spr_scaled(key, x, y, scale, no_pal, flip_x, flip_y)
+  if not no_pal then self:pal() end
+
+  asset_loader.draw_map(self.file .. key, x, y, scale, flip_x, flip_y)
+
+  pal()
+ end
+
+ function class__pet:change_hunger(delta)
+  self.hunger = mid(self.hunger + delta, 0, 0xf)
+  return self
+ end
+ function class__pet:change_happiness(delta)
+  self.happiness = mid(self.happiness + delta, 0, 0xf)
+  return self
+ end
+ function class__pet:update_effects(dt)
+  for key, time in pairs(self.effects) do
+   self.effects[key] = mid(time - dt, 0, 0xff)
+  end
+  return self
+ end
+
+ function class__pet:is_dead()
+  return not self.immortal and self.hunger == 0 and self.happiness == 0
  end
 
  function class__pet.create_prefab(id, file)
-  -- local file = "pets/" .. pad(id, 3, "0") .. ".p8"
-
-  if not asset_loader.load_file(file) then
-   -- printh(file .. " not found")
-   return
-  end
-
+  assert(asset_loader.load_file(file), file .. " not found")
   byte_streamer.set_source(0x8000)
   local read, read_str = byte_streamer.read, byte_streamer.read_str
 
   assert(read() == 3)
 
-  local pet = setmetatable(
-   {
-    id = id,
-    file = file,
-    variants = {}
-   }, class__pet
-  )
-  pet_prefabs[id] = pet
-  add(pet_list, id)
+  local pet = {
+   id = id,
+   file = file,
+   variants = {}
+  }
 
   for _ = 1, read() do
    local info = { file = file }
@@ -330,8 +394,8 @@ do
   pet.transparent, pet.immortal, pet.rarity, pet.meat, pet.bone = read(5)
   pet.immortal = pet.immortal ~= 0
 
-  for _ = 1, read() do
-   local variant = add(pet.variants, {})
+  for v = 0, read() - 1 do
+   local variant = add(pet.variants, { index = v })
 
    for i = 0, 15 do
     variant[i] = read()
@@ -340,7 +404,7 @@ do
    variant.name = read_str()
   end
 
-  return pet
+  all_pets[id] = classfactory(pet, class__pet)
  end
 end
 
@@ -357,6 +421,11 @@ function _init()
   end
  end
 
+ pet_list = {}
+ for id, _ in pairs(all_pets) do
+  add(pet_list, id)
+ end
+
  selection = 1
  sel_var = 1
 end
@@ -368,11 +437,11 @@ function _update()
  if btnp(2) then sel_var += 1 end
  if btnp(3) then sel_var -= 1 end
  selection = (selection - 1) % #pet_list + 1
- sel_var = (sel_var - 1) % #pet_prefabs[selection].variants + 1
+ sel_var = (sel_var - 1) % #all_pets[selection].variants + 1
 end
 
 function _draw()
- local pet = pet_prefabs[pet_list[selection]]
+ local pet = all_pets[pet_list[selection]]
  local variant = pet.variants[sel_var]
 
  cls(1)
@@ -388,12 +457,12 @@ function _draw()
  pal(variant)
  print(variant.name, 64, 56)
 
- pet:spr("thumbnail", 32, 64)
- pet:spr("body", 64, 64)
+ pet:spr_scaled("thumbnail", 32, 64)
+ pet:spr_scaled("body", 64, 64)
  local x, y = 64 + sin(t), 64 + abs(cos(t))
- pet:spr("head", x, y)
+ pet:spr_scaled("head", x, y)
  if t % 3 > 0.1 then
-  pet:spr("eye", x, y)
+  pet:spr_scaled("eye", x, y)
  end
 end
 

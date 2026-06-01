@@ -500,44 +500,28 @@ end
 
 -- MARK: pet
 
-class__pet = classfactory({
- name = "default",
- immortal = false,
- sprite = 0,
- sprite_width = 2,
- sprite_height = 2,
- transparent = 11, --lime
- color_variants = {},
- rarity = 3, -- rare
- meat = 3,
- bone = 2
-})
+class__pet = classfactory({})
 function class__pet.new()
  local self = setmetatable({}, class__pet)
  self.hunger = 15
  self.happiness = 15
- self.color_variant = 0
  self.effects = {
   hunger_prot = 0,
   happiness_prot = 0,
   hunger_2x = 0,
   happiness_2x = 0
  }
+ self.variant = { index = 1, name = "default" }
  return self
 end
 
 all_pets = {}
-num_pet_types = 0xff
-function classfactory__pet(static_vars, parent)
- static_vars.id = #all_pets + 1
- assert(static_vars.id <= num_pet_types, "too many pet types!")
- return classfactory(static_vars, parent or class__pet, all_pets)
-end
 
 -- set the color variant
--- set 0 for default variant, set nil for random
+-- set 1 for default variant, set nil for random
 function class__pet:set_color(int_or_nil)
- self.color_variant = int_or_nil or flr(rnd(#self.color_variants + 1))
+ self.variant = int_or_nil and self.variants[int_or_nil] or rnd(self.variants)
+ self.name = self.variant.name
  return self
 end
 
@@ -551,9 +535,7 @@ function class__pet:pal(obscured)
    pal(i, 5)
   end
  else
-  if self.color_variant ~= 0 then
-   pal(self.color_variants[self.color_variant])
-  end
+  pal(self.variant)
  end
 
  palt(0, false)
@@ -561,14 +543,10 @@ function class__pet:pal(obscured)
 end
 
 -- draw the pet's sprite
-function class__pet:spr_scaled(x, y, scale, no_pal, flip_x, flip_y)
+function class__pet:spr_scaled(key, x, y, scale, no_pal, flip_x, flip_y)
  if not no_pal then self:pal() end
 
- if not scale or scale == 1 then
-  spr(self.sprite, x, y, self.sprite_width, self.sprite_height, flip_x, flip_y)
- else
-  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height, flip_x, flip_y)
- end
+ asset_loader.draw_map(self.file .. key, x, y, scale, flip_x, flip_y)
 
  pal()
 end
@@ -592,68 +570,57 @@ function class__pet:is_dead()
  return not self.immortal and self.hunger == 0 and self.happiness == 0
 end
 
-classfactory__pet({
- name = "arb duck",
- sprite = 64,
- rarity = 2,
- color_variants = {
-  { [3] = 4, [4] = 15 }
+function class__pet.create_prefab(id, file)
+ assert(asset_loader.load_file(file), file .. " not found")
+ byte_streamer.set_source(0x8000)
+ local read, read_str = byte_streamer.read, byte_streamer.read_str
+
+ assert(read() == 3)
+
+ local pet = {
+  id = id,
+  file = file,
+  variants = {}
  }
-})
-classfactory__pet({
- name = "cheeto",
- sprite = 66,
- rarity = 5,
- immortal = true
-})
-classfactory__pet({
- name = "yoomimmick",
- sprite = 68,
- rarity = 4
-})
-classfactory__pet({
- name = "squirrel",
- sprite = 70,
- rarity = 2,
- color_variants = {
-  { [6] = 9, [5] = 4 }
- }
-})
-classfactory__pet({
- name = "turkey",
- sprite = 72,
- rarity = 2
-})
-classfactory__pet({
- name = "owl",
- sprite = 74,
- rarity = 3
-})
-classfactory__pet({
- name = "horse",
- sprite = 76,
- rarity = 4,
- color_variants = {
-  { [4] = 5, [5] = 4, [1] = 0 },
-  { [4] = 6, [6] = 7, [1] = 5 }
- }
-})
-classfactory__pet({
- name = "cow",
- sprite = 78,
- rarity = 3
-})
-classfactory__pet({
- name = "shoop",
- sprite = 96,
- rarity = 2
-})
+
+ for _ = 1, read() do
+  local info = { file = file }
+  info.x, info.y, info.w, info.h = read(4)
+  asset_loader.map_allocation.source_list[file .. read_str()] = info
+ end
+
+ pet.transparent, pet.immortal, pet.rarity, pet.meat, pet.bone = read(5)
+ pet.immortal = pet.immortal ~= 0
+
+ for v = 0, read() - 1 do
+  local variant = add(pet.variants, { index = v })
+
+  for i = 0, 15 do
+   variant[i] = read()
+  end
+
+  variant.name = read_str()
+ end
+
+ all_pets[id] = classfactory(pet, class__pet)
+end
+
+-- this shuts up the linter
+ls = ls
+
+for i, file in pairs(ls("pets/")) do
+ local id = tonum(sub(file, 1, -4))
+
+ if id > 0 and id <= 0xff then
+  class__pet.create_prefab(id, "pets/" .. file)
+ end
+end
 
 -- map integer pet.id to bool
-local discovered_pets = {}
-for i = 1, num_pet_types do
+-- local discovered_pets = {}
+for i = 1, 0xff do
  local pet = all_pets[i]
- discovered_pets[i] = false
+ -- discovered_pets[i] = false
  if pet then
   add(loot_tables[pet.rarity].pool, pet)
  end
@@ -702,7 +669,7 @@ local current_pet = 1
 local pets = {}
 function pets:add(pet)
  add(self, pet)
- discovered_pets[pet.id] = true
+ -- discovered_pets[pet.id] = true
 end
 pets:add(all_pets[1].new():set_color())
 
@@ -778,7 +745,7 @@ function load_data()
  -- MARK: DEMO
  -- if true then return false end
  -- username_title_version
- if (not cartdata("real-fancy-fire_tama-gatcha_1-4")) return false
+ if (not cartdata("real-fancy-fire_tama-gatcha_2-0")) return false
  byte_streamer.set_source(0x5e00)
  local read = byte_streamer.read
 
@@ -786,8 +753,8 @@ function load_data()
  settings.mute, settings.grim = unpack(decode_bitfield(read(), 8))
 
  -- discovered pets
- local a, b = read(2)
- discovered_pets = decode_bitfield(a << 8 | b, num_pet_types)
+ -- local a, b = read(2)
+ -- discovered_pets = decode_bitfield(a << 8 | b, num_pet_types)
 
  -- currencies
  gacha_tickets, food, bones = read(3)
@@ -799,12 +766,12 @@ function load_data()
 
  -- pets
  for i = 1, max_pets do
-  local class, color_variant, stats = read(3)
-  class = all_pets[class]
+  local id, color_variant, stats = read(3)
+  local class = all_pets[id]
   -- nil or pet instance
   local pet = class and class.new()
   if pet then
-   pet.color_variant = color_variant
+   pet:set_color(color_variant + 1)
    pet.hunger = stats \ 0xf
    pet.happiness = stats & 0xf
   end
@@ -826,11 +793,11 @@ function save_data()
  }))
 
  -- discovered pets
- local bits = encode_bitfield(discovered_pets)
- write(bits >> 8, bits & 0xff)
+ -- local bits = encode_bitfield(discovered_pets)
+ -- write(bits >> 8, bits & 0xff)
 
  -- currencies
- write(addr, gacha_tickets, food, bones)
+ write(gacha_tickets, food, bones)
 
  -- items
  for item in all(all_items) do
@@ -842,7 +809,7 @@ function save_data()
   local pet = pets[i]
 
   if pet then
-   write(pet.id, pet.color_variant, pet.hunger << 4 | pet.happiness)
+   write(pet.id, pet.variant.index, pet.hunger << 4 | pet.happiness)
   else
    write(0, 0, 0)
   end
@@ -981,7 +948,7 @@ do
      pal()
     end
    else
-    pet:spr_scaled(32, 32, 4, false, shift > 0)
+    pet:spr_scaled("hd", 32, 32, 2, false, shift > 0)
    end
 
    -- draw stats
@@ -1216,13 +1183,13 @@ do
    local sx, sy = scn:grid_vec(i):unpack()
    local name = pet_cls.name
 
-   if discovered_pets[pet_cls.id] then
-    pet_cls:spr_scaled(sx, sy, 1)
-   else
-    pet_cls:pal(true)
-    pet_cls:spr_scaled(sx, sy, 1, true)
-    name = "???"
-   end
+   -- if discovered_pets[pet_cls.id] then
+   --  pet_cls:spr_scaled(sx, sy, 1)
+   -- else
+   --  pet_cls:pal(true)
+   --  pet_cls:spr_scaled(sx, sy, 1, true)
+   --  name = "???"
+   -- end
 
    if i == selection then
     print_centered(name, 64, 100, 7)
@@ -1289,7 +1256,7 @@ do
    line(x + 2, 48 + i, x + 22, 68 + i, 4)
   end
 
-  pet:spr_scaled(x, 44, 2, false, true, false)
+  pet:spr_scaled("thumbnail", x, 44, 2, false, true, false)
   if t > 4 then
    asset_loader.play_music("baka_mitai")
    print("you received: " .. (pet.meat * 4) .. "   " .. pad(pet.bone), 16, 70, 6)
@@ -1371,7 +1338,7 @@ do
    spr_scaled(62, 96, 20, 1, 2, 1)
    local x, y = 48, 50
    if step == 2 then x, y = accelerp(48, 50, -25, t), accelerp(50, -50, 200, t) end
-   pet:spr_scaled(x, y, 1, false, true, false)
+   pet:spr_scaled("thumbnail", x, y, 1, false, true, false)
    palt(0x0010)
    draw_map("tower_segment", 0, 62)
    draw_map("tower_segment", 0, 102)
@@ -1383,6 +1350,7 @@ do
     draw_map("tower_segment", 0, i * 40 - (t * 240) % 40)
    end
    pet:spr_scaled(
+    "thumbnail",
     88,
     accelerp(32, 32, 0, t),
     1, false, true, false
@@ -1390,7 +1358,7 @@ do
   elseif step >= 4 then
    if step == 4 then
     y4 = accelerp(-128, 256 * 4, 0, t)
-    pet:spr_scaled(80, y4, 1, false, true, false)
+    pet:spr_scaled("thumbnail", 80, y4, 1, false, true, false)
    end
 
    palt(0x0010)
@@ -1455,7 +1423,7 @@ do
 
   if step == 1 then
    clip(0, 0, 128, 52)
-   pet:spr_scaled(56, accelerp(-16, 20, 100, t))
+   pet:spr_scaled("thumbnail", 56, accelerp(-16, 20, 100, t))
    clip()
   elseif step >= 2 then
    draw_particles()
@@ -1542,17 +1510,17 @@ do
   local step, t = timeline:get()
 
   if step == 1 then
-   pet:spr_scaled(64, 56)
+   pet:spr_scaled("thumbnail", 64, 56)
    spr(51, accelerp(-8, 64, -32, t), 64)
   elseif step == 2 then
-   pet:spr_scaled(64, 56)
+   pet:spr_scaled("thumbnail", 64, 56)
    spr(51, 56, 64)
   elseif step == 3 then
    if explodes then
     draw_particles()
    else
     spr(51, 56, 64)
-    pet:spr_scaled(accelerp(64, 32, 0, t), 56, 1, nil, true)
+    pet:spr_scaled("thumbnail", accelerp(64, 32, 0, t), 56, 1, nil, true)
    end
    if t > 3 then
     print_centered(pet.name .. " did not like that.", 64, 80, 7)
@@ -1818,7 +1786,7 @@ do
  function draw_prize(prize, x, y, size, open)
   local is_pet = is_instance(prize, class__pet)
   if is_pet and open then
-   prize:spr_scaled(x, y, size / 2)
+   prize:spr_scaled("thumbnail", x, y, size / 2)
    return
   end
 
@@ -2050,7 +2018,7 @@ do
   rectfill(0, 60, 128, 80, 1)
 
   --pet + fishing pole
-  pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
+  pets[current_pet]:spr_scaled("thumbnail", 3, 25, 1, false, true, false)
   line(13, 36, 28, 23, 4)
 
   --fish
