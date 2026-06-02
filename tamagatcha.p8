@@ -60,25 +60,6 @@ function pad(str, len)
  return str
 end
 
--- encode a bool array as an integer
-function encode_bitfield(bool_array)
- local ret = 0
- for i in all(bool_array) do
-  ret = ret << 1
-  if (i) ret += 1
- end
- return ret
-end
--- decode an integer as a bool array
-function decode_bitfield(integer, length)
- local ret = {}
- for _ = 1, length do
-  add(ret, integer & 1 ~= 0, 1)
-  integer = integer >> 1
- end
- return ret
-end
-
 function print_centered(text, x, y, col)
  if (col) color(col)
  print(text, x - print(text, 0, -8) / 2, y)
@@ -309,11 +290,12 @@ do
  end
 end
 
+-- MARK: byte_streamer
 do
  byte_streamer = {}
  local _ENV = rescope(byte_streamer, _ENV)
- --  source = nil
- --  offset = 0
+ -- source = nil
+ -- offset = 0
  -- source can be:
  --   integer: location in memory
  --   string: an ascii string
@@ -363,6 +345,23 @@ do
 
  function read_str()
   return chr(read(read()))
+ end
+
+ function write_bin(bin_tbl)
+  local num = 0
+  for i = 0, 7 do
+   num += bin_tbl[i + 1] and 1 << i or 0
+  end
+  write(num)
+ end
+
+ function read_bin()
+  local num = read()
+  local ret = {}
+  for i = 0, 7 do
+   ret[i + 1] = num & 1 << i ~= 0
+  end
+  return ret
  end
 end
 
@@ -742,19 +741,15 @@ end
 -- MARK: save data
 
 function load_data()
- -- MARK: DEMO
- -- if true then return false end
  -- username_title_version
- if (not cartdata("real-fancy-fire_tama-gatcha_2-0")) return false
+ if (not cartdata("real-fancy-fire_tama-gatcha_2-1")) return false
  byte_streamer.set_source(0x5e00)
  local read = byte_streamer.read
 
  -- user data
- settings.mute, settings.grim = unpack(decode_bitfield(read(), 8))
+ settings.mute, settings.grim = unpack(byte_streamer.read_bin())
 
- -- discovered pets
- -- local a, b = read(2)
- -- discovered_pets = decode_bitfield(a << 8 | b, num_pet_types)
+ current_pet = read()
 
  -- currencies
  gacha_tickets, food, bones = read(3)
@@ -787,14 +782,11 @@ function save_data()
  local write = byte_streamer.write
 
  -- user settings
- write(encode_bitfield({
-  settings.mute, settings.grim, false, false,
-  false, false, false, false
- }))
+ byte_streamer.write_bin({
+  settings.mute, settings.grim
+ })
 
- -- discovered pets
- -- local bits = encode_bitfield(discovered_pets)
- -- write(bits >> 8, bits & 0xff)
+ write(current_pet)
 
  -- currencies
  write(gacha_tickets, food, bones)

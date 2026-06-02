@@ -13,17 +13,17 @@ end
 do
  byte_streamer = {}
  local _ENV = rescope(byte_streamer, _ENV)
---  source = nil
---  offset = 0
+ -- source = nil
+ -- offset = 0
  -- source can be:
  --   integer: location in memory
  --   string: an ascii string
  --   table: a list of integers
- 
+
  function set_source(src, pos)
   source, offset = src, pos or 0
  end
- 
+
  function write(...)
   assert(source)
 
@@ -61,9 +61,26 @@ do
  function write_str(str)
   write(#str, ord(str, 1, #str))
  end
- 
+
  function read_str()
   return chr(read(read()))
+ end
+
+ function write_bin(bin_tbl)
+  local num = 0
+  for i = 0, 7 do
+   num += bin_tbl[i + 1] and 1 << i or 0
+  end
+  write(num)
+ end
+
+ function read_bin()
+  local num = read()
+  local ret = {}
+  for i = 0, 7 do
+   ret[i + 1] = num & 1 << i ~= 0
+  end
+  return ret
  end
 end
 
