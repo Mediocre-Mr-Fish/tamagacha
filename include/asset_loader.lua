@@ -19,9 +19,9 @@ do
   asset_alloc = sfx_allocation,
   lru_list = {},
   source_list = {
-   piao_piao = { file = "music/1.p8", y = 0, h = 3 },
-   china = { file = "music/1.p8", y = 3, h = 1 },
-   baka_mitai = { file = "music/1.p8", y = 4, h = 6 },
+   piao_piao = { file = "assets/tower.p8", y = 0, h = 3 },
+   china = { file = "assets/tower.p8", y = 3, h = 1 },
+   baka_mitai = { file = "assets/tower.p8", y = 4, h = 6 },
    binks_sake = { file = "music/main.p8", y = 0, h = 15 },
    jumping_machine = { file = "assets/home.p8", y = 0, h = 8 }
   }
@@ -46,8 +46,8 @@ do
   source_list = {
    house = { file = "assets/home.p8", x = 0, y = 0, w = 24, h = 16 },
    shelf = { file = "assets/home.p8", x = 24, y = 0, w = 3, h = 1 },
-   tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
-   tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
+   tower_segment = { file = "assets/tower.p8", x = 0, y = 0, w = 9, h = 5 },
+   tower_ground = { file = "assets/tower.p8", x = 2, y = 5, w = 16, h = 10 }
   }
  }
  spr_allocation.wrapper_alloc = map_allocation
