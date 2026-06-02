@@ -8,11 +8,19 @@ __lua__
 -- MARK: asset_loader
 #include includes/asset_loader.p8.lua
 
--- wrapper for playing music with respect to mute
-function play_music(key, force)
- if not settings.mute or not key then
-  asset_loader.play_music(key, force)
- end
+for i = 0, 3 do
+ asset_loader.sfx_allocation[i] = true
+end
+for i = 0, 63 do
+ asset_loader.spr_allocation[i] = true
+end
+for i = 64, 79 do
+ asset_loader.spr_allocation[i] = true
+ asset_loader.spr_allocation[i + 16] = true
+end
+for i = 96, 97 do
+ asset_loader.spr_allocation[i] = true
+ asset_loader.spr_allocation[i + 16] = true
 end
 
 -- MARK: byte_streamer
@@ -154,8 +162,14 @@ end
 
 -->8
 -- MARK: main loop
-local is_runtime
 #include includes/data.p8.lua
+
+-- wrapper for playing music with respect to mute
+function play_music(key, force)
+ if not settings.mute or not key then
+  asset_loader.play_music(key, force)
+ end
+end
 
 local stat_timers = {
  { last_check = time(), base_interval = 7, func = class__pet.change_happiness },
@@ -183,7 +197,6 @@ end
 local dt, t = 0, time()
 
 function _init()
- is_runtime = true
  load_data()
  switch_screen()
 end

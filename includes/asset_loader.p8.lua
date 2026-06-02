@@ -36,8 +36,9 @@ do
   addr = function(i)
    local sx, sy = grid_coords(0, 0, 4, 8, i + 1, 16)
    return sy * 64 + sx
-  end
+  end,
   -- permanently reserve sprites here
+  [0] = true
  }
  map_allocation = {
   type = "map",
@@ -53,21 +54,6 @@ do
   }
  }
  spr_allocation.wrapper_alloc = map_allocation
-
- for i = 0, 3 do
-  sfx_allocation[i] = true
- end
- for i = 0, 63 do
-  spr_allocation[i] = true
- end
- for i = 64, 79 do
-  spr_allocation[i] = true
-  spr_allocation[i + 16] = true
- end
- for i = 96, 97 do
-  spr_allocation[i] = true
-  spr_allocation[i + 16] = true
- end
 
  function allocate(tbl, key, length)
   local alloc

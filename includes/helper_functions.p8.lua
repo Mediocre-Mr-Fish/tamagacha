@@ -84,7 +84,7 @@ end
 
 -- a function to create pet classes
 function classfactory(static_vars, parent, class_list)
- assert(not is_runtime, "classfactory should not be called at runtime.")
+ -- assert(not is_runtime, "classfactory should not be called at runtime.")
 
  local class = parent and setmetatable(static_vars, parent) or static_vars
  class.__index = class
