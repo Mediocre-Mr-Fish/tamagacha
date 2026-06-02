@@ -1,199 +1,118 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
---[[jukebox.p8
-proof of concept for dynamic asset allocation
-assets are allocated to free space in the cart as needed
-when space is unavailable, the oldest loaded asset is unloaded
-crucially, this means the assets can at any index on the source cart
---[[]]
+#include includes/helper_functions.p8.lua
+#include includes/asset_loader.p8.lua
 
-#include _gallery.lua
+for _, value in ipairs({ 0, 1, 16, 17 }) do
+ asset_loader.spr_allocation[value] = true
+end
+for _, value in ipairs({ 0 }) do
+ asset_loader.sfx_allocation[value] = true
+end
 
-do
- asset_loader = {}
- local _ENV = rescope(asset_loader, _ENV)
-
- -- loaded_file = nil
-
- sfx_allocation = {
-  type = "sfx",
-  max_index = 63,
-  addr = function(i) return 0x3200 + i * 68 end
-  -- permanently reserve sounds here
- }
- music_allocation = {
-  type = "music",
-  max_index = 63,
-  addr = function(channel, pattern) return 0x3100 + pattern * 4 + channel end,
-  lru_list = {},
-  source_list = {},
-  asset_alloc = sfx_allocation
- }
- sfx_allocation.wrapper_alloc = music_allocation
-
- spr_allocation = {
-  type = "sprite",
-  max_index = 0xff,
-  addr = function(i)
-   local sx, sy = grid_coords(0, 0, 4, 8, i + 1, 16)
-   return sy * 64 + sx
-  end
-  -- permanently reserve sprites here
- }
- map_allocation = {
-  type = "map",
-  max_index = 0xfff,
-  addr = function(x, y) return 0x2000 + y * 128 + x end,
-  lru_list = {},
-  source_list = {},
-  asset_alloc = spr_allocation
- }
- spr_allocation.wrapper_alloc = map_allocation
-
- function allocate(tbl, key, length)
-  local alloc
-
-  for i = 0, tbl.max_index do
-   if tbl[i] then
-    -- reset if occupied
-    alloc = nil
-   else
-    -- set start index
-    alloc = alloc or i
-
-    -- check if requisite length
-    if i - alloc + 1 == length then
-     -- mark allocation
-     for a = alloc, i do
-      tbl[a] = key
-     end
-
-     return alloc
-    end
-   end
-  end
-
-  assert(free(tbl), tbl.type .. " out of space: " .. length)
-  return allocate(tbl, key, length)
+function capacity(alloc_tbl)
+ local ret = 0
+ for i = 0, alloc_tbl.max_index do
+  if alloc_tbl[i] then ret = ret + 1 end
  end
 
- function free(wrapper_table, key)
-  wrapper_table = wrapper_table.wrapper_alloc or wrapper_table
+ if (alloc_tbl.type == "music") then ret = ret / 4 end
+ return pad(ret, #tostring(alloc_tbl.max_index + 1)) .. "/" .. tostring(alloc_tbl.max_index + 1)
+end
 
-  local freed = false
+function is_loaded(alloc_tbl, key)
+ for entry in all(alloc_tbl.lru_list) do
+  if (entry == key) then return true end
+ end
+ return false
+end
 
-  key = del(wrapper_table.lru_list, key or wrapper_table.lru_list[1])
-  if (not key) return freed
-  if (current_music() == key) music(-1)
-  wrapper_table.source_list[key].allocation = nil
+function _init()
+ sound_mode = true
+ show_map = nil
+ select = 0
+ tracks = {}
+ maps = {}
 
-  for tbl in all({ wrapper_table, wrapper_table.asset_alloc }) do
-   for i = 0, tbl.max_index do
-    if tbl[i] == key then
-     tbl[i] = nil
-     freed = true
-    end
-   end
+ for key, _ in pairs(asset_loader.music_allocation.source_list) do
+  local i = 1
+  while i <= #tracks and tracks[i] < key do
+   i = i + 1
   end
-  return freed
+  add(tracks, key, i)
+ end
+ for key, _ in pairs(asset_loader.map_allocation.source_list) do
+  local i = 1
+  while i <= #maps and maps[i] < key do
+   i = i + 1
+  end
+  add(maps, key, i)
+ end
+end
+
+function _update()
+ if (btnp() ~= 0) then show_map = false end
+ if (btnp(0) ~= btnp(1)) then
+  sound_mode = not sound_mode
+  sfx(0)
+ end
+ if btnp(2) then
+  select = select - 1
+  sfx(0)
+ end
+ if btnp(3) then
+  select = select + 1
+  sfx(0)
+ end
+ select = select % (sound_mode and #tracks or #maps)
+ if (sound_mode and btnp(5)) then asset_loader.play_music(tracks[select + 1], true) end
+ if btnp(4) then asset_loader.play_music(nil) end
+ if (not sound_mode and btnp(5)) then show_map = maps[select + 1] end
+end
+
+function _draw()
+ cls()
+ if show_map then
+  asset_loader.draw_map(show_map, 0, 0)
+  return
  end
 
- function load_asset(wrapper_table, key)
-  -- enforce that source info exists
-  local info = assert(wrapper_table.source_list[key], key)
+ palt(11, true)
+ sspr(0, 0, 16, 16, 96, 96, 32, 32)
 
-  -- refresh least recently used list
-  if del(wrapper_table.lru_list, key) then
-   add(wrapper_table.lru_list, key)
-   return info
+ print_centered("gallery", 64, 0, 6)
+
+ print("music:" .. capacity(asset_loader.music_allocation), 0, 18)
+ print("sfx:  " .. capacity(asset_loader.sfx_allocation))
+ for i, t in ipairs(tracks) do
+  local color = 6
+  if asset_loader.current_music() == t then
+   color = 10
+  elseif is_loaded(asset_loader.music_allocation, t) then
+   color = 14
   end
-
-  local asset_table = wrapper_table.asset_alloc
-  local assigned = {}
-  local copy
-  if wrapper_table.type == "music" then
-   info.x = 0
-   info.w = 4
-   copy = function(byte)
-    -- check muted
-    if (byte & 0x40 ~= 0) return byte
-    -- check is duplicate
-    local src = byte & 0x3f
-    local dst = assigned[src]
-    if (dst) return byte & 0xc0 | dst
-    -- allocate data
-    dst = allocate(asset_table, key, 1)
-    assigned[src] = dst
-    memcpy(asset_table.addr(dst), 0x8000 + asset_table.addr(src), 68)
-    return byte & 0xc0 | dst
-   end
-  else
-   copy = function(byte)
-    -- check transparent
-    if (byte == 0) return byte
-    -- check is duplicate
-    local dst = assigned[byte]
-    if (dst) return dst
-    -- allocate data
-    dst = allocate(asset_table, key, 1)
-    assigned[byte] = dst
-    for i = 0, 7 do
-     memcpy(asset_table.addr(dst) + i * 64, 0x8000 + asset_table.addr(byte) + i * 64, 4)
-    end
-    return dst
-   end
-  end
-
-  -- find space to allocate
-  info.allocation = allocate(wrapper_table, key, info.w * info.h)
-
-  -- load the file if it isn't already
-  if loaded_file ~= info.file then
-   loaded_file = info.file
-   reload(0x8000, 0, 0x4300, loaded_file)
-  end
-
-  for celx = 0, info.w - 1 do
-   for cely = 0, info.h - 1 do
-    poke(
-     wrapper_table.addr(0, 0) + info.allocation + cely * info.w + celx,
-     copy(peek(0x8000 + wrapper_table.addr(info.x + celx, info.y + cely)))
-    )
-   end
-  end
-
-  add(wrapper_table.lru_list, key)
-  return info
+  print((sound_mode and i == select + 1 and "> " or "  ") .. t, color)
  end
 
- -- load music from a file
- function load_music(key) return load_asset(music_allocation, key) end
- function load_map(key) return load_asset(map_allocation, key) end
- -- return the key of the currently playing music or nil
- function current_music() return music_allocation[stat(54) * 4] end
-
- -- load music and play it
- function play_music(key, force)
-  if (not force and key == current_music()) return
-  if (not key) return music(-1)
-  music(load_music(key).allocation / 4)
+ print("map:  " .. capacity(asset_loader.map_allocation), 64, 18, 6)
+ print("sprite:" .. capacity(asset_loader.spr_allocation))
+ for i, m in ipairs(maps) do
+  local color = 6
+  if false then
+   color = 10
+  elseif is_loaded(asset_loader.map_allocation, m) then
+   color = 14
+  end
+  print((not sound_mode and i == select + 1 and "> " or "  ") .. m, color)
  end
 
- -- load map and draw it
- function draw_map(key, x, y, scale, flip_x, flip_y)
-  local function flip(val, top, bool)
-   return (bool and top - 1 - val or val) * 8 * (scale or 1)
-  end
-
-  local info = load_map(key)
-  for celx = 0, info.w - 1 do
-   for cely = 0, info.h - 1 do
-    local spr = peek(0x2000 + info.allocation + cely * info.w + celx)
-    if (spr ~= 0) spr_scaled(spr, x + flip(celx, info.w, flip_x), y + flip(cely, info.h, flip_y), scale, 1, 1, flip_x, flip_y)
-   end
-  end
- end
+ print(
+  "❎ "
+    .. (sound_mode and "play" or "show")
+    .. (asset_loader.current_music() and " 🅾️ stop" or ""),
+  0, 112, 6
+ )
 end
 
 __gfx__

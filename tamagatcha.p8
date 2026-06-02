@@ -1,358 +1,27 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
--- MARK: helper functions
+#include includes/helper_functions.p8.lua
+#include includes/asset_loader.p8.lua
+#include includes/byte_streamer.p8.lua
 
-function rescope(scope, env)
- return setmetatable(
-  {}, {
-   __index = function(_, k) return scope[k] or env[k] end,
-   __newindex = scope
-  }
- ), scope
+for i = 0, 3 do
+ asset_loader.sfx_allocation[i] = true
 end
-
-function mod(a, b)
- return (a - 1) % b + 1
+for i = 0, 63 do
+ asset_loader.spr_allocation[i] = true
 end
-
-function btnp_axis(neg, pos)
- if (btnp(neg) ~= btnp(pos)) return btnp(pos) and 1 or -1
- return 0
+for i = 64, 79 do
+ asset_loader.spr_allocation[i] = true
+ asset_loader.spr_allocation[i + 16] = true
 end
-
-function grid_coords(x1, y1, dx, dy, val, cols)
- return x1 + dx * ((val - 1) % cols), y1 + dy * ((val - 1) \ cols)
-end
-
-function grid_wrap(val, dx, dy, width, height)
- row = ((val - 1) \ width + dy) % height
- col = ((val - 1) % width + dx) % width
- return row * width + col + 1
-end
-
-function spr_scaled(n, x, y, scale, sw, sh, fh, fv)
- scale = scale or 1
- sw, sh = (sw or 1) * 8, (sh or 1) * 8
- sspr(n % 16 * 8, n \ 16 * 8, sw, sh, x, y, sw * scale, sh * scale, fh, fv)
-end
-
--- toggle a value bewteen two presets
-function toggle_val(val, target, fallback)
- return val == target and fallback or target
-end
-
-function accelerp(x0, v0, a, t)
- return x0 + v0 * t + a * t * t / 2
-end
-function lerp(a, b, t)
- return a + t * (b - a)
-end
-function rngf(a, b)
- return lerp(a, b, rnd())
-end
-
-function pad(str, len)
- str = tostring(str)
- while #str < (len or 2) do
-  str = " " .. str
- end
- return str
-end
-
--- encode a bool array as an integer
-function encode_bitfield(bool_array)
- local ret = 0
- for i in all(bool_array) do
-  ret = ret << 1
-  if (i) ret += 1
- end
- return ret
-end
--- decode an integer as a bool array
-function decode_bitfield(integer, length)
- local ret = {}
- for _ = 1, length do
-  add(ret, integer & 1 ~= 0, 1)
-  integer = integer >> 1
- end
- return ret
-end
-
-function print_centered(text, x, y, col)
- if (col) color(col)
- print(text, x - print(text, 0, -8) / 2, y)
-end
-
-function draw_triangle(x1, y1, x2, y2, x3, y3, col)
- if (col) color(col)
- line(x1, y1, x2, y2)
- line(x3, y3)
- line(x1, y1)
-end
-
----draw a rectangle with vectors
----@param pos1 vec2
----@param pos2 vec2
----@param col integer? if nil, use previous color
----@param fill boolean?
----@param as_dim boolean? if true, pos2 is relative to pos1
-function rect_vec(pos1, pos2, col, fill, as_dim)
- if (col) color(col)
- if (as_dim) pos2 += pos1
- (fill and rectfill or rect)(pos1.x, pos1.y, pos2.x, pos2.y)
-end
-
--->8
--- MARK: asset loader
-do
- asset_loader = {}
- local _ENV = rescope(asset_loader, _ENV)
-
- -- loaded_file = nil
-
- sfx_allocation = {
-  type = "sfx",
-  max_index = 63,
-  addr = function(i) return 0x3200 + i * 68 end
-  -- permanently reserve sounds here
- }
- music_allocation = {
-  type = "music",
-  max_index = 63,
-  addr = function(channel, pattern) return 0x3100 + pattern * 4 + channel end,
-  asset_alloc = sfx_allocation,
-  lru_list = {},
-  source_list = {
-   piao_piao = { file = "music/1.p8", y = 0, h = 3 },
-   china = { file = "music/1.p8", y = 3, h = 1 },
-   baka_mitai = { file = "music/1.p8", y = 4, h = 6 },
-   binks_sake = { file = "music/main.p8", y = 0, h = 15 },
-   jumping_machine = { file = "music/main2.p8", y = 0, h = 8 }
-  }
- }
- sfx_allocation.wrapper_alloc = music_allocation
-
- spr_allocation = {
-  type = "sprite",
-  max_index = 0xff,
-  addr = function(i)
-   local sx, sy = grid_coords(0, 0, 4, 8, i + 1, 16)
-   return sy * 64 + sx
-  end
-  -- permanently reserve sprites here
- }
- map_allocation = {
-  type = "map",
-  max_index = 0xfff,
-  addr = function(x, y) return 0x2000 + y * 128 + x end,
-  asset_alloc = spr_allocation,
-  lru_list = {},
-  source_list = {
-   house = { file = "maps/home.p8", x = 0, y = 0, w = 24, h = 16 },
-   shelf = { file = "maps/home.p8", x = 24, y = 0, w = 3, h = 1 },
-   tower_segment = { file = "maps/tower.p8", x = 0, y = 0, w = 9, h = 5 },
-   tower_ground = { file = "maps/tower.p8", x = 2, y = 5, w = 16, h = 10 }
-  }
- }
- spr_allocation.wrapper_alloc = map_allocation
-
- for i = 0, 3 do
-  sfx_allocation[i] = true
- end
- for i = 0, 63 do
-  spr_allocation[i] = true
- end
- for i = 64, 79 do
-  spr_allocation[i] = true
-  spr_allocation[i + 16] = true
- end
- for i = 96, 97 do
-  spr_allocation[i] = true
-  spr_allocation[i + 16] = true
- end
-
- function allocate(tbl, key, length)
-  local alloc
-
-  for i = 0, tbl.max_index do
-   if tbl[i] then
-    -- reset if occupied
-    alloc = nil
-   else
-    -- set start index
-    alloc = alloc or i
-
-    -- check if requisite length
-    if i - alloc + 1 == length then
-     -- mark allocation
-     for a = alloc, i do
-      tbl[a] = key
-     end
-
-     return alloc
-    end
-   end
-  end
-
-  assert(free(tbl), tbl.type .. " out of space: " .. length)
-  return allocate(tbl, key, length)
- end
-
- function free(wrapper_table, key)
-  wrapper_table = wrapper_table.wrapper_alloc or wrapper_table
-
-  local freed = false
-
-  key = del(wrapper_table.lru_list, key or wrapper_table.lru_list[1])
-  if (not key) return freed
-  if (current_music() == key) music(-1)
-  wrapper_table.source_list[key].allocation = nil
-
-  for tbl in all({ wrapper_table, wrapper_table.asset_alloc }) do
-   for i = 0, tbl.max_index do
-    if tbl[i] == key then
-     tbl[i] = nil
-     freed = true
-    end
-   end
-  end
-  return freed
- end
-
- function load_asset(wrapper_table, key)
-  -- enforce that source info exists
-  local info = assert(wrapper_table.source_list[key], key)
-
-  -- refresh least recently used list
-  if del(wrapper_table.lru_list, key) then
-   add(wrapper_table.lru_list, key)
-   return info
-  end
-
-  local asset_table = wrapper_table.asset_alloc
-  local assigned = {}
-  local copy
-  if wrapper_table.type == "music" then
-   info.x = 0
-   info.w = 4
-   copy = function(byte)
-    -- check muted
-    if (byte & 0x40 ~= 0) return byte
-    -- check is duplicate
-    local src = byte & 0x3f
-    local dst = assigned[src]
-    if (dst) return byte & 0xc0 | dst
-    -- allocate data
-    dst = allocate(asset_table, key, 1)
-    assigned[src] = dst
-    memcpy(asset_table.addr(dst), 0x8000 + asset_table.addr(src), 68)
-    return byte & 0xc0 | dst
-   end
-  else
-   copy = function(byte)
-    -- check transparent
-    if (byte == 0) return byte
-    -- check is duplicate
-    local dst = assigned[byte]
-    if (dst) return dst
-    -- allocate data
-    dst = allocate(asset_table, key, 1)
-    assigned[byte] = dst
-    for i = 0, 7 do
-     memcpy(asset_table.addr(dst) + i * 64, 0x8000 + asset_table.addr(byte) + i * 64, 4)
-    end
-    return dst
-   end
-  end
-
-  -- find space to allocate
-  info.allocation = allocate(wrapper_table, key, info.w * info.h)
-
-  -- load the file if it isn't already
-  if loaded_file ~= info.file then
-   loaded_file = info.file
-   reload(0x8000, 0, 0x4300, loaded_file)
-  end
-
-  for celx = 0, info.w - 1 do
-   for cely = 0, info.h - 1 do
-    poke(
-     wrapper_table.addr(0, 0) + info.allocation + cely * info.w + celx,
-     copy(peek(0x8000 + wrapper_table.addr(info.x + celx, info.y + cely)))
-    )
-   end
-  end
-
-  add(wrapper_table.lru_list, key)
-  return info
- end
-
- -- load music from a file
- function load_music(key) return load_asset(music_allocation, key) end
- function load_map(key) return load_asset(map_allocation, key) end
- -- return the key of the currently playing music or nil
- function current_music() return music_allocation[stat(54) * 4] end
-
- -- load music and play it
- function play_music(key, force)
-  if (not force and key == current_music()) return
-  if (not key) return music(-1)
-  if (settings.mute) return
-  music(load_music(key).allocation / 4)
- end
-
- -- load map and draw it
- function draw_map(key, x, y, scale, flip_x, flip_y)
-  local function flip(val, top, bool)
-   return (bool and top - 1 - val or val) * 8 * (scale or 1)
-  end
-
-  local info = load_map(key)
-  for celx = 0, info.w - 1 do
-   for cely = 0, info.h - 1 do
-    local spr = peek(0x2000 + info.allocation + cely * info.w + celx)
-    if (spr ~= 0) spr_scaled(spr, x + flip(celx, info.w, flip_x), y + flip(cely, info.h, flip_y), scale, 1, 1, flip_x, flip_y)
-   end
-  end
- end
+for i = 96, 97 do
+ asset_loader.spr_allocation[i] = true
+ asset_loader.spr_allocation[i + 16] = true
 end
 
 -->8
 -- MARK: structs
-
--- a function to create pet classes
-function classfactory(static_vars, parent, class_list)
- assert(not is_runtime, "classfactory should not be called at runtime.")
-
- local class = parent and setmetatable(static_vars, parent) or static_vars
- class.__index = class
- if class_list then
-  add(class_list, class)
- end
- -- blank new() function
- -- override if instance variables are needed
- class.new = function()
-  return setmetatable(parent and parent.new() or {}, class)
- end
-
- return class
-end
-
--- function to check of an object the specifed class or a subclass of it
-function is_instance(object, class)
- if object == class then return true end
- local metatable = getmetatable(object)
-
- -- follow the metatable heirarcy
- -- assumes there are no inheritance loops
- while metatable do
-  if metatable == class then return true end
-  metatable = getmetatable(metatable)
- end
-
- return false
-end
 
 anim_timeline = classfactory({})
 function anim_timeline.new(durations)
@@ -376,25 +45,6 @@ end
 function anim_timeline:get()
  return self.step, self.t0 and time() - self.t0 or 0
 end
-
-vec2 = classfactory({})
-function vec2.new(x, y) return setmetatable({ x = x, y = y or x }, vec2) end
-function vec2.rng(x0, y0, x1, y1) return vec2.new(rngf(x0, x1 or x0), rngf(y0 or x0, y1 or y0 or x0)) end
-function vec2.setfrom(v, a) v.x, v.y = a.x, a.y return self end
-function vec2.unpack(v) return v.x, v.y end
-function vec2.length2(v) return v.x * v.x + v.y * v.y end
-function vec2.to_cartesian(v) return vec2.new(v.x * cos(v.y), v.x * sin(v.y)) end
-function vec2.__add(a, b) return vec2.new(a.x + b.x, a.y + b.y) end
-function vec2.__sub(a, b) return vec2.new(a.x - b.x, a.y - b.y) end
-function vec2.__mul(a, b) if type(a) == "number" then a, b = b, a end return vec2.new(a.x * b, a.y * b) end
-function vec2.__div(a, b) return vec2.new(a.x / b, a.y / b) end
-function vec2.__unm(a) return vec2.new(-a.x, -a.y) end
-function vec2.__eq(a, b) return a.x == b.x and a.y == b.y end
-function vec2.__tostring(v) return "(" .. v.x .. "," .. v.y .. ")" end
-vec2_0 = vec2.new(0)
-vec2_1 = vec2.new(1)
-vec2_8 = vec2.new(8)
-vec2_9 = vec2.new(9)
 
 particle = classfactory({})
 function particle:new() return setmetatable({ pos = vec2.new(0), vel = vec2.new(0), acc = vec2.new(0) }, particle) end
@@ -451,161 +101,24 @@ for loot_table in all(loot_tables) do
 end
 
 -- MARK: pet
+#include includes/class__pet.p8.lua
 
-class__pet = classfactory({
- name = "default",
- immortal = false,
- sprite = 0,
- sprite_width = 2,
- sprite_height = 2,
- transparent = 11, --lime
- color_variants = {},
- rarity = 3, -- rare
- meat = 3,
- bone = 2
-})
-function class__pet.new()
- local self = setmetatable({}, class__pet)
- self.hunger = 15
- self.happiness = 15
- self.color_variant = 0
- self.effects = {
-  hunger_prot = 0,
-  happiness_prot = 0,
-  hunger_2x = 0,
-  happiness_2x = 0
- }
- return self
-end
+-- this shuts up the linter
+ls = ls
 
-all_pets = {}
-num_pet_types = 0xff
-function classfactory__pet(static_vars, parent)
- static_vars.id = #all_pets + 1
- assert(static_vars.id <= num_pet_types, "too many pet types!")
- return classfactory(static_vars, parent or class__pet, all_pets)
-end
+for i, file in pairs(ls("pets/")) do
+ local id = tonum(sub(file, 1, -4))
 
--- set the color variant
--- set 0 for default variant, set nil for random
-function class__pet:set_color(int_or_nil)
- self.color_variant = int_or_nil or flr(rnd(#self.color_variants + 1))
- return self
-end
-
--- set the pet-specific palette
--- make sure to reset afterwards
-function class__pet:pal(obscured)
- pal()
-
- if obscured then
-  for i = 0, 15 do
-   pal(i, 5)
-  end
- else
-  if self.color_variant ~= 0 then
-   pal(self.color_variants[self.color_variant])
-  end
+ if id > 0 and id <= 0xff then
+  class__pet.create_prefab(id, "pets/" .. file)
  end
-
- palt(0, false)
- palt(self.transparent, true)
 end
-
--- draw the pet's sprite
-function class__pet:spr_scaled(x, y, scale, no_pal, flip_x, flip_y)
- if not no_pal then self:pal() end
-
- if not scale or scale == 1 then
-  spr(self.sprite, x, y, self.sprite_width, self.sprite_height, flip_x, flip_y)
- else
-  spr_scaled(self.sprite, x, y, scale, self.sprite_width, self.sprite_height, flip_x, flip_y)
- end
-
- pal()
-end
-
-function class__pet:change_hunger(delta)
- self.hunger = mid(self.hunger + delta, 0, 0xf)
- return self
-end
-function class__pet:change_happiness(delta)
- self.happiness = mid(self.happiness + delta, 0, 0xf)
- return self
-end
-function class__pet:update_effects(dt)
- for key, time in pairs(self.effects) do
-  self.effects[key] = mid(time - dt, 0, 0xff)
- end
- return self
-end
-
-function class__pet:is_dead()
- return not self.immortal and self.hunger == 0 and self.happiness == 0
-end
-
-classfactory__pet({
- name = "arb duck",
- sprite = 64,
- rarity = 2,
- color_variants = {
-  { [3] = 4, [4] = 15 }
- }
-})
-classfactory__pet({
- name = "cheeto",
- sprite = 66,
- rarity = 5,
- immortal = true
-})
-classfactory__pet({
- name = "yoomimmick",
- sprite = 68,
- rarity = 4
-})
-classfactory__pet({
- name = "squirrel",
- sprite = 70,
- rarity = 2,
- color_variants = {
-  { [6] = 9, [5] = 4 }
- }
-})
-classfactory__pet({
- name = "turkey",
- sprite = 72,
- rarity = 2
-})
-classfactory__pet({
- name = "owl",
- sprite = 74,
- rarity = 3
-})
-classfactory__pet({
- name = "horse",
- sprite = 76,
- rarity = 4,
- color_variants = {
-  { [4] = 5, [5] = 4, [1] = 0 },
-  { [4] = 6, [6] = 7, [1] = 5 }
- }
-})
-classfactory__pet({
- name = "cow",
- sprite = 78,
- rarity = 3
-})
-classfactory__pet({
- name = "shoop",
- sprite = 96,
- rarity = 2
-})
 
 -- map integer pet.id to bool
-local discovered_pets = {}
-for i = 1, num_pet_types do
+-- local discovered_pets = {}
+for i = 1, 0xff do
  local pet = all_pets[i]
- discovered_pets[i] = false
+ -- discovered_pets[i] = false
  if pet then
   add(loot_tables[pet.rarity].pool, pet)
  end
@@ -618,7 +131,7 @@ all_items = {
  { sprite = 34, rarity = 2, name = "meatball", func = function(pet) pet.effects.hunger_2x = 60 end },
  {
   sprite = 35, rarity = 3, name = "rice", func = function()
-   asset_loader.play_music("china")
+   play_music("china", true)
   end
  },
  { sprite = 36, rarity = 2, name = "drumstick", func = function(pet) pet.effects.hunger_prot = 60 end },
@@ -629,34 +142,27 @@ all_items = {
  }
 }
 
-for i, item in ipairs(all_items) do
- item.id = i
- item.count = 0
- add(loot_tables[item.rarity].pool, item)
-end
-
-max_item_stack = 0xff
-function change_item_count(id, delta)
- local item = all_items[id]
- if (item) item.count = mid(item.count + delta, 0, max_item_stack)
-end
-
-max_pets = 16
-
 -->8
 -- MARK: main loop
-local is_runtime
-local gacha_tickets = 3
-local food = 5
-local bones = 0
-
-local current_pet = 1
-local pets = {}
-function pets:add(pet)
- add(self, pet)
- discovered_pets[pet.id] = true
-end
+#include includes/data.p8.lua
 pets:add(all_pets[1].new():set_color())
+
+for i, item in ipairs(all_items) do
+ item.id = i
+ add(loot_tables[item.rarity].pool, item)
+ function item.count(delta)
+  local count = inventory[i]
+  if (count) inventory[i] = mid(count + (delta or 0), 0, 0xff)
+  return inventory[i]
+ end
+end
+
+-- wrapper for playing music with respect to mute
+function play_music(key, force)
+ if not settings.mute or not key then
+  asset_loader.play_music(key, force)
+ end
+end
 
 local stat_timers = {
  { last_check = time(), base_interval = 7, func = class__pet.change_happiness },
@@ -681,28 +187,15 @@ function bone_censor()
  return 55, "rocks"
 end
 
-local t = time()
-local dt = 0
+local dt, t = 0, time()
+
 function _init()
- is_runtime = true
-
- settings = {
-  --optional turn sound off
-  mute = false,
-  --optionally reveal the blender heh
-  grim = false
- }
-
- --progress of minigames
- grim_progress = 0
-
  load_data()
  switch_screen()
 end
 
 function _update()
- dt = time() - t
- t = time()
+ dt, t = time() - t, time()
 
  for pet in all(pets) do
   pet:update_effects(dt)
@@ -716,105 +209,13 @@ function _update()
    end
   end
  end
+
  screen:update()
 end
 
 function _draw()
  cls()
  screen:draw()
-end
-
--- MARK: save data
-
-function load_data()
- -- MARK: DEMO
- -- if true then return false end
- -- username_title_version
- if not cartdata("real-fancy-fire_tama-gatcha_1-4") then
-  return false
- end
-
- local addr = 0x5e00
-
- -- user data
- settings.mute, settings.grim = unpack(decode_bitfield(peek(addr), 8))
- addr += 1
-
- -- discovered pets
- local a, b = peek(addr, 2)
- discovered_pets = decode_bitfield(a << 8 | b, num_pet_types)
- addr += 2
-
- -- currencies
- gacha_tickets, food, bones = peek(addr, 3)
- addr += 3
-
- -- items
- for item in all(all_items) do
-  item.count = peek(addr)
-  addr += 1
- end
-
- -- pets
- for i = 1, max_pets do
-  local class, color_variant, stats = peek(addr, 3)
-  class = all_pets[class]
-  -- nil or pet instance
-  local pet = class and class.new()
-  if pet then
-   pet.color_variant = color_variant
-   pet.hunger = stats \ 0xf
-   pet.happiness = stats & 0xf
-  end
-  pets[i] = pet
-  addr += 3
- end
-
- printh("data loaded")
- return true
-end
-
-function save_data()
- local addr = 0x5e00
-
- -- user settings
- poke(
-  addr, encode_bitfield({
-   settings.mute, settings.grim, false, false,
-   false, false, false, false
-  })
- )
- addr += 1
-
- -- discovered pets
- local bits = encode_bitfield(discovered_pets)
- poke(addr, bits >> 8, bits & 0xff)
- addr += 2
-
- -- currencies
- poke(addr, gacha_tickets, food, bones)
- addr += 3
-
- -- items
- for item in all(all_items) do
-  poke(addr, item.count)
-  addr += 1
- end
-
- -- pets
- for i = 1, max_pets do
-  local pet = pets[i]
-
-  if pet then
-   poke(addr, pet.id, pet.color_variant, pet.hunger << 4 | pet.happiness)
-  else
-   poke(addr, 0, 0, 0)
-  end
-
-  addr += 3
- end
-
- printh("data saved")
 end
 
 -->8
@@ -890,7 +291,7 @@ do
  function update()
   current_pet = mid(current_pet, 1, #pets)
   local pet = pets[current_pet]
-  if (pet) asset_loader.play_music("jumping_machine")
+  if (pet) play_music("jumping_machine")
   local sel, icon = update_sel(scn)
   glide(scn)
 
@@ -947,7 +348,7 @@ do
      pal()
     end
    else
-    pet:spr_scaled(32, 32, 4, false, shift > 0)
+    pet:spr_scaled("hd", 32, 32, 2, false, shift > 0)
    end
 
    -- draw stats
@@ -1075,7 +476,7 @@ do
    -- assumes settings are boolean
    settings[key] = not settings[key]
    if settings.mute then
-    asset_loader.play_music()
+    play_music()
    end
   end
  end
@@ -1135,9 +536,8 @@ do
   if btnp(🅾️) then
    switch_screen()
   elseif btnp(❎) then
-   if item.count > 0 then
-    -- change_item_count not needed here
-    item.count -= 1
+   if item.count() > 0 then
+    item.count(-1)
     item.func(pets[current_pet], pets)
    else
     sfx(0)
@@ -1146,7 +546,7 @@ do
  end
  function draw()
   for i, item in ipairs(selectables) do
-   local amount = item.count
+   local amount = item.count()
    local sx, sy = grid_vec(scn, i):unpack()
 
    spr_scaled(item.sprite, sx, sy, 3)
@@ -1182,13 +582,13 @@ do
    local sx, sy = scn:grid_vec(i):unpack()
    local name = pet_cls.name
 
-   if discovered_pets[pet_cls.id] then
-    pet_cls:spr_scaled(sx, sy, 1)
-   else
-    pet_cls:pal(true)
-    pet_cls:spr_scaled(sx, sy, 1, true)
-    name = "???"
-   end
+   -- if discovered_pets[pet_cls.id] then
+   --  pet_cls:spr_scaled(sx, sy, 1)
+   -- else
+   --  pet_cls:pal(true)
+   --  pet_cls:spr_scaled(sx, sy, 1, true)
+   --  name = "???"
+   -- end
 
    if i == selection then
     print_centered(name, 64, 100, 7)
@@ -1218,7 +618,7 @@ do
   end
 
   pet = nil
-  asset_loader.play_music()
+  play_music()
   asset_loader.load_music("baka_mitai")
  end
  function decide(pet)
@@ -1255,7 +655,7 @@ do
    line(x + 2, 48 + i, x + 22, 68 + i, 4)
   end
 
-  pet:spr_scaled(x, 44, 2, false, true, false)
+  pet:spr_scaled("thumbnail", x, 44, 2, false, true, false)
   if t > 4 then
    asset_loader.play_music("baka_mitai")
    print("you received: " .. (pet.meat * 4) .. "   " .. pad(pet.bone), 16, 70, 6)
@@ -1318,7 +718,7 @@ do
    end
 
    if step == 6 then
-    asset_loader.play_music("baka_mitai")
+    play_music("baka_mitai")
    elseif step == 7 then
     if btnp(🅾️) then
      switch_screen()
@@ -1337,7 +737,7 @@ do
    spr_scaled(62, 96, 20, 1, 2, 1)
    local x, y = 48, 50
    if step == 2 then x, y = accelerp(48, 50, -25, t), accelerp(50, -50, 200, t) end
-   pet:spr_scaled(x, y, 1, false, true, false)
+   pet:spr_scaled("thumbnail", x, y, 1, false, true, false)
    palt(0x0010)
    draw_map("tower_segment", 0, 62)
    draw_map("tower_segment", 0, 102)
@@ -1349,6 +749,7 @@ do
     draw_map("tower_segment", 0, i * 40 - (t * 240) % 40)
    end
    pet:spr_scaled(
+    "thumbnail",
     88,
     accelerp(32, 32, 0, t),
     1, false, true, false
@@ -1356,7 +757,7 @@ do
   elseif step >= 4 then
    if step == 4 then
     y4 = accelerp(-128, 256 * 4, 0, t)
-    pet:spr_scaled(80, y4, 1, false, true, false)
+    pet:spr_scaled("thumbnail", 80, y4, 1, false, true, false)
    end
 
    palt(0x0010)
@@ -1421,7 +822,7 @@ do
 
   if step == 1 then
    clip(0, 0, 128, 52)
-   pet:spr_scaled(56, accelerp(-16, 20, 100, t))
+   pet:spr_scaled("thumbnail", 56, accelerp(-16, 20, 100, t))
    clip()
   elseif step >= 2 then
    draw_particles()
@@ -1498,7 +899,7 @@ do
   end
 
   if step == 3 and t > 5 then
-   asset_loader.play_music("baka_mitai")
+   play_music("baka_mitai")
    if btnp(🅾️) then
     switch_screen()
    end
@@ -1508,17 +909,17 @@ do
   local step, t = timeline:get()
 
   if step == 1 then
-   pet:spr_scaled(64, 56)
+   pet:spr_scaled("thumbnail", 64, 56)
    spr(51, accelerp(-8, 64, -32, t), 64)
   elseif step == 2 then
-   pet:spr_scaled(64, 56)
+   pet:spr_scaled("thumbnail", 64, 56)
    spr(51, 56, 64)
   elseif step == 3 then
    if explodes then
     draw_particles()
    else
     spr(51, 56, 64)
-    pet:spr_scaled(accelerp(64, 32, 0, t), 56, 1, nil, true)
+    pet:spr_scaled("thumbnail", accelerp(64, 32, 0, t), 56, 1, nil, true)
    end
    if t > 3 then
     print_centered(pet.name .. " did not like that.", 64, 80, 7)
@@ -1784,7 +1185,7 @@ do
  function draw_prize(prize, x, y, size, open)
   local is_pet = is_instance(prize, class__pet)
   if is_pet and open then
-   prize:spr_scaled(x, y, size / 2)
+   prize:spr_scaled("thumbnail", x, y, size / 2)
    return
   end
 
@@ -1809,7 +1210,7 @@ do
   if is_instance(prize, class__pet) then
    pets:add(prize)
   else
-   change_item_count(prize.id, 1)
+   prize.count(1)
   end
  end
  function discard_prize(prize)
@@ -1939,7 +1340,7 @@ do
   happiness = 15
  }
  function init()
-  asset_loader.play_music("binks_sake")
+  play_music("binks_sake")
   fish_x = 50
   --ui ranges from 20 to 108
 
@@ -2016,7 +1417,7 @@ do
   rectfill(0, 60, 128, 80, 1)
 
   --pet + fishing pole
-  pets[current_pet]:spr_scaled(3, 25, 1, false, true, false)
+  pets[current_pet]:spr_scaled("thumbnail", 3, 25, 1, false, true, false)
   line(13, 36, 28, 23, 4)
 
   --fish
