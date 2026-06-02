@@ -1,7 +1,6 @@
----@diagnostic disable
+asset_loader = {}
 
 do
- asset_loader = {}
  local _ENV = rescope(asset_loader, _ENV)
 
  -- loaded_file = nil
