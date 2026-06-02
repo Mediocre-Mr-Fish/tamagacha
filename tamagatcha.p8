@@ -423,29 +423,33 @@ do
   local _, game = update_sel(scn)
   glide(scn)
 
+  -- MARK: ToDo: whatever this is
+  local game4 = selectables[4]
+  if settings.grim then
+   -- game4.name = grim_progress .. "/3"
+   game4.name = "secret"
+   game4.key = "secret"
+   game4.col = nil
+  else
+   game4.name = "tbd"
+   game4.key = nil
+   game4.col = 5
+  end
+
   if btnp(🅾️) then
    switch_screen()
   elseif btnp(❎) then
-   load("minigames/" .. game.key .. ".p8", "exit", game.key)
+   if game.key then
+    load("minigames/" .. game.key .. ".p8", "exit", game.key)
+   end
   end
  end
  function screens.game_select:draw()
   fillp(█)
   for i, game in ipairs(selectables) do
    local x, y = grid_vec(scn, i):unpack()
-   local col = 3
 
-   -- MARK: ToDo: whatever this is
-   if i == 4 then
-    if settings.grim then
-     game.name = grim_progress .. "/3"
-    else
-     game.name = "tbd"
-     col = 5
-    end
-   end
-
-   draw_panel(game.name, x, y, 52, 52, col)
+   draw_panel(game.name, x, y, 52, 52, game.col or 3)
   end
   rect_vec(sel_glider, vec2.new(52), 10, false, true)
  end
