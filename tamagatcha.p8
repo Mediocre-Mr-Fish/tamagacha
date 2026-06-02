@@ -21,39 +21,6 @@ end
 -->8
 -- MARK: structs
 
--- a function to create pet classes
-function classfactory(static_vars, parent, class_list)
- assert(not is_runtime, "classfactory should not be called at runtime.")
-
- local class = parent and setmetatable(static_vars, parent) or static_vars
- class.__index = class
- if class_list then
-  add(class_list, class)
- end
- -- blank new() function
- -- override if instance variables are needed
- class.new = function()
-  return setmetatable(parent and parent.new() or {}, class)
- end
-
- return class
-end
-
--- function to check of an object the specifed class or a subclass of it
-function is_instance(object, class)
- if object == class then return true end
- local metatable = getmetatable(object)
-
- -- follow the metatable heirarcy
- -- assumes there are no inheritance loops
- while metatable do
-  if metatable == class then return true end
-  metatable = getmetatable(metatable)
- end
-
- return false
-end
-
 anim_timeline = classfactory({})
 function anim_timeline.new(durations)
  return setmetatable({ durations = durations, step = 0 }, anim_timeline)
@@ -76,25 +43,6 @@ end
 function anim_timeline:get()
  return self.step, self.t0 and time() - self.t0 or 0
 end
-
-vec2 = classfactory({})
-function vec2.new(x, y) return setmetatable({ x = x, y = y or x }, vec2) end
-function vec2.rng(x0, y0, x1, y1) return vec2.new(rngf(x0, x1 or x0), rngf(y0 or x0, y1 or y0 or x0)) end
-function vec2.setfrom(v, a) v.x, v.y = a.x, a.y return self end
-function vec2.unpack(v) return v.x, v.y end
-function vec2.length2(v) return v.x * v.x + v.y * v.y end
-function vec2.to_cartesian(v) return vec2.new(v.x * cos(v.y), v.x * sin(v.y)) end
-function vec2.__add(a, b) return vec2.new(a.x + b.x, a.y + b.y) end
-function vec2.__sub(a, b) return vec2.new(a.x - b.x, a.y - b.y) end
-function vec2.__mul(a, b) if type(a) == "number" then a, b = b, a end return vec2.new(a.x * b, a.y * b) end
-function vec2.__div(a, b) return vec2.new(a.x / b, a.y / b) end
-function vec2.__unm(a) return vec2.new(-a.x, -a.y) end
-function vec2.__eq(a, b) return a.x == b.x and a.y == b.y end
-function vec2.__tostring(v) return "(" .. v.x .. "," .. v.y .. ")" end
-vec2_0 = vec2.new(0)
-vec2_1 = vec2.new(1)
-vec2_8 = vec2.new(8)
-vec2_9 = vec2.new(9)
 
 particle = classfactory({})
 function particle:new() return setmetatable({ pos = vec2.new(0), vel = vec2.new(0), acc = vec2.new(0) }, particle) end
