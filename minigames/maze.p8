@@ -26,111 +26,79 @@ function play_music(key, force)
  end
 end
 
+for x = 0, 7 do
+ for y = 0, 3 do
+  asset_loader.spr_allocation[y * 16 + x] = true
+ end
+end
+for x = 0, 40 do
+ for y = 0, 22 do
+  asset_loader.map_allocation[y * 128 + x] = true
+ end
+end
 -->8
 
-win = false
+function get_tile(x, y)
+ local overlay_tile = mget(x \ 8, y \ 8)
+ if overlay_tile ~= 0 then
+  return overlay_tile
+ end
+ return mget(x \ 8 + map_x, y \ 8 + map_y)
+end
+
+-->8
+
 function _init()
  load_data()
- play_music("binks_sake")
- fish_x = 50
- --ui ranges from 20 to 108
-
- escape_ui_x = 64
- new_esc_ui_x = 64
-
- user_ui_x = 21
-
- last⧗ = time()
- fish⧗ = time()
+ --max is 12,10
+ map_x = flr(rnd(6)) * 2 + 15
+ map_y = flr(rnd(5)) * 2 - 2
+ char_x = 16
+ char_y = 8
+ tick⧗ = time()
+ temp_visuals = nil
 end
+
 function _update()
- if fish_x > 130 then
-  --leave loss
-  if time() - last⧗ > 3 then
-   win = false
+ local change_x = char_x
+ local change_y = char_y
+ --moving
+ if tick⧗ + 0.3 < time() then
+  if not (btnp_axis(⬅️, ➡️) == 0 and btnp_axis(⬆️, ⬇️) == 0) then
+   tick⧗ = time()
+  end
+  change_x = btnp_axis(⬅️, ➡️) * 8
+  change_y = btnp_axis(⬆️, ⬇️) * 8
+  if get_tile(char_x + change_x, char_y + change_y) == 6 then
+   temp_visuals = { change_x \ 4, change_y \ 4 }
+   --sfx() for bumping into wall
+   return
+  end
+  --sfx() for moving
+  char_x += change_x
+  char_y += change_y
+
+  if (char_x + char_y >= 210) then
    _end()
   end
-  return
- elseif fish_x < 30 then
-  --leave win
-  if time() - last⧗ > 3 then
-   win = true
-   _end()
-  end
-  return
- end
-
- if time() - last⧗ > 0.3 then
-  if fish_x > 80 then
-   fish_x += 5
-  elseif user_ui_x > escape_ui_x and escape_ui_x + 10 > user_ui_x then
-   fish_x -= 3
-  else
-   fish_x += 1
-  end
-
-  last⧗ = time()
- end
-
- --escape ui width == 20
- --ranges from 20 to 78
- if time() - fish⧗ > 2 then
-  new_esc_ui_x = flr(rnd(1) * 58) + 20
-  fish⧗ = time()
- end
- --move the fish_ui to new_esc_ui_x
- escape_ui_x += (new_esc_ui_x - escape_ui_x) * 0.1
- if btn(❎) then
-  user_ui_x = min(user_ui_x + 3, 98)
- else
-  user_ui_x = max(user_ui_x - 3, 21)
  end
 end
 
 function _draw()
  cls()
- if fish_x > 130 then
-  --lose
-  print_centered("you lost the fish", 63, 60, 7)
-  return
- elseif fish_x < 30 then
-  --win
-  print_centered("you got the fish!", 63, 60, 7)
-  print_centered("+3 food", 63, 68, 4)
-  print_centered("+1 ticket", 63, 76, 9)
-  return
+ map(map_x, map_y)
+ map(0)
+ if temp_visuals then
+  spr(22, char_x + temp_visuals[1], char_y + temp_visuals[2])
+  temp_visuals = nil
+ else
+  spr(22, char_x, char_y)
  end
-
- print_centered("press ❎ to move hook", 63, 104, 7)
- print_centered("keep hook in blue zone", 63, 112, 7)
- fillp(█)
- rectfill(20, 40, 0, 60, 5)
- rectfill(0, 60, 128, 80, 1)
-
- --pet + fishing pole
- pets[current_pet]:spr_scaled("thumbnail", 3, 25, 1, false, true, false)
- line(13, 36, 28, 23, 4)
-
- --fish
- rectfill(fish_x, 69, fish_x + 6, 71, 12)
- --fish ui
- rectfill(escape_ui_x, 91, escape_ui_x + 25, 99)
-
- --fishing line
- line(min(fish_x, 80), 69, 6)
-
- --line ui
- rectfill(user_ui_x, 91, user_ui_x + 10, 99)
- --ui box
- rect(20, 90, 108, 100, 7)
 end
 
 function _end()
- if win then
-  pets[current_pet]:change_happiness(15)
-  gacha_tickets = min(gacha_tickets + 1, 0xff)
-  food = min(food + 3, 0xff)
- end
+ pets[current_pet]:change_happiness(15)
+ gacha_tickets = min(gacha_tickets + 3, 0xff)
  save_data()
  extcmd("breadcrumb")
 end

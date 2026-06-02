@@ -413,7 +413,7 @@ do
   x = 8, y = 8, dx = 60, dy = 60, w = 2, h = 2,
   selectables = {
    { name = "math", key = "math" },
-   { name = "maze", key = nil },
+   { name = "maze", key = "maze" },
    { name = "fishing", key = "fishing" },
    { name = "you shouldn't see this", key = nil }
   }
