@@ -105,7 +105,9 @@ do
 
  function load_file(file)
   file = root .. file
-  loaded_file = (loaded_file == file or reload(0x8000, 0, 0x4300, file) > 0) and file
+  loaded_file = (loaded_file == file
+     or reload(0x8000, 0, 0x4300, file) > 0
+     or reload(0x8000, 0, 0x4300, file .. ".png") > 0) and file
   return loaded_file
  end
 

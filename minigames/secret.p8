@@ -6,17 +6,6 @@ root = "../"
 #include ../includes/asset_loader.p8.lua
 #include ../includes/byte_streamer.p8.lua
 #include ../includes/class__pet.p8.lua
-
--- this shuts up the linter
-ls = ls
-for i, file in pairs(ls("pets/")) do
- local id = tonum(sub(file, 1, -4))
-
- if id > 0 and id <= 0xff then
-  class__pet.create_prefab(id, "pets/" .. file)
- end
-end
-
 #include ../includes/data.p8.lua
 
 -- wrapper for playing music with respect to mute

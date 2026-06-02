@@ -110,3 +110,15 @@ function class__pet.create_prefab(id, file)
 
  all_pets[id] = classfactory(pet, class__pet)
 end
+
+-- ls doesn't work in html, so we use a default list
+-- this variable is called ls to shut up the linter
+local ls = ls("pets/") or { "001.p8", "002.p8", "003.p8" }
+
+for i, file in pairs(ls) do
+ local id = tonum(sub(file, 1, -4))
+
+ if id > 0 and id <= 0xff then
+  class__pet.create_prefab(id, "pets/" .. file)
+ end
+end

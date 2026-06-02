@@ -103,17 +103,6 @@ end
 -- MARK: pet
 #include includes/class__pet.p8.lua
 
--- this shuts up the linter
-ls = ls
-
-for i, file in pairs(ls("pets/")) do
- local id = tonum(sub(file, 1, -4))
-
- if id > 0 and id <= 0xff then
-  class__pet.create_prefab(id, "pets/" .. file)
- end
-end
-
 -- map integer pet.id to bool
 -- local discovered_pets = {}
 for i = 1, 0xff do

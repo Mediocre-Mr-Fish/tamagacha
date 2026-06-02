@@ -7,19 +7,10 @@ __lua__
 #include includes/byte_streamer.p8.lua
 #include includes/class__pet.p8.lua
 
-
 -->8
 -- MARK: main
 function _init()
  t, dt = time(), 0
-
- ls = ls
- for file in all(ls("pets/")) do
-  local id = tonum(sub(file, 1, -4))
-  if id > 0 and id <= 0xff then
-   class__pet.create_prefab(id, "pets/" .. file)
-  end
- end
 
  pet_list = {}
  for id, _ in pairs(all_pets) do
