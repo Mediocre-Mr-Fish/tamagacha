@@ -24,7 +24,7 @@ do
    piao_piao = { file = "assets/tower.p8", y = 0, h = 3 },
    china = { file = "assets/tower.p8", y = 3, h = 1 },
    baka_mitai = { file = "assets/tower.p8", y = 4, h = 6 },
-   binks_sake = { file = "music/main.p8", y = 0, h = 15 },
+   binks_sake = { file = "minigames/fishing.p8", y = 0, h = 15 },
    jumping_machine = { file = "assets/home.p8", y = 0, h = 8 }
   }
  }
