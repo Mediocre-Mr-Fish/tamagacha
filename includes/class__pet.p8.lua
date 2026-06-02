@@ -1,3 +1,8 @@
+-- requires:
+--  asset_loader
+--  byte_streamer
+--  helper_functions
+
 all_pets = {}
 
 max_pets = 16

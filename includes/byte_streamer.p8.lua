@@ -1,3 +1,6 @@
+-- requires:
+--  helper_functions
+
 byte_streamer = {}
 
 do

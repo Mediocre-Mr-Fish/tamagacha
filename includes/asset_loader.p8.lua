@@ -1,3 +1,6 @@
+-- requires:
+--  helper_functions
+
 asset_loader = {}
 
 do
