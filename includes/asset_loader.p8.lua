@@ -2,7 +2,7 @@
 --  helper_functions
 
 asset_loader = {}
-
+root = root or ""
 do
  local _ENV = rescope(asset_loader, _ENV)
 
@@ -104,6 +104,7 @@ do
  end
 
  function load_file(file)
+  file = root .. file
   loaded_file = (loaded_file == file or reload(0x8000, 0, 0x4300, file) > 0) and file
   return loaded_file
  end

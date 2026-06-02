@@ -427,7 +427,8 @@ do
    switch_screen()
   elseif btnp(❎) then
    screens.minigame.current_game = games[game.key]
-   switch_screen(screens.minigame)
+   load("minigames/" .. game.key .. ".p8", "exit", game.key)
+   -- switch_screen(screens.minigame)
   end
  end
  function screens.game_select:draw()
@@ -1256,80 +1257,6 @@ do
 end
 
 games = {}
-do
- games.math = {}
- local _ENV = rescope(games.math, _ENV)
- reward = {
-  gacha_tickets = 2,
-  food = 0,
-  happiness = 15
- }
- operation_keys = { "+", "-", "*" }
- operations = {
-  ["+"] = function(a, b) return a + b end,
-  ["-"] = function(a, b) return a - b end,
-  ["*"] = function(a, b) return a * b end
- }
-
- function init()
-  progress = 0
-  setup_question()
- end
- function setup_question()
-  local a, b = flr(rnd(10)), flr(rnd(10))
-  local op_key = rnd(operation_keys)
-
-  local ans = operations[op_key](a, b)
-  question_str = a .. op_key .. b
-
-  options = {}
-
-  --make sure no overlap answers
-  local option_set = { [ans] = true }
-  while #options < 3 do
-   local new = ans + flr(rnd(6)) - 2
-   if not option_set[new] then
-    option_set[new] = true
-    add(options, new)
-   end
-  end
-
-  answer = flr(rnd(4))
-  add(options, ans, answer + 1)
- end
- function update()
-  if btnp(answer) then
-   progress += 1
-
-   if progress == 5 then
-    screens.minigame:finish_game()
-    return
-   end
-
-   setup_question()
-  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-   progress = mid(0, progress - 1, 5)
-   setup_question()
-  end
- end
- function games.math:draw()
-  print(progress .. "/5", 110, 3, 7)
-
-  print_centered(question_str, 64, 61)
-
-  print_centered(options[1], 34, 61)
-  draw_triangle(22, 63, 40, 77, 40, 49)
-
-  print_centered(options[2], 94, 61)
-  draw_triangle(104, 63, 86, 77, 86, 49)
-
-  print_centered(options[3], 64, 31)
-  draw_triangle(63, 104, 77, 86, 49, 86)
-
-  print_centered(options[4], 64, 91)
-  draw_triangle(63, 22, 77, 40, 49, 40)
- end
-end
 
 do
  games.fishing = {}
