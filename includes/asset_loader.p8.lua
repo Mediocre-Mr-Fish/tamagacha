@@ -2,7 +2,7 @@
 --  helper_functions
 
 asset_loader = {}
-
+root = root or ""
 do
  local _ENV = rescope(asset_loader, _ENV)
 
@@ -24,7 +24,7 @@ do
    piao_piao = { file = "assets/tower.p8", y = 0, h = 3 },
    china = { file = "assets/tower.p8", y = 3, h = 1 },
    baka_mitai = { file = "assets/tower.p8", y = 4, h = 6 },
-   binks_sake = { file = "music/main.p8", y = 0, h = 15 },
+   binks_sake = { file = "minigames/fishing.p8", y = 0, h = 15 },
    jumping_machine = { file = "assets/home.p8", y = 0, h = 8 }
   }
  }
@@ -104,7 +104,10 @@ do
  end
 
  function load_file(file)
-  loaded_file = (loaded_file == file or reload(0x8000, 0, 0x4300, file) > 0) and file
+  file = root .. file
+  loaded_file = (loaded_file == file
+     or reload(0x8000, 0, 0x4300, file) > 0
+     or reload(0x8000, 0, 0x4300, file .. ".png") > 0) and file
   return loaded_file
  end
 
