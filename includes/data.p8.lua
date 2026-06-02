@@ -3,7 +3,6 @@
 --  class__pet
 --  helper_functions
 
-
 -- MARK: data
 
 local settings = {
@@ -19,9 +18,10 @@ local gacha_tickets = 3
 local food = 5
 local bones = 0
 
+local inventory = { 0, 0, 0, 0, 0, 0 }
+
 local pets = {}
 function pets:add(pet) add(self, pet) end
-pets:add(all_pets[1].new():set_color())
 
 --progress of minigames
 local grim_progress = 0
@@ -42,9 +42,7 @@ function load_data()
  gacha_tickets, food, bones = read(3)
 
  -- items
- for item in all(all_items) do
-  item.count = read()
- end
+ inventory = { read(6) }
 
  -- pets
  for i = 1, max_pets do
@@ -80,9 +78,7 @@ function save_data()
  write(gacha_tickets, food, bones)
 
  -- items
- for item in all(all_items) do
-  write(item.count)
- end
+ write(unpack(inventory))
 
  -- pets
  for i = 1, max_pets do

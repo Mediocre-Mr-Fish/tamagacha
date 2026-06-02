@@ -1,12 +1,9 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
--- MARK: helper functions
 #include includes/helper_functions.p8.lua
-
--->8
--- MARK: asset_loader
 #include includes/asset_loader.p8.lua
+#include includes/byte_streamer.p8.lua
 
 for i = 0, 3 do
  asset_loader.sfx_allocation[i] = true
@@ -22,9 +19,6 @@ for i = 96, 97 do
  asset_loader.spr_allocation[i] = true
  asset_loader.spr_allocation[i + 16] = true
 end
-
--- MARK: byte_streamer
-#include includes/byte_streamer.p8.lua
 
 -->8
 -- MARK: structs
@@ -148,21 +142,20 @@ all_items = {
  }
 }
 
-for i, item in ipairs(all_items) do
- item.id = i
- item.count = 0
- add(loot_tables[item.rarity].pool, item)
-end
-
-max_item_stack = 0xff
-function change_item_count(id, delta)
- local item = all_items[id]
- if (item) item.count = mid(item.count + delta, 0, max_item_stack)
-end
-
 -->8
 -- MARK: main loop
 #include includes/data.p8.lua
+pets:add(all_pets[1].new():set_color())
+
+for i, item in ipairs(all_items) do
+ item.id = i
+ add(loot_tables[item.rarity].pool, item)
+ function item.count(delta)
+  local count = inventory[i]
+  if (count) inventory[i] = mid(count + (delta or 0), 0, 0xff)
+  return inventory[i]
+ end
+end
 
 -- wrapper for playing music with respect to mute
 function play_music(key, force)
@@ -543,9 +536,8 @@ do
   if btnp(🅾️) then
    switch_screen()
   elseif btnp(❎) then
-   if item.count > 0 then
-    -- change_item_count not needed here
-    item.count -= 1
+   if item.count() > 0 then
+    item.count(-1)
     item.func(pets[current_pet], pets)
    else
     sfx(0)
@@ -554,7 +546,7 @@ do
  end
  function draw()
   for i, item in ipairs(selectables) do
-   local amount = item.count
+   local amount = item.count()
    local sx, sy = grid_vec(scn, i):unpack()
 
    spr_scaled(item.sprite, sx, sy, 3)
@@ -1218,7 +1210,7 @@ do
   if is_instance(prize, class__pet) then
    pets:add(prize)
   else
-   change_item_count(prize.id, 1)
+   prize.count(1)
   end
  end
  function discard_prize(prize)
