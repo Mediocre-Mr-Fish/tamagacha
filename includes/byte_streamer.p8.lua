@@ -27,14 +27,14 @@ do
                 source[offset + i] = byte
             end
         end
-        offset = offset + #bytes
+        offset += #bytes
     end
 
     function read(num)
         assert(source)
         local o = offset
         num = num or 1
-        offset = offset + num
+        offset += num
         if type(source) == "number" then
             return peek(source + o, num)
         elseif type(source) == "string" then
@@ -59,7 +59,7 @@ do
     function write_bin(bin_tbl)
         local num = 0
         for i = 0, 7 do
-            num = num + (bin_tbl[i + 1] and 1 << i or 0)
+            num += (bin_tbl[i + 1] and 1 << i or 0)
         end
         write(num)
     end

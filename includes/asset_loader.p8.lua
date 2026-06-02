@@ -100,8 +100,8 @@ do
   local freed = false
 
   key = del(wrapper_table.lru_list, key or wrapper_table.lru_list[1])
-  if not key then return freed end
-  if current_music() == key then music(-1) end
+  if (not key) return freed
+  if (current_music() == key) music(-1)
   wrapper_table.source_list[key].allocation = nil
 
   for tbl in all({ wrapper_table, wrapper_table.asset_alloc }) do
@@ -141,11 +141,11 @@ do
 
   local function copy(byte)
    -- check muted
-   if byte_is_empty(byte) then return byte end
+   if (byte_is_empty(byte)) return byte
    -- check is duplicate
    local src = byte & (0xff - mask)
    local dst = assigned[src]
-   if dst then return byte & mask | dst end
+   if (dst) return byte & mask | dst
    -- allocate data
    dst = allocate(asset_table, key, 1)
    assigned[src] = dst
@@ -184,8 +184,8 @@ do
 
  -- load music and play it
  function play_music(key, force)
-  if not force and key == current_music() then return end
-  if not key then return music(-1) end
+  if (not force and key == current_music()) return
+  if (not key) return music(-1)
   music(load_music(key).allocation / 4)
  end
 
@@ -199,8 +199,12 @@ do
   for celx = 0, info.w - 1 do
    for cely = 0, info.h - 1 do
     local spr = peek(0x2000 + info.allocation + cely * info.w + celx)
-    if spr ~= 0 then spr_scaled(spr, x + flip(celx, info.w, flip_x), y + flip(cely, info.h, flip_y), scale, 1, 1, flip_x,
-      flip_y) end
+    if spr ~= 0 then
+     spr_scaled(
+      spr, x + flip(celx, info.w, flip_x), y + flip(cely, info.h, flip_y), scale, 1, 1, flip_x,
+      flip_y
+     )
+    end
    end
   end
  end
