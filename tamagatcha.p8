@@ -184,9 +184,7 @@ local dt, t = 0, time()
 
 function _init()
  load_data()
- local scn = not skip_title and screens.title
- skip_title = false
- switch_screen(scn)
+ switch_screen(not flag_skip_title(false) and screens.title)
 end
 
 function _update()

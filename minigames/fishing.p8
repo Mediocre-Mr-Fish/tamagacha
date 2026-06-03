@@ -120,7 +120,7 @@ function _end()
   gacha_tickets = min(gacha_tickets + 1, 0xff)
   food = min(food + 3, 0xff)
  end
- skip_title = true
+ flag_skip_title(true)
  save_data()
  extcmd("breadcrumb")
 end

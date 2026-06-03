@@ -3,9 +3,15 @@
 --  class__pet
 --  helper_functions
 
--- MARK: data
-local skip_title = false
+-- return boolean if the flag has been set
+-- if `set` is not `nil`, set the flag, returning its original value
+function flag_skip_title(set)
+ local ret = peek(0x5000) ~= 0
+ if (set ~= nil) poke(0x5000, tonum(set))
+ return ret
+end
 
+-- MARK: data
 local settings = {
  --optional turn sound off
  mute = false,
@@ -30,12 +36,12 @@ local grim_progress = 0
 -- MARK: load_data
 function load_data()
  -- username_title_version
- if (not cartdata("real-fancy-fire_tama-gatcha_2-2")) return false
+ if (not cartdata("real-fancy-fire_tama-gatcha_2-1")) return false
  byte_streamer.set_source(0x5e00)
  local read = byte_streamer.read
 
  -- user data
- skip_title, settings.mute, settings.grim = unpack(byte_streamer.read_bin())
+ settings.mute, settings.grim = unpack(byte_streamer.read_bin())
 
  current_pet = read()
 
@@ -70,7 +76,7 @@ function save_data()
 
  -- user settings
  byte_streamer.write_bin({
-  skip_title, settings.mute, settings.grim
+  settings.mute, settings.grim
  })
 
  write(current_pet)
