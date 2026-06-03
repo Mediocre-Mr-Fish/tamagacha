@@ -138,7 +138,7 @@ all_items = {
 -->8
 -- MARK: main loop
 #include includes/data.p8.lua
-pets:add(all_pets[1].new():set_color())
+pets:add((all_pets.duk or all_pets[1]).new():set_color())
 
 for i, item in ipairs(all_items) do
  item.id = i

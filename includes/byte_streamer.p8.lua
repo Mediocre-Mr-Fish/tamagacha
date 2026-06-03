@@ -50,12 +50,13 @@ do
   end
  end
 
- function write_str(str)
-  write(#str, ord(str, 1, #str))
+ function write_str(str, fixed_length)
+  if (not fixed_length) write(#str)
+  write(ord(str, 1, fixed_length or #str))
  end
 
- function read_str()
-  return chr(read(read()))
+ function read_str(fixed_length)
+  return chr(read(fixed_length or read()))
  end
 
  function write_bin(bin_tbl)

@@ -36,7 +36,7 @@ local grim_progress = 0
 -- MARK: load_data
 function load_data()
  -- username_title_version
- if (not cartdata("real-fancy-fire_tama-gatcha_2-1")) return false
+ if (not cartdata("real-fancy-fire_tama-gatcha_2-3")) return false
  byte_streamer.set_source(0x5e00)
  local read = byte_streamer.read
 
@@ -53,15 +53,17 @@ function load_data()
 
  -- pets
  for i = 1, max_pets do
-  local id, color_variant, stats = read(3)
-  local class = all_pets[id]
+  local class = all_pets[byte_streamer.read_str(3)]
   -- nil or pet instance
   local pet = class and class.new()
+
   if pet then
+   local color_variant, stats = read(2)
    pet:set_color(color_variant + 1)
    pet.hunger = stats \ 0xf
    pet.happiness = stats & 0xf
   end
+
   pets[i] = pet
  end
 
@@ -92,9 +94,10 @@ function save_data()
   local pet = pets[i]
 
   if pet then
-   write(pet.id, pet.variant.index, pet.hunger << 4 | pet.happiness)
+   byte_streamer.write_str(pet.id, 3)
+   write(pet.variant.index, pet.hunger << 4 | pet.happiness)
   else
-   write(0, 0, 0)
+   write(0, 0, 0, 0, 0)
   end
  end
 

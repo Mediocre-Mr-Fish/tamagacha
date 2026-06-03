@@ -74,6 +74,7 @@ end
 function _draw()
  cls()
  if show_map then
+  palt(0)
   asset_loader.draw_map(show_map, 0, 0)
   return
  end
