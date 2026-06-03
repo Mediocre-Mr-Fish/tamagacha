@@ -8,16 +8,20 @@ __lua__
 for i = 0, 3 do
  asset_loader.sfx_allocation[i] = true
 end
-for i = 0, 63 do
- asset_loader.spr_allocation[i] = true
+for x = 0, 7 do
+ for y = 0, 4 do
+  asset_loader.spr_allocation[y * 16 + x] = true
+ end
 end
-for i = 64, 79 do
- asset_loader.spr_allocation[i] = true
- asset_loader.spr_allocation[i + 16] = true
+for x = 12, 15 do
+ for y = 0, 1 do
+  asset_loader.spr_allocation[y * 16 + x] = true
+ end
 end
-for i = 96, 97 do
- asset_loader.spr_allocation[i] = true
- asset_loader.spr_allocation[i + 16] = true
+for x = 14, 15 do
+ for y = 2, 3 do
+  asset_loader.spr_allocation[y * 16 + x] = true
+ end
 end
 
 -->8
@@ -180,7 +184,9 @@ local dt, t = 0, time()
 
 function _init()
  load_data()
- switch_screen()
+ local scn = not skip_title and screens.title
+ skip_title = false
+ switch_screen(scn)
 end
 
 function _update()
@@ -253,6 +259,8 @@ do
   rectfill(35, 16, 36, 55, 7)
  end
 end
+
+#include includes/screens/title.p8.lua
 
 -- MARK: home
 do

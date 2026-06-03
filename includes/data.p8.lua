@@ -4,6 +4,7 @@
 --  helper_functions
 
 -- MARK: data
+local skip_title = false
 
 local settings = {
  --optional turn sound off
@@ -29,12 +30,12 @@ local grim_progress = 0
 -- MARK: load_data
 function load_data()
  -- username_title_version
- if (not cartdata("real-fancy-fire_tama-gatcha_2-1")) return false
+ if (not cartdata("real-fancy-fire_tama-gatcha_2-2")) return false
  byte_streamer.set_source(0x5e00)
  local read = byte_streamer.read
 
  -- user data
- settings.mute, settings.grim = unpack(byte_streamer.read_bin())
+ skip_title, settings.mute, settings.grim = unpack(byte_streamer.read_bin())
 
  current_pet = read()
 
@@ -69,7 +70,7 @@ function save_data()
 
  -- user settings
  byte_streamer.write_bin({
-  settings.mute, settings.grim
+  skip_title, settings.mute, settings.grim
  })
 
  write(current_pet)
