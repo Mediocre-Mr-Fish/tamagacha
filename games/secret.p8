@@ -1,6 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+#include ../includes/IS_HTML.p8.lua
 root = "../"
 #include ../includes/helper_functions.p8.lua
 #include ../includes/asset_loader.p8.lua

@@ -1,8 +1,8 @@
 -- requires:
 --  helper_functions
-
 asset_loader = {}
 root = root or ""
+if (IS_HTML) root = ""
 do
  local _ENV = rescope(asset_loader, _ENV)
 
@@ -108,6 +108,8 @@ do
 
  function load_file(file)
   file = root .. file
+  assert(reload(0x8000, 0, 0x4300, file) ~= nil, file)
+  assert(reload(0x8000, 0, 0x4300, file .. ".png") ~= nil, file .. ".png")
   loaded_file = (loaded_file == file
      or reload(0x8000, 0, 0x4300, file) > 0
      or reload(0x8000, 0, 0x4300, file .. ".png") > 0) and file

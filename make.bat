@@ -1,5 +1,8 @@
 @echo off
 setlocal EnableDelayedExpansion
+pushd "%CD%"
+
+> "includes\IS_HTML.p8.lua" echo local IS_HTML = true
 
 set "pico8=..\..\pico8.exe"
 set "carts="
@@ -43,6 +46,8 @@ if exist "%~2\" (
     move "temp\%zipFile%" "%~2\"
 )
 
+> "includes\IS_HTML.p8.lua" echo local IS_HTML = false
+popd
 exit /b
 
 :export_folder
