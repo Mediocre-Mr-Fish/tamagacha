@@ -190,15 +190,17 @@ end
 function _update()
  dt, t = time() - t, time()
 
- for pet in all(pets) do
-  pet:update_effects(dt)
- end
+ if flag_skip_title() then
+  for pet in all(pets) do
+   pet:update_effects(dt)
+  end
 
- for stat in all(stat_timers) do
-  if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
-   stat.last_check = time()
-   for pet in all(pets) do
-    stat.func(pet, -1)
+  for stat in all(stat_timers) do
+   if time() - stat.last_check > stat.base_interval / (1 + #pets * 0.1) then
+    stat.last_check = time()
+    for pet in all(pets) do
+     stat.func(pet, -1)
+    end
    end
   end
  end
