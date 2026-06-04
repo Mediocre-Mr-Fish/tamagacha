@@ -41,7 +41,7 @@ local grim_progress = 0
 -- MARK: load_data
 function load_data()
  -- username_title_version
- if (not cartdata("real-fancy-fire_tama-gatcha_2-3")) return false
+ if (not cartdata("real-fancy-fire_tama-gatcha_2-4")) return false
  byte_streamer.set_source(0x5e00)
  local read = byte_streamer.read
 
