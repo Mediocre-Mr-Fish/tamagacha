@@ -16,6 +16,10 @@ for %%D in (temp temp\pets temp\minigames temp\assets) do (
     if not exist "%%D" mkdir "%%D"
 )
 
+"%pico8%" "collection.p8" -export "temp\collection.p8.png"
+set "carts=!carts! collection.p8.png"
+set /a cart_count+=1
+
 "%pico8%" "tamagatcha.p8" -export "temp\tamagatcha.p8.png"
 
 call :export_folder pets

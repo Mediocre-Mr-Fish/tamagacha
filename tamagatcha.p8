@@ -274,7 +274,7 @@ do
    { name = "snacks", sprite = 17, screen = "snacks" },
    { name = "left", sprite = 18 },
    { name = "right", sprite = 19 },
-   { name = "pets", sprite = 20, screen = "collection" },
+   { name = "pets", sprite = 20 },
    { name = "adopt", sprite = 21 }
   },
   load_music = { "jumping_machine" },
@@ -315,6 +315,8 @@ do
     shift = toggle_val(shift, 32, 0)
     -- elseif sel == 6 then
     --  shift = toggle_val(shift, -32, 0)
+   elseif pet and sel == 9 then
+    load("collection.p8", "exit")
    elseif pet and sel == 10 then
     switch_screen(screens.loose_pet:with(deli(pets, current_pet)))
     current_pet = mid(current_pet, 1, #pets)

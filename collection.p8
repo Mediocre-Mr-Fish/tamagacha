@@ -24,6 +24,8 @@ function _update()
  if btnp(3) then sel_var -= 1 end
  selection = (selection - 1) % #all_pets + 1
  sel_var = (sel_var - 1) % #all_pets[selection].variants + 1
+
+ if btnp(4) then extcmd("breadcrumb") end
 end
 
 function _draw()
@@ -53,6 +55,7 @@ function _draw()
  if t % 3 > 0.1 then
   pet:spr_scaled("eye", x, y)
  end
+ print("🅾️ back", 4, 120)
 end
 
 __gfx__
