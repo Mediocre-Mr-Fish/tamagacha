@@ -30,8 +30,18 @@ echo Additional carts: !cart_count!
 echo carts=[!carts!]
 
 pushd temp
-"..\%pico8%" "tamagatcha.p8.png" -export "-f ../%output%!carts!"
+"..\%pico8%" "tamagatcha.p8.png" -export "-f %output%!carts!"
+    set "srcFolder=%output:.html=_html%"
+    set "zipFile=%output:.html=.zip%"
+
+    pushd "%srcFolder%"
+    tar -a -c -f "..\%zipFile%" *
+    popd
 popd
+if exist "%~2\" (
+    move "temp\%srcFolder%" "%~2\"
+    move "temp\%zipFile%" "%~2\"
+)
 
 exit /b
 
