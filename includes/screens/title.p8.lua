@@ -15,7 +15,8 @@ do
 
   selection = mod(selection + btnp_axis(⬆️, ⬇️), 3)
 
-  add_particles(8)
+  local r = rnd()
+  add_particles(1, r < 0.005 and 36 or r < .01 and 54)
   update_particles()
 
   if btnp(❎) then
@@ -50,11 +51,11 @@ do
   end
   asset_loader.draw_map("title_words", 12, 16, 2)
   pal()
-  
+
   if settings.grim then
    draw_particles()
   end
-  
+
   print_centered("play", 64, 96, selection == 1 and 10 or 0)
   print_centered("settings", 64, 102, selection == 2 and 10 or 0)
   print_centered("reset data", 64, 108, selection == 3 and 10 or 0)
