@@ -52,7 +52,8 @@ do
          shelf = { file = "assets/home.p8", x = 24, y = 0, w = 3, h = 1 },
          tower_segment = { file = "assets/tower.p8", x = 0, y = 0, w = 9, h = 5 },
          tower_ground = { file = "assets/tower.p8", x = 2, y = 5, w = 16, h = 10 },
-         title = { file = "assets/title.p8", x = 0, y = 0, w = 16, h = 16 }
+         title_bg = { file = "assets/title.p8", x = 0, y = 0, w = 16, h = 16 },
+         title_words = { file = "assets/title.p8", x = 16, y = 0, w = 7, h = 2 }
       }
    }
    spr_allocation.wrapper_alloc = map_allocation
