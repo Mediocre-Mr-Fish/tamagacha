@@ -81,7 +81,7 @@ function class__pet.create_prefab(id, file)
  byte_streamer.set_source(0x8000)
  local read, read_str = byte_streamer.read, byte_streamer.read_str
 
- assert(read() == 3)
+ if (read() ~= 3) return
 
  local pet = {
   id = id,
@@ -108,17 +108,14 @@ function class__pet.create_prefab(id, file)
   variant.name = read_str()
  end
 
- all_pets[id] = classfactory(pet, class__pet)
+ all_pets[id] = add(all_pets, classfactory(pet, class__pet))
 end
 
 -- ls doesn't work in html, so we use a default list
 -- this variable is called ls to shut up the linter
-local ls = ls("pets/") or { "001.p8", "002.p8", "003.p8" }
+local ls = ls("pets/") or { "duk.p8", "che.p8", "ymk.p8", "owl.p8" }
 
 for i, file in pairs(ls) do
- local id = tonum(sub(file, 1, -4))
-
- if id > 0 and id <= 0xff then
-  class__pet.create_prefab(id, "pets/" .. file)
- end
+ class__pet.create_prefab(sub(file, 1, 3), "pets/" .. file)
 end
+assert(#all_pets > 0, "no pets carts found.")

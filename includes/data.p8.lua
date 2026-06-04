@@ -3,8 +3,20 @@
 --  class__pet
 --  helper_functions
 
--- MARK: data
+-- return boolean if the flag has been set
+-- if `set` is not `nil`, set the flag, returning its original value
+function flag(addr, set)
+ local ret = peek(addr) ~= 0
+ if (set ~= nil) poke(addr, tonum(set))
+ return ret
+end
 
+
+function flag_skip_title(set)
+ return flag(0x5000, set)
+end
+
+-- MARK: data
 local settings = {
  --optional turn sound off
  mute = false,
@@ -29,12 +41,14 @@ local grim_progress = 0
 -- MARK: load_data
 function load_data()
  -- username_title_version
- if (not cartdata("real-fancy-fire_tama-gatcha_2-1")) return false
+ if (not cartdata("real-fancy-fire_tama-gatcha_2-4")) return false
  byte_streamer.set_source(0x5e00)
  local read = byte_streamer.read
 
  -- user data
- settings.mute, settings.grim = unpack(byte_streamer.read_bin())
+ local valid, mute, grim = unpack(byte_streamer.read_bin())
+ if (not valid) return false
+ settings.mute, settings.grim = mute, grim
 
  current_pet = read()
 
@@ -46,15 +60,17 @@ function load_data()
 
  -- pets
  for i = 1, max_pets do
-  local id, color_variant, stats = read(3)
-  local class = all_pets[id]
+  local class = all_pets[byte_streamer.read_str(3)]
   -- nil or pet instance
   local pet = class and class.new()
+
   if pet then
+   local color_variant, stats = read(2)
    pet:set_color(color_variant + 1)
    pet.hunger = stats \ 0xf
    pet.happiness = stats & 0xf
   end
+
   pets[i] = pet
  end
 
@@ -69,7 +85,7 @@ function save_data()
 
  -- user settings
  byte_streamer.write_bin({
-  settings.mute, settings.grim
+  true, settings.mute, settings.grim
  })
 
  write(current_pet)
@@ -85,11 +101,19 @@ function save_data()
   local pet = pets[i]
 
   if pet then
-   write(pet.id, pet.variant.index, pet.hunger << 4 | pet.happiness)
+   byte_streamer.write_str(pet.id, 3)
+   write(pet.variant.index, pet.hunger << 4 | pet.happiness)
   else
-   write(0, 0, 0)
+   write(0, 0, 0, 0, 0)
   end
  end
 
  printh("data saved")
+end
+
+function reset_data()
+ byte_streamer.set_source(0x5e00)
+ for _ = 1, 256 do
+  byte_streamer.write(0)
+ end
 end

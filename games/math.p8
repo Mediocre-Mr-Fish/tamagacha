@@ -92,6 +92,7 @@ end
 function _end()
  pets[current_pet]:change_happiness(15)
  gacha_tickets = min(gacha_tickets + 3, 0xff)
+ flag_skip_title(true)
  save_data()
  extcmd("breadcrumb")
 end

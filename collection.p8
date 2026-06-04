@@ -12,11 +12,6 @@ __lua__
 function _init()
  t, dt = time(), 0
 
- pet_list = {}
- for id, _ in pairs(all_pets) do
-  add(pet_list, id)
- end
-
  selection = 1
  sel_var = 1
 end
@@ -27,19 +22,21 @@ function _update()
  if btnp(1) then selection += 1 end
  if btnp(2) then sel_var += 1 end
  if btnp(3) then sel_var -= 1 end
- selection = (selection - 1) % #pet_list + 1
+ selection = (selection - 1) % #all_pets + 1
  sel_var = (sel_var - 1) % #all_pets[selection].variants + 1
+
+ if btnp(4) then extcmd("breadcrumb") end
 end
 
 function _draw()
- local pet = all_pets[pet_list[selection]]:set_color(sel_var)
+ local pet = all_pets[selection]:set_color(sel_var)
  local variant = pet.variant
 
  cls(1)
 
- print("pet: " .. selection .. "/" .. #pet_list, 0, 0)
+ print("pet: " .. selection .. "/" .. #all_pets, 0, 0)
  print("var: " .. sel_var .. "/" .. #pet.variants)
- print("id: " .. pad(pet.id, 3, "0"))
+ print("id: " .. pet.id)
  print("immortal: " .. tostr(pet.immortal))
  print("rarity: " .. pet.rarity)
  print("meat: " .. pet.meat)
@@ -49,12 +46,16 @@ function _draw()
  print(variant.name, 64, 56)
 
  pet:spr_scaled("thumbnail", 32, 64)
+
+ pet:spr_scaled("thumbnail", 16, 64, 0.5)
+
  pet:spr_scaled("body", 64, 64)
  local x, y = 64 + sin(t), 64 + abs(cos(t))
  pet:spr_scaled("head", x, y)
  if t % 3 > 0.1 then
   pet:spr_scaled("eye", x, y)
  end
+ print("🅾️ back", 4, 120)
 end
 
 __gfx__

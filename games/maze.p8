@@ -14,180 +14,81 @@ function play_music(key, force)
   asset_loader.play_music(key, force)
  end
 end
-for x = 0, 15 do
- for y = 0, 7 do
+
+for x = 0, 7 do
+ for y = 0, 3 do
   asset_loader.spr_allocation[y * 16 + x] = true
  end
 end
+for x = 0, 40 do
+ for y = 0, 22 do
+  asset_loader.map_allocation[y * 128 + x] = true
+ end
+end
+-->8
+
+function get_tile(x, y)
+ local overlay_tile = mget(x \ 8, y \ 8)
+ if overlay_tile ~= 0 then
+  return overlay_tile
+ end
+ return mget(x \ 8 + map_x, y \ 8 + map_y)
+end
 
 -->8
-function getplayercoords()
- return { char[1] + char[3] - 64, char[2] + char[4] - 64 }
-end
 
 function _init()
  load_data()
- char = { 100, 100, 64, 64, false }
- net_used = false
- net_timer = time()
- critter_list = {
-  { rnd(180) + 10, rnd(180) + 10, 8, false },
-  { rnd(180) + 10, rnd(180) + 10, 10, false },
-  { rnd(180) + 10, rnd(180) + 10, 8, false },
-  { rnd(180) + 10, rnd(180) + 10, 14, false },
-  { rnd(180) + 10, rnd(180) + 10, 12, false }
- }
- caught_num = 0
- landmarks = {
-  { rnd(180) + 10, rnd(180) + 10, 32 },
-  { rnd(180) + 10, rnd(180) + 10, 33 },
-  { rnd(180) + 10, rnd(180) + 10, 48 },
-  { rnd(180) + 10, rnd(180) + 10, 33 },
-  { rnd(180) + 10, rnd(180) + 10, 49 }
- }
- display_msg = true
+ --max is 12,10
+ map_x = flr(rnd(6)) * 2 + 15
+ map_y = flr(rnd(5)) * 2 - 2
+ char_x = 16
+ char_y = 8
+ tick⧗ = time()
+ temp_visuals = nil
 end
+
 function _update()
- local x, y = 0, 0
- if btn(⬅️) then
-  char[5] = true
-  x -= 2
- elseif btn(➡️) then
-  char[5] = false
-  x += 2
- end
- if btn(⬇️) then
-  y += 2
- elseif btn(⬆️) then
-  y -= 2
- end
- if abs(x) > 0 and abs(y) > 0 then
-  x *= 0.7
-  y *= 0.7
-  local char_loc = getplayercoords()
-  for critter in all(critter_list) do
-   if abs(char_loc[1] - critter[1]) + abs(char_loc[2] - critter[2]) < 60 then
-    if critter[1] < 150 and critter[4] then
-     critter[1] += 1
-    elseif critter[1] > 50 and not critter[4] then
-     critter[1] -= 1
-    end
-    if critter[1] == 50 then
-     critter[4] = true
-    elseif critter[1] == 150 then
-     critter[4] = false
-    end
-   end
+ local change_x = char_x
+ local change_y = char_y
+ --moving
+ if tick⧗ + 0.3 < time() then
+  if not (btnp_axis(⬅️, ➡️) == 0 and btnp_axis(⬆️, ⬇️) == 0) then
+   tick⧗ = time()
   end
- end
-
- if char[1] <= 64 or char[1] >= 136 then
-  char[3] += x
- end
- if char[3] >= 62 and char[3] <= 66 then
-  char[1] += x
- end
- if char[2] <= 64 or flr(char[2]) >= 136 then
-  char[4] += y
- end
- if char[4] >= 62 and char[4] <= 66 then
-  char[2] += y
- end
- char[1] = mid(64, char[1], 136)
- char[3] = mid(11, char[3], 117)
- char[2] = mid(64, char[2], 136)
- char[4] = mid(11, char[4], 117)
-
- if btnp(❎) and net_timer + 1 < time() then
-  display_msg = false
-  net_used = true
-  net_timer = time()
-  local char_loc = getplayercoords()
-  for i, critter in pairs(critter_list) do
-   if critter[1] + 8 + 20 > char_loc[1] and critter[1] + 8 - 20 < char_loc[1] and critter[2] + 15 > char_loc[2] and critter[2] - 15 < char_loc[2] then
-    deli(critter_list, i)
-    caught_num += 1
-   end
+  change_x = btnp_axis(⬅️, ➡️) * 8
+  change_y = btnp_axis(⬆️, ⬇️) * 8
+  if get_tile(char_x + change_x, char_y + change_y) == 6 then
+   temp_visuals = { change_x \ 4, change_y \ 4 }
+   --sfx() for bumping into wall
+   return
   end
- end
- if net_used and net_timer + 0.2 < time() then
-  net_used = false
-  if caught_num == 3 then
-   --game end
-   return _end()
+  --sfx() for moving
+  char_x += change_x
+  char_y += change_y
+
+  if (char_x + char_y >= 210) then
+   _end()
   end
  end
 end
 
 function _draw()
  cls()
- rectfill(0, 0, 128, 128, 11)
- for i in all(landmarks) do
-  draw_item(i, 8)
+ map(map_x, map_y)
+ map(0)
+ if temp_visuals then
+  spr(22, char_x + temp_visuals[1], char_y + temp_visuals[2])
+  temp_visuals = nil
+ else
+  spr(22, char_x, char_y)
  end
-
- --draw fence
- draw_fence(
-  char[2] <= 72,
-  char[2] >= 128,
-  char[1] <= 72,
-  char[1] >= 128
- )
- --draw critters
- for critter in all(critter_list) do
-  draw_critter(critter)
- end
- --draw player centered if btwn 64,136
- sspr(8, 0, 8, 16, char[3] - 4, char[4] - 8, 8, 16, char[5])
- sspr(24, net_used and 0 or 16, 16, 16, char[3] + (char[5] and -17 or 1), char[4] - 8, 16, 16, char[5])
- if display_msg then
-  print_centered("press ❎ to catch", 34, 77, 7)
- end
- draw_fence(false, char[2] >= 128, false, false)
- print(caught_num .. "/3 animals", 84, 1, 0)
- print("collected")
-end
-
-function draw_fence(top, bot, left, right)
- --sides
- pal()
- if top or bot then
-  pal(4, 5)
-  pal(3, 5)
-  for tile_x = 8, 184, 8 do
-   draw_item({ tile_x, top and 0 or 192, 5 }, 8)
-  end
- end
- if left or right then
-  --corners
-  palt(left and 4 or 3, true)
-  draw_item({ left and 0 or 192, 0, 5 }, 8)
-  draw_item({ left and 0 or 192, 192, 5 }, 8)
-  pal()
-  for tile_y = 0, 184, 8 do
-   draw_item({ left and 0 or 192, tile_y, 21 }, 8)
-  end
- end
- pal()
-end
-
-function draw_item(spr_tbl, size)
- local x, y = spr_tbl[1] - char[1] + 64, spr_tbl[2] - char[2] + 64
- sspr(spr_tbl[3] % 16 * 8, spr_tbl[3] \ 16 * 8, size, size, x, y)
-end
-
-function draw_critter(critter)
- palt(0b0000000000010000)
- local x, y = critter[1] - char[1] + 64, critter[2] - char[2] + 64
- local sprite = critter[3]
- sspr(sprite % 16 * 8, sprite \ 16 * 8, 16, 16, x, y)
- pal()
 end
 
 function _end()
- pets[current_pet]:change_happiness(1)
+ pets[current_pet]:change_happiness(15)
  gacha_tickets = min(gacha_tickets + 3, 0xff)
- -- food = min(food + 3, 0xff)
+ flag_skip_title(true)
  save_data()
  extcmd("breadcrumb")
 end
