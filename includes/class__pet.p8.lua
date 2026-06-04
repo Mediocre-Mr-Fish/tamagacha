@@ -58,10 +58,14 @@ function class__pet:spr_scaled(key, x, y, scale, no_pal, flip_x, flip_y)
 end
 
 function class__pet:change_hunger(delta)
+ if (delta > 0 and self.effects.hunger_2x > 0) delta *= 2
+ if (delta < 0 and self.effects.hunger_prot > 0) delta = 0
  self.hunger = mid(self.hunger + delta, 0, 0xf)
  return self
 end
 function class__pet:change_happiness(delta)
+ if (delta > 0 and self.effects.happiness_2x) delta *= 2
+ if (delta < 0 and self.effects.happiness_prot > 0) delta = 0
  self.happiness = mid(self.happiness + delta, 0, 0xf)
  return self
 end
@@ -82,7 +86,6 @@ function class__pet.create_prefab(id, file)
  local read, read_str = byte_streamer.read, byte_streamer.read_str
 
  if (read() ~= 3) return
-
  local pet = {
   id = id,
   file = file,
