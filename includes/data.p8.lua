@@ -5,10 +5,15 @@
 
 -- return boolean if the flag has been set
 -- if `set` is not `nil`, set the flag, returning its original value
-function flag_skip_title(set)
- local ret = peek(0x5000) ~= 0
- if (set ~= nil) poke(0x5000, tonum(set))
+function flag(addr, set)
+ local ret = peek(addr) ~= 0
+ if (set ~= nil) poke(addr, tonum(set))
  return ret
+end
+
+
+function flag_skip_title(set)
+ return flag(0x5000, set)
 end
 
 -- MARK: data
@@ -41,7 +46,9 @@ function load_data()
  local read = byte_streamer.read
 
  -- user data
- settings.mute, settings.grim = unpack(byte_streamer.read_bin())
+ local valid, mute, grim = unpack(byte_streamer.read_bin())
+ if (not valid) return false
+ settings.mute, settings.grim = mute, grim
 
  current_pet = read()
 
@@ -78,7 +85,7 @@ function save_data()
 
  -- user settings
  byte_streamer.write_bin({
-  settings.mute, settings.grim
+  true, settings.mute, settings.grim
  })
 
  write(current_pet)
@@ -102,4 +109,11 @@ function save_data()
  end
 
  printh("data saved")
+end
+
+function reset_data()
+ byte_streamer.set_source(0x5e00)
+ for _ = 1, 256 do
+  byte_streamer.write(0)
+ end
 end

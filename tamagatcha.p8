@@ -468,7 +468,7 @@ do
  function update()
   selection = grid_wrap(selection, btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️), 1, 2)
   if btnp(🅾️) then
-   switch_screen()
+   switch_screen(not flag_skip_title() and screens.title)
   elseif btnp(❎) then
    local key = scn.options[selection].key
    -- assumes settings are boolean
