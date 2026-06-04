@@ -317,6 +317,7 @@ do
     --  shift = toggle_val(shift, -32, 0)
    elseif pet and sel == 9 then
     load("collection.p8", "exit")
+    load("collection.p8.png", "exit")
    elseif pet and sel == 10 then
     switch_screen(screens.loose_pet:with(deli(pets, current_pet)))
     current_pet = mid(current_pet, 1, #pets)
@@ -437,7 +438,8 @@ do
    switch_screen()
   elseif btnp(❎) then
    if game.key then
-    load("minigames/" .. game.key .. ".p8", "exit", game.key)
+    load("games/" .. game.key .. ".p8", "exit")
+    load("games/" .. game.key .. ".p8.png", "exit")
    end
   end
  end

@@ -12,7 +12,7 @@ if not defined output (
     exit /b 1
 )
 
-for %%D in (temp temp\pets temp\minigames temp\assets) do (
+for %%D in (temp temp\pets temp\games temp\assets) do (
     if not exist "%%D" mkdir "%%D"
 )
 
@@ -23,7 +23,7 @@ set /a cart_count+=1
 "%pico8%" "tamagatcha.p8" -export "temp\tamagatcha.p8.png"
 
 call :export_folder pets
-call :export_folder minigames
+call :export_folder games
 call :export_folder assets
 
 echo Additional carts: !cart_count!
