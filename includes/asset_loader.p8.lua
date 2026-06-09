@@ -2,7 +2,7 @@
 --  helper_functions
 asset_loader = {}
 root = root or ""
-if (IS_HTML) root = ""
+if IS_HTML then root = "" end
 do
  local _ENV = rescope(asset_loader, _ENV)
 
@@ -26,7 +26,8 @@ do
    baka_mitai = { file = "assets/tower.p8", y = 4, h = 6 },
    binks_sake = { file = "games/fishing.p8", y = 0, h = 15 },
    jumping_machine = { file = "assets/home.p8", y = 0, h = 8 },
-   super_idol = { file = "assets/title.p8", y = 0, h = 10 }
+   super_idol = { file = "assets/title.p8", y = 0, h = 10 },
+   fiction = { file = "games/maze.p8", y = 0, h = 15 }
   }
  }
  sfx_allocation.wrapper_alloc = music_allocation
