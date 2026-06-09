@@ -13,7 +13,7 @@ do
  function update()
   local step, t = timeline:update()
 
-  selection = mod(selection + btnp_axis(⬆️, ⬇️), 3)
+  selection = mod(selection + btnp_axis(⬆️, ⬇️), IS_HTML and 3 or 2)
 
   local r = rnd()
   add_particles(1, r < 0.005 and 36 or r < .01 and 54)
@@ -58,7 +58,11 @@ do
 
   print_centered("play", 64, 96, selection == 1 and 10 or 0)
   print_centered("settings", 64, 102, selection == 2 and 10 or 0)
-  print_centered("reset data", 64, 108, selection == 3 and 10 or 0)
+  if IS_HTML then
+   print_centered("reset data", 64, 108, selection == 3 and 10 or 0)
+   print_centered("demo ver.", 102, 48, 8)
+  end
+
   print_centered(">            <", 64, 90 + selection * 6, 10)
  end
 

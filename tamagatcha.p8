@@ -124,7 +124,8 @@ all_items = {
  { sprite = 33, rarity = 1, name = "banana", func = function(pet) pet.effects.happiness_2x = 60 end },
  { sprite = 34, rarity = 2, name = "meatball", func = function(pet) pet.effects.hunger_2x = 60 end },
  {
-  sprite = 35, rarity = 3, name = "rice", func = function()
+  sprite = 35, rarity = 3, name = "rice", func = function(pet)
+   pet:change_hunger(15)
    play_music("china", true)
   end
  },

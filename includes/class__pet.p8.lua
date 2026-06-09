@@ -19,7 +19,7 @@ function class__pet.new()
   hunger_2x = 0,
   happiness_2x = 0
  }
- self.variant = { index = 1, name = "default" }
+ self.variant = { index = 0, name = "default" }
  return self
 end
 
@@ -64,7 +64,7 @@ function class__pet:change_hunger(delta)
  return self
 end
 function class__pet:change_happiness(delta)
- if (delta > 0 and self.effects.happiness_2x) delta *= 2
+ if (delta > 0 and self.effects.happiness_2x > 0) delta *= 2
  if (delta < 0 and self.effects.happiness_prot > 0) delta = 0
  self.happiness = mid(self.happiness + delta, 0, 0xf)
  return self

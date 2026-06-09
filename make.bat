@@ -2,9 +2,9 @@
 setlocal EnableDelayedExpansion
 pushd "%CD%"
 
-> "includes\IS_HTML.p8.lua" echo local IS_HTML = true
+copy /Y "includes\IS_HTML_true.p8.lua" "includes\IS_HTML.p8.lua"
 
-set "pico8=..\..\pico8.exe"
+set "pico8=%CD%\..\..\pico8.exe"
 set "carts="
 set /a cart_count=0
 
@@ -33,7 +33,7 @@ echo Additional carts: !cart_count!
 echo carts=[!carts!]
 
 pushd temp
-"..\%pico8%" "tamagatcha.p8.png" -export "-f %output%!carts!"
+"%pico8%" "tamagatcha.p8.png" -export "-f %output%!carts!"
     set "srcFolder=%output:.html=_html%"
     set "zipFile=%output:.html=.zip%"
 
@@ -42,11 +42,13 @@ pushd temp
     popd
 popd
 if exist "%~2\" (
+    if exist "%~2\%srcFolder%" rmdir /s /q "%~2\%srcFolder%"
     move "temp\%srcFolder%" "%~2\"
     move "temp\%zipFile%" "%~2\"
 )
 
-> "includes\IS_HTML.p8.lua" echo local IS_HTML = false
+copy /Y "includes\IS_HTML_false.p8.lua" "includes\IS_HTML.p8.lua"
+
 popd
 exit /b
 
