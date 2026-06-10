@@ -26,24 +26,7 @@ end
 -- set the color variant
 -- set 1 for default variant, set nil for random
 function class__pet:set_color(int_or_nil)
- self.variant = int_or_nil and self.variants[int_or_nil]
- if not self.variant then
-  local weight = 0
-
-  for variant in all(self.variants) do
-   weight += variant.weight
-  end
-
-  weight *= rnd()
-  
-  for variant in all(self.variants) do
-   weight -= variant.weight
-   if weight <= 0 then
-    self.variant = variant
-    break
-   end
-  end
- end
+ self.variant = int_or_nil and self.variants[int_or_nil] or weighted_rnd(self.variants)
  self.name = self.variant.name
  return self
 end

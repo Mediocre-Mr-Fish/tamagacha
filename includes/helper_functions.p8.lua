@@ -24,6 +24,21 @@ function grid_wrap(val, dx, dy, width, height)
  return row * width + col + 1
 end
 
+function weighted_rnd(options)
+ local weight = 0
+
+ for opt in all(options) do
+  weight += opt.weight
+ end
+
+ weight *= rnd()
+
+ for opt in all(options) do
+  weight -= opt.weight
+  if (weight <= 0) return opt
+ end
+end
+
 -- toggle a value bewteen two presets
 function toggle_val(val, target, fallback)
  return val == target and fallback or target

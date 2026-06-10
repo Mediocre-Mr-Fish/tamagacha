@@ -95,11 +95,11 @@ function glider:teleport(vec)
 end
 
 loot_tables = {
- { name = "common", color = 6, weight = 5 },
- { name = "uncommon", color = 11, weight = 4 },
- { name = "rare", color = 12, weight = 3 },
- { name = "epic", color = 14, weight = 2 },
- { name = "legendary", color = 9, weight = 1 }
+ { name = "common", color = 6, default_weight = 5 },
+ { name = "uncommon", color = 11, default_weight = 4 },
+ { name = "rare", color = 12, default_weight = 3 },
+ { name = "epic", color = 14, default_weight = 2 },
+ { name = "legendary", color = 9, default_weight = 1 }
 }
 for loot_table in all(loot_tables) do
  loot_table.pool = {}

@@ -5,23 +5,21 @@ do
  local _ENV, scn = rescope(screens.gacha, _ENV)
 
  function apply_bonus()
-  weights = {}
   local sum = 0
 
   for loot_table in all(loot_tables) do
+   sum += loot_table.default_weight
+  end
+
+  local average, sum = sum / #loot_tables, 0
+
+  for loot_table in all(loot_tables) do
+   loot_table.weight = max(0, lerp(loot_table.default_weight, average, bonus / 10))
    sum += loot_table.weight
-   add(weights, loot_table.weight)
-  end
-  local average = sum / #loot_tables
-  sum = 0
-
-  for i = 1, #weights do
-   weights[i] = max(0, lerp(weights[i], average, bonus / 10))
-   sum += weights[i]
   end
 
-  for i = 1, #weights do
-   weights[i] /= sum
+  for loot_table in all(loot_tables) do
+   loot_table.weight /= sum
   end
  end
 
@@ -30,9 +28,10 @@ do
   bonus = 0
   apply_bonus()
  end
+
  function update()
   local x, y = btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️)
-  rolls = mid(rolls - y, 1, 10)
+  rolls = mod(rolls - y, 10)
   bonus = mid(bonus + x, 0, 64)
   if x ~= 0 then
    apply_bonus()
@@ -44,10 +43,11 @@ do
    if gacha_tickets >= rolls and bones >= bonus * rolls then
     gacha_tickets -= rolls
     bones -= bonus * rolls
-    switch_screen(screens.gacha_anim.with(weights, rolls))
+    switch_screen(screens.gacha_anim.with(rolls))
    end
   end
  end
+
  function draw()
   --tickets icon
   spr(37, 0, 0)
@@ -62,10 +62,10 @@ do
   print("⬅️" .. pad(bonus) .. "➡️ bonus", 0, 80)
 
   for i, loot_table in ipairs(loot_tables) do
-   local x, y = lerp(64, 127, weights[i]), 24 + 12 * i
+   local x, y = lerp(64, 127, loot_table.weight), 24 + 12 * i
    rectfill(127, y, x, y + 2, 5)
    rectfill(64, y, x, y + 2, loot_table.color)
-   print(pad(flr(weights[i] * 100)) .. "% " .. loot_table.name, 64, y - 6)
+   print(pad(flr(loot_table.weight * 100)) .. "% " .. loot_table.name, 64, y - 6)
   end
 
   print_centered("❎ confirm   🅾️ back", 64, 110, 5)
@@ -84,18 +84,12 @@ do
  local _ENV, scn = rescope(screens.gacha_anim, _ENV)
 
  function pull_gacha()
-  local roll = rnd()
-  for i, weight in ipairs(weights) do
-   roll -= weight
-   if roll <= 0 then
-    local prize = rnd(loot_tables[i].pool)
-    return is_instance(prize, class__pet) and prize.new():set_color() or prize
-   end
-  end
+  local loot_table = weighted_rnd(loot_tables)
+  local prize = rnd(loot_table.pool)
+  return is_instance(prize, class__pet) and prize.new():set_color() or prize
  end
 
- function with(weights_, rolls_)
-  weights = weights_
+ function with(rolls_)
   rolls = rolls_
   return scn
  end
@@ -240,13 +234,19 @@ do
 
   spr_scaled(sprite, x, y, size, 1, 1)
  end
+
  function keep_prize(prize)
   if is_instance(prize, class__pet) then
-   pets:add(prize)
+   if #pets < max_pets then
+    pets:add(prize)
+   else
+    discard_prize(prize)
+   end
   else
    prize.count(1)
   end
  end
+
  function discard_prize(prize)
   if is_instance(prize, class__pet) then
    food += prize.meat * 4
