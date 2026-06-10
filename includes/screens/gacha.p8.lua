@@ -158,7 +158,7 @@ do
     end
     if btnp(🅾️) then
      for i, prize in pairs(prizes) do
-      if prizes_to_delete[selection] then
+      if prizes_to_delete[i] then
        discard_prize(prize)
       else
        keep_prize(prize)
