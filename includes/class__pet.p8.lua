@@ -26,7 +26,24 @@ end
 -- set the color variant
 -- set 1 for default variant, set nil for random
 function class__pet:set_color(int_or_nil)
- self.variant = int_or_nil and self.variants[int_or_nil] or rnd(self.variants)
+ self.variant = int_or_nil and self.variants[int_or_nil]
+ if not self.variant then
+  local weight = 0
+
+  for variant in all(self.variants) do
+   weight += variant.weight
+  end
+
+  weight *= rnd()
+  
+  for variant in all(self.variants) do
+   weight -= variant.weight
+   if weight <= 0 then
+    self.variant = variant
+    break
+   end
+  end
+ end
  self.name = self.variant.name
  return self
 end
@@ -108,6 +125,7 @@ function class__pet.create_prefab(id, file)
    variant[i] = read()
   end
 
+  variant.weight = read()
   variant.name = read_str()
  end
 
@@ -116,7 +134,7 @@ end
 
 -- ls doesn't work in html, so we use a default list
 -- this variable is called ls to shut up the linter
-local ls = ls("pets/") or { "duk.p8", "che.p8", "ymk.p8", "owl.p8" }
+local ls = ls("pets/") or { "duk.p8", "che.p8", "ymk.p8", "owl.p8", "hrs.p8" }
 
 for i, file in pairs(ls) do
  class__pet.create_prefab(sub(file, 1, 3), "pets/" .. file)

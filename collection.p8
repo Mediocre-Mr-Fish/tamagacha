@@ -25,7 +25,7 @@ function _update()
  selection = (selection - 1) % #all_pets + 1
  sel_var = (sel_var - 1) % #all_pets[selection].variants + 1
 
- if btnp(4) then extcmd("breadcrumb") end
+ if stat(100)  and btnp(4) then extcmd("breadcrumb") end
 end
 
 function _draw()
@@ -34,9 +34,8 @@ function _draw()
 
  cls(1)
 
- print("pet: " .. selection .. "/" .. #all_pets, 0, 0)
- print("var: " .. sel_var .. "/" .. #pet.variants)
- print("id: " .. pet.id)
+ print("pet: " .. pet.id .. " (" .. selection .. "/" .. #all_pets .. "), var:" .. sel_var .. "/" .. #pet.variants, 0, 0)
+ print("variant weight: " .. variant.weight .. " (" .. (variant.weight / #pet.variants * 100) .. "%)")
  print("immortal: " .. tostr(pet.immortal))
  print("rarity: " .. pet.rarity)
  print("meat: " .. pet.meat)
@@ -55,7 +54,9 @@ function _draw()
  if t % 3 > 0.1 then
   pet:spr_scaled("eye", x, y)
  end
- print("🅾️ back", 4, 120)
+ if stat(100) then
+  print("🅾️ back", 4, 120)
+ end
 end
 
 __gfx__
