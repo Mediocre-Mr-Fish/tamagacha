@@ -136,7 +136,7 @@ do
   --draw number of pets and current pet indicator
   pal()
   for i = 1, #pets do
-   circfill(71 - 7 * #pets + 14 * (i - 1), 105, 2, i == current_pet and 7 or 5)
+   circfill(67.5 - 3.5 * #pets + 7 * (i - 1), 105, 2, i == current_pet and 7 or 5)
   end
 
   rect_vec(sel_glider - vec2_1, vec2_9, 10, false, true)
