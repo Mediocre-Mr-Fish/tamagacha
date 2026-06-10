@@ -32,7 +32,12 @@ do
  function update()
   local x, y = btnp_axis(⬅️, ➡️), btnp_axis(⬆️, ⬇️)
   rolls = mod(rolls - y, 10)
-  bonus = mid(bonus + x, 0, 64)
+
+  if bonus == 0 and x == -1 then
+   bonus = bones \ rolls
+  else
+   bonus = mid(bonus + x, 0, 64)
+  end
   if x ~= 0 then
    apply_bonus()
   end
@@ -55,11 +60,11 @@ do
   spr(bone_censor(), 0, 8)
   print(bones, 10, 10, 9)
 
-  print("⬆️", 8, 48, 9)
+  print("⬆️", 8, 48, gacha_tickets >= rolls and 9 or 8)
   print(pad(rolls) .. "   rolls")
   print("⬇️")
 
-  print("⬅️" .. pad(bonus) .. "➡️ bonus", 0, 80)
+  print("⬅️" .. pad(bonus) .. "➡️ bonus", 0, 80, bones >= rolls * bonus and 9 or 8)
 
   for i, loot_table in ipairs(loot_tables) do
    local x, y = lerp(64, 127, loot_table.weight), 24 + 12 * i
