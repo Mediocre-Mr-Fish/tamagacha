@@ -16,6 +16,8 @@ function flag_skip_title(set)
  return flag(0x5000, set)
 end
 
+local data_is_valid = true
+
 -- MARK: data
 local settings = {
  --optional turn sound off
@@ -85,7 +87,7 @@ function save_data()
 
  -- user settings
  byte_streamer.write_bin({
-  true, settings.mute, settings.grim
+  data_is_valid, settings.mute, settings.grim
  })
 
  write(current_pet)
