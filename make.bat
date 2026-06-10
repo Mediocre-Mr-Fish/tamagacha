@@ -15,15 +15,15 @@ if not defined output (
     exit /b 1
 )
 
-for %%D in (temp temp\pets temp\games temp\assets) do (
+for %%D in (_temp _temp\pets _temp\games _temp\assets) do (
     if not exist "%%D" mkdir "%%D"
 )
 
-"%pico8%" "collection.p8" -export "temp\collection.p8.png"
+"%pico8%" "collection.p8" -export "_temp\collection.p8.png"
 set "carts=!carts! collection.p8.png"
 set /a cart_count+=1
 
-"%pico8%" "tamagatcha.p8" -export "temp\tamagatcha.p8.png"
+"%pico8%" "tamagatcha.p8" -export "_temp\tamagatcha.p8.png"
 
 call :export_folder pets
 call :export_folder games
@@ -32,7 +32,7 @@ call :export_folder assets
 echo Additional carts: !cart_count!
 echo carts=[!carts!]
 
-pushd temp
+pushd _temp
 "%pico8%" "tamagatcha.p8.png" -export "-f %output%!carts!"
     set "srcFolder=%output:.html=_html%"
     set "zipFile=%output:.html=.zip%"
@@ -43,8 +43,8 @@ pushd temp
 popd
 if exist "%~2\" (
     if exist "%~2\%srcFolder%" rmdir /s /q "%~2\%srcFolder%"
-    move "temp\%srcFolder%" "%~2\"
-    move "temp\%zipFile%" "%~2\"
+    move "_temp\%srcFolder%" "%~2\"
+    move "_temp\%zipFile%" "%~2\"
 )
 
 copy /Y "includes\IS_HTML_false.p8.lua" "includes\IS_HTML.p8.lua"
@@ -54,7 +54,7 @@ exit /b
 
 :export_folder
 for %%F in ("%~1\*.p8") do (
-    "%pico8%" "%%F" -export "temp\%~1\%%~nF.p8.png"
+    "%pico8%" "%%F" -export "_temp\%~1\%%~nF.p8.png"
     set "carts=!carts! %~1/%%~nF.p8.png"
     set /a cart_count+=1
 )
