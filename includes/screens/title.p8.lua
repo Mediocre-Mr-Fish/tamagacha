@@ -5,6 +5,7 @@ do
  gore_pool = {}
 
  selection = 1
+
  function init()
   timeline:start()
   play_music("super_idol")
@@ -13,7 +14,7 @@ do
  function update()
   local step, t = timeline:update()
 
-  selection = mod(selection + btnp_axis(⬆️, ⬇️), IS_HTML and 3 or 2)
+  selection = mod(selection + btnp_axis(⬆️, ⬇️), 3)
 
   local r = rnd()
   add_particles(1, r < 0.005 and 36 or r < .01 and 54)
@@ -26,8 +27,13 @@ do
    elseif selection == 2 then
     switch_screen(screens.settings)
    elseif selection == 3 then
-    reset_data()
-    run()
+    if IS_HTML then
+     reset_data()
+     run()
+    else
+     load("gallery.p8", "exit")
+     load("gallery.p8.png", "exit")
+    end
    end
   end
  end
@@ -58,10 +64,12 @@ do
 
   print_centered("play", 64, 96, selection == 1 and 10 or 0)
   print_centered("settings", 64, 102, selection == 2 and 10 or 0)
+  local opt3 = "gallery"
   if IS_HTML then
-   print_centered("reset data", 64, 108, selection == 3 and 10 or 0)
    print_centered("demo ver.", 102, 48, 8)
+   opt3 = "reset data"
   end
+  print_centered(opt3, 64, 108, selection == 3 and 10 or 0)
 
   print_centered(">            <", 64, 90 + selection * 6, 10)
  end
