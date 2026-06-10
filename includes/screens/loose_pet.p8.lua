@@ -57,9 +57,11 @@ do
   pet:spr_scaled("thumbnail", x, 44, 2, false, true, false)
   if t > 4 then
    asset_loader.play_music("baka_mitai")
-   print("you received: " .. (pet.meat * 4) .. "   " .. pad(pet.bone), 16, 70, 6)
-   spr(36, 82, 68)
-   spr(bone_censor(), 102, 68)
+   if pet.happiness > 0 then
+    print("you received: " .. (pet.meat * 4) .. "   " .. pad(pet.bone), 16, 70, 6)
+    spr(36, 82, 68)
+    spr(bone_censor(), 102, 68)
+   end
 
    print_centered("🅾️ exit", 64, 110, 5)
   end
