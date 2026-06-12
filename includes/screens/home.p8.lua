@@ -1,4 +1,3 @@
-
 do
  screens.home = classfactory__gridmenu({
   x = 4, y = 3, dx = 28, dy = 114, w = 5, h = 2,
@@ -24,41 +23,51 @@ do
  function update()
   current_pet = mid(current_pet, 1, #pets)
   local pet = pets[current_pet]
+  local is_alive = pet and not pet:is_dead()
   if (pet) play_music("jumping_machine")
   local sel, icon = update_sel(scn)
   glide(scn)
 
   if btnp(❎) then
-   --disallows feeding or playing after death to prevent revives
-   if (not pet or pet:is_dead()) and (icon.name == "food" or icon.name == "game") then
-    return
-   end
-
    if icon.screen then
-    switch_screen(screens[icon.screen])
+    if sel == 2 and not is_alive then
+     sfx(0)
+    else
+     switch_screen(screens[icon.screen])
+    end
    end
 
-   if icon.name == "food" then
-    if food > 0 then
+   if sel == 1 then
+    -- food
+    if is_alive and food > 0 then
+     sfx(4)
      pet:change_hunger(2)
      food -= 1
     else
      sfx(0)
     end
-   elseif icon.name == "left" then
+   elseif sel == 6 then
+    -- left
     current_pet = mod(current_pet - 1, #pets)
-   elseif icon.name == "right" then
+   elseif sel == 7 then
+    -- right
     current_pet = mod(current_pet + 1, #pets)
    elseif sel == 3 then
+    -- stats
     shift = toggle_val(shift, 32, 0)
     -- elseif sel == 6 then
     --  shift = toggle_val(shift, -32, 0)
-   elseif pet and sel == 9 then
+   elseif sel == 9 then
+    -- collection
     load("collection.p8", "exit")
     load("collection.p8.png", "exit")
-   elseif pet and sel == 10 then
-    switch_screen(screens.loose_pet:with(deli(pets, current_pet)))
-    current_pet = mid(current_pet, 1, #pets)
+   elseif sel == 10 then
+    if pet then
+     switch_screen(screens.loose_pet:with(deli(pets, current_pet)))
+     current_pet = mid(current_pet, 1, #pets)
+    else
+     sfx(0)
+    end
    end
   end
   camera_glider:set_target(vec2.new(shift, 0)):move()

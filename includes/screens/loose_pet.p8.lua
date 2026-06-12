@@ -78,6 +78,7 @@ do
   gore_pool = {}
   splash = false
   y4 = 0
+  asset_loader.load_map("tower_ground")
  end
  function update()
   local step, t = timeline:update()
@@ -177,7 +178,7 @@ do
     print_centered(pet.name .. " was sad.", 90, 48, 7)
    end
    if step == 7 then
-    print_centered("🅾️ exit", 64, 110, 5)
+    print_centered("🅾️ exit", 64, 109, 6)
    end
   end
  end

@@ -6,7 +6,7 @@ __lua__
 #include includes/asset_loader.p8.lua
 #include includes/byte_streamer.p8.lua
 
-for i = 0, 3 do
+for i = 0, 4 do
  asset_loader.sfx_allocation[i] = true
 end
 for x = 0, 7 do
@@ -120,16 +120,36 @@ end
 
 -- MARK: item
 all_items = {
- { sprite = 32, rarity = 1, name = "chocolate", func = function(pet) pet.effects.happiness_prot = 60 end },
- { sprite = 33, rarity = 1, name = "banana", func = function(pet) pet.effects.happiness_2x = 60 end },
- { sprite = 34, rarity = 2, name = "meatball", func = function(pet) pet.effects.hunger_2x = 60 end },
+ {
+  sprite = 32, rarity = 1, name = "chocolate", func = function(pet)
+   sfx(4)
+   pet.effects.happiness_prot = 60
+  end
+ },
+ {
+  sprite = 33, rarity = 1, name = "banana", func = function(pet)
+   sfx(4)
+   pet.effects.happiness_2x = 60
+  end
+ },
+ {
+  sprite = 34, rarity = 2, name = "meatball", func = function(pet)
+   sfx(4)
+   pet.effects.hunger_2x = 60
+  end
+ },
  {
   sprite = 35, rarity = 3, name = "rice", func = function(pet)
    pet:change_hunger(15)
    play_music("china", true)
   end
  },
- { sprite = 36, rarity = 2, name = "drumstick", func = function(pet) pet.effects.hunger_prot = 60 end },
+ {
+  sprite = 36, rarity = 2, name = "drumstick", func = function(pet)
+   sfx(4)
+   pet.effects.hunger_prot = 60
+  end
+ },
  {
   sprite = 51, rarity = 3, name = "bomb", func = function(pet, pets)
    switch_screen(screens.loose_pet:with(del(pets, pet), screens.bomb))
@@ -466,10 +486,11 @@ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 
 __sfx__
-000600001e4502d4001e4502640015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000600001e4302d4001e4302640015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000001a06000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00040000276502f6503a6502f650336502c6503b650366503a6502c650236502f650386503865030650326503165039650236502a650266502d650386502d6502665032650236503a6502c6503a650326502e650
 00040000396503d6503f6503e6503d6503f6503d6503e6503c6503b65038650306502b6502a6501f6501d6501a65019650176501665016650156501665015650176501465010650116500e650086500465000650
+0002000015050210501b0500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 00 42424344
 00 42424344
