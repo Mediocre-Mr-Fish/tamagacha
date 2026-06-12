@@ -9,12 +9,15 @@ root = "../"
 #include ../includes/class__pet.p8.lua
 #include ../includes/data.p8.lua
 
--- wrapper for playing music with respect to mute
-function play_music(key, force)
- if not settings.mute or not key then
-  asset_loader.play_music(key, force)
- end
-end
+-- -- wrapper for playing music with respect to mute
+-- function play_music(key, force)
+--  if not settings.mute or not key then
+--   asset_loader.play_music(key, force)
+--  end
+-- end
+
+asset_loader.sfx_allocation[0] = true
+asset_loader.sfx_allocation[1] = true
 
 -->8
 
@@ -25,9 +28,15 @@ operations = {
  ["*"] = function(a, b) return a * b end
 }
 
+function elapsed()
+ return time() - start_time
+end
 function _init()
  load_data()
  progress = 0
+ last_score = 0
+ start_time = time()
+ finished = false
  setup_question()
 end
 
@@ -55,25 +64,63 @@ function setup_question()
 end
 
 function _update()
- if btnp(answer) then
-  progress += 1
+ if finished then
+  if elapsed() > 3 then
+   _end()
+  end
+ else
+  if btnp(answer) then
+   sfx(1)
+   last_score = min(200, 100 * 2 \ elapsed())
+   progress += last_score
 
-  if progress == 5 then
-   return _end()
+   -- if progress == 5 then
+   --  return _end()
+   -- end
+
+   setup_question()
+   start_time = time()
+  elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
+   sfx(0)
+   last_score = -100
+   progress = max(0, progress + last_score)
+   setup_question()
+   start_time = time()
   end
 
-  setup_question()
- elseif btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-  progress = mid(0, progress - 1, 5)
-  setup_question()
+  if btnp(🅾️) then
+   finished = true
+   start_time = time()
+  end
  end
+end
+
+function draw_results()
+ print_centered("score: " .. pad(progress, 6), 63, 60, 7)
+ print_centered("+" .. min(15, progress \ 100 * 3) .. " happiness", 63, 68, 10)
+ print_centered("+" .. min(15, progress \ 200) .. " ticket", 63, 76, 9)
 end
 
 function _draw()
  cls(0)
  pets[current_pet]:spr_scaled("hd", 0, 96, 1, false, true, false)
 
- print(progress .. "/5", 110, 3, 7)
+ if finished then
+  return draw_results()
+ end
+
+ -- print(progress .. "/6", 110, 3, 7)
+ print("score: " .. pad(progress, 6), 0, 3, 7)
+
+ if last_score ~= 0 and elapsed() < 2 then
+  local y = accelerp(16, -100, 1000, min(elapsed(), 0.15))
+  print(
+   "      " .. pad((last_score > 0 and "+" or "") .. last_score, 7),
+   0, y, last_score > 0 and 11 or 8
+  )
+ end
+
+ print("🅾️ back", 101, 120, 7)
 
  print_centered(question_str, 64, 61)
 
@@ -91,8 +138,9 @@ function _draw()
 end
 
 function _end()
- pets[current_pet]:change_happiness(15)
- gacha_tickets = min(gacha_tickets + 3, 0xff)
+ progress \= 100
+ pets[current_pet]:change_happiness(progress * 3)
+ gacha_tickets = min(gacha_tickets + progress \ 2, 0xff)
  flag_skip_title(true)
  save_data()
  extcmd("breadcrumb")
@@ -155,3 +203,6 @@ __map__
 0000000000000000000000000000000007060706070707070706070707070706070707070707070707000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000006060706070606060606060607060706070606060606070606000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000007070706070707070707070707060707070707070707070707000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__sfx__
+00040000194500e450124000c40022400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000400001205021050270000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
