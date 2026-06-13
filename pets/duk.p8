@@ -1,6 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+-- tama-gatcha! add-on
+-- pet: arb duck
 #include pet.p8.lua
 
 pet = {

@@ -1,6 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+-- tama-gatcha! add-on
+-- minigame: math
 #include ../includes/IS_HTML.p8.lua
 root = "../"
 #include ../includes/helper_functions.p8.lua
@@ -65,7 +67,7 @@ end
 
 function _update()
  if finished then
-  if elapsed() > 3 then
+  if elapsed() > 2 then
    _end()
   end
  else
