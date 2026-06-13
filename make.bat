@@ -5,8 +5,7 @@ pushd "%CD%"
 copy /Y "includes\IS_HTML_true.p8.lua" "includes\IS_HTML.p8.lua"
 
 set "pico8=%CD%\..\..\pico8.exe"
-set "carts="
-set /a cart_count=0
+set "temp_dir=_temp"
 
 set "output=%~1"
 if not defined output (
@@ -15,15 +14,19 @@ if not defined output (
     exit /b 1
 )
 
-for %%D in (_temp _temp\pets _temp\games _temp\assets) do (
-    if not exist "%%D" mkdir "%%D"
-)
+if exist "%temp_dir%" rmdir /s /q "%temp_dir%"
 
-"%pico8%" "collection.p8" -export "_temp\collection.p8.png"
-set "carts=!carts! collection.p8.png"
+mkdir "%temp_dir%"
+mkdir "%temp_dir%\pets"
+mkdir "%temp_dir%\games"
+mkdir "%temp_dir%\assets"
+
+
+"%pico8%" "tamagatcha.p8" -export "%temp_dir%\tamagatcha.p8.png"
+
+"%pico8%" "collection.p8" -export "%temp_dir%\collection.p8.png"
+set "carts= collection.p8.png"
 set /a cart_count+=1
-
-"%pico8%" "tamagatcha.p8" -export "_temp\tamagatcha.p8.png"
 
 call :export_folder pets
 call :export_folder games
@@ -32,7 +35,7 @@ call :export_folder assets
 echo Additional carts: !cart_count!
 echo carts=[!carts!]
 
-pushd _temp
+pushd "%temp_dir%"
 "%pico8%" "tamagatcha.p8.png" -export "-f %output%!carts!"
     set "srcFolder=%output:.html=_html%"
     set "zipFile=%output:.html=.zip%"
@@ -43,8 +46,8 @@ pushd _temp
 popd
 if exist "%~2\" (
     if exist "%~2\%srcFolder%" rmdir /s /q "%~2\%srcFolder%"
-    move "_temp\%srcFolder%" "%~2\"
-    move "_temp\%zipFile%" "%~2\"
+    move "%temp_dir%\%srcFolder%" "%~2\"
+    move "%temp_dir%\%zipFile%" "%~2\"
 )
 
 copy /Y "includes\IS_HTML_false.p8.lua" "includes\IS_HTML.p8.lua"
@@ -54,7 +57,7 @@ exit /b
 
 :export_folder
 for %%F in ("%~1\*.p8") do (
-    "%pico8%" "%%F" -export "_temp\%~1\%%~nF.p8.png"
+    "%pico8%" "%%F" -export "%temp_dir%\%~1\%%~nF.p8.png"
     set "carts=!carts! %~1/%%~nF.p8.png"
     set /a cart_count+=1
 )
