@@ -1,6 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+-- tama-gatcha!
+-- real fancy fire
 #include includes/IS_HTML.p8.lua
 #include includes/helper_functions.p8.lua
 #include includes/asset_loader.p8.lua
@@ -206,7 +208,7 @@ local dt, t = 0, time()
 
 function _init()
  load_data()
- switch_screen(not flag_skip_title(false) and screens.title)
+ switch_screen(not flag_skip_title() and screens.title)
 end
 
 function _update()
