@@ -41,7 +41,7 @@ echo carts=[!carts!]
 pushd "%temp_dir%"
 "%pico8%" "tamagacha.p8.png" -export "-f %output%!carts!"
     set "srcFolder=%output:.html=_html%"
-    set "zipFile=%output:.html=.zip%"
+    set "zipFile=%output:.html=_html.zip%"
 
     pushd "%srcFolder%"
     tar -a -c -f "..\%zipFile%" *
