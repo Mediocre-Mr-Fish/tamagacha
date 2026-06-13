@@ -19,7 +19,7 @@ for %%D in ("%output%" "%output%\pets" "%output%\games" "%output%\assets") do (
 "%pico8%" "collection.p8" -export "%output%\collection.p8.png"
 "%pico8%" "save_editor.p8" -export "%output%\save_editor.p8.png"
 "%pico8%" "gallery.p8" -export "%output%\gallery.p8.png"
-"%pico8%" "tamagatcha.p8" -export "%output%\tamagatcha.p8.png"
+"%pico8%" "tamagacha.p8" -export "%output%\tamagacha.p8.png"
 
 set /a cart_count=3
 

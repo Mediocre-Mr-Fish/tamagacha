@@ -25,7 +25,7 @@ mkdir "%temp_dir%\games"
 mkdir "%temp_dir%\assets"
 
 
-"%pico8%" "tamagatcha.p8" -export "%temp_dir%\tamagatcha.p8.png"
+"%pico8%" "tamagacha.p8" -export "%temp_dir%\tamagacha.p8.png"
 
 "%pico8%" "collection.p8" -export "%temp_dir%\collection.p8.png"
 set "carts= collection.p8.png"
@@ -39,7 +39,7 @@ echo Additional carts: !cart_count!
 echo carts=[!carts!]
 
 pushd "%temp_dir%"
-"%pico8%" "tamagatcha.p8.png" -export "-f %output%!carts!"
+"%pico8%" "tamagacha.p8.png" -export "-f %output%!carts!"
     set "srcFolder=%output:.html=_html%"
     set "zipFile=%output:.html=.zip%"
 
