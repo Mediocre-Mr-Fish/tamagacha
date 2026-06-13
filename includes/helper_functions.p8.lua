@@ -61,7 +61,7 @@ function btnp_axis(neg, pos)
  return 0
 end
 
--- MARK: display
+-- MARK: strings
 
 function pad(str, len)
  str = tostring(str)
@@ -70,6 +70,16 @@ function pad(str, len)
  end
  return str
 end
+
+function ends_with(str, suffix)
+ return sub(str, -#suffix) == suffix
+end
+
+function is_cart(file_name)
+ return ends_with(file_name, ".p8") and file_name or ends_with(file_name, ".p8.png") and sub(file_name, 1, -5)
+end
+
+-- MARK: display
 
 function print_centered(text, x, y, col)
  if (col) color(col)

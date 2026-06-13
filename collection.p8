@@ -1,6 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+-- tama-gatcha! add-on
+-- pet viewer 
 #include includes/IS_HTML.p8.lua
 #include includes/helper_functions.p8.lua
 #include includes/asset_loader.p8.lua
@@ -14,6 +16,13 @@ function _init()
 
  selection = 1
  sel_var = 1
+
+ for pet in all(all_pets) do
+  pet.variant_weight_sum = 0
+  for variant in all(pet.variants) do
+   pet.variant_weight_sum += variant.weight
+  end
+ end
 end
 
 function _update()
@@ -25,7 +34,7 @@ function _update()
  selection = (selection - 1) % #all_pets + 1
  sel_var = (sel_var - 1) % #all_pets[selection].variants + 1
 
- if stat(100)  and btnp(4) then extcmd("breadcrumb") end
+ if stat(100) and btnp(4) then extcmd("breadcrumb") end
 end
 
 function _draw()
@@ -35,7 +44,7 @@ function _draw()
  cls(1)
 
  print("pet: " .. pet.id .. " (" .. selection .. "/" .. #all_pets .. "), var:" .. sel_var .. "/" .. #pet.variants, 0, 0)
- print("variant weight: " .. variant.weight .. " (" .. (variant.weight / #pet.variants * 100) .. "%)")
+ print("variant weight: " .. variant.weight .. " (" .. (variant.weight / pet.variant_weight_sum * 100) .. "%)")
  print("immortal: " .. tostr(pet.immortal))
  print("rarity: " .. pet.rarity)
  print("meat: " .. pet.meat)

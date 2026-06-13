@@ -1,6 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
+-- tama-gatcha! add-on
+-- minigame: fishing
 #include ../includes/IS_HTML.p8.lua
 root = "../"
 #include ../includes/helper_functions.p8.lua

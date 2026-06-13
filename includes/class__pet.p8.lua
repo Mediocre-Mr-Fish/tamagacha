@@ -115,11 +115,10 @@ function class__pet.create_prefab(id, file)
  all_pets[id] = add(all_pets, classfactory(pet, class__pet))
 end
 
--- ls doesn't work in html, so we use a default list
--- this variable is called ls to shut up the linter
-local ls = ls("pets/") or { "duk.p8", "che.p8", "ymk.p8", "owl.p8", "hrs.p8" }
-
-for i, file in pairs(ls) do
- class__pet.create_prefab(sub(file, 1, 3), "pets/" .. file)
+for i, file in pairs(files_pets) do
+ file = is_cart(file)
+ if file then
+  class__pet.create_prefab(sub(file, 1, 3), "pets/" .. file)
+ end
 end
 assert(#all_pets > 0, "no pets carts found.")
