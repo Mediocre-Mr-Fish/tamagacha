@@ -7,7 +7,10 @@ copy /Y "includes\IS_HTML_true.p8.lua" "includes\IS_HTML.p8.lua"
 set "pico8=%CD%\..\..\pico8.exe"
 set "temp_dir=_temp"
 
-set "output=%~1"
+set "output=%~nx1"
+set "output_dir=%~dp1"
+
+
 if not defined output (
     echo Error: output HTML file not specified.
     echo Usage: %~nx0 output.html
@@ -44,10 +47,10 @@ pushd "%temp_dir%"
     tar -a -c -f "..\%zipFile%" *
     popd
 popd
-if exist "%~2\" (
-    if exist "%~2\%srcFolder%" rmdir /s /q "%~2\%srcFolder%"
-    move "%temp_dir%\%srcFolder%" "%~2\"
-    move "%temp_dir%\%zipFile%" "%~2\"
+if exist "%output_dir%\" (
+    if exist "%output_dir%\%srcFolder%" rmdir /s /q "%output_dir%\%srcFolder%"
+    move "%temp_dir%\%srcFolder%" "%output_dir%\"
+    move "%temp_dir%\%zipFile%" "%output_dir%\"
 )
 
 copy /Y "includes\IS_HTML_false.p8.lua" "includes\IS_HTML.p8.lua"
