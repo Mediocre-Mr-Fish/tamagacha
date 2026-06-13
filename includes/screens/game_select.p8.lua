@@ -6,7 +6,8 @@ do
  local _ENV, scn = rescope(screens.game_select, _ENV)
 
  for file in all(files_games) do
-  if is_cart(file) then
+  file = is_cart(file)
+  if file then
    local grim = sub(file, 1, 1) == "_"
    add(
     selectables, {

@@ -76,7 +76,7 @@ function ends_with(str, suffix)
 end
 
 function is_cart(file_name)
- return ends_with(file_name, ".p8") and file_name or ends_with(file_name, ".p8.png") and sub(file_name, -5)
+ return ends_with(file_name, ".p8") and file_name or ends_with(file_name, ".p8.png") and sub(file_name, 1, -5)
 end
 
 -- MARK: display

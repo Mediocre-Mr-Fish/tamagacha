@@ -46,10 +46,10 @@ do
     else
      sfx(0)
     end
-   elseif sel == 6 then
+   elseif sel == 7 then
     -- left
     current_pet = mod(current_pet - 1, #pets)
-   elseif sel == 7 then
+   elseif sel == 8 then
     -- right
     current_pet = mod(current_pet + 1, #pets)
    elseif sel == 3 then
