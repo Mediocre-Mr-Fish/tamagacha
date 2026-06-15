@@ -2,7 +2,7 @@
 setlocal EnableDelayedExpansion
 pushd "%CD%"
 
-copy /Y "includes\IS_HTML_true.p8.lua" "includes\IS_HTML.p8.lua"
+copy /Y "includes\IS_DEMO_true.p8.lua" "includes\IS_DEMO.p8.lua"
 
 set "pico8=%CD%\..\..\pico8.exe"
 set "temp_dir=_temp"
@@ -29,11 +29,31 @@ mkdir "%temp_dir%\assets"
 
 "%pico8%" "collection.p8" -export "%temp_dir%\collection.p8.png"
 set "carts= collection.p8.png"
-set /a cart_count+=1
+set /a cart_count=1
 
-call :export_folder pets
-call :export_folder games
-call :export_folder assets
+for %%F in ("assets\*.p8") do (
+    "%pico8%" "%%F" -export "%temp_dir%\assets\%%~nF.png"
+    set "carts=!carts! assets/%%~nF.png"
+    set /a cart_count+=1
+)
+
+for %%F in (
+    "collection.p8"
+    "games/fishing.p8"
+    "games/math.p8"
+    "games/maze.p8"
+    "games/_secret.p8"
+    "pets/duk.p8"
+    "pets/che.p8"
+    "pets/ymk.p8"
+    "pets/owl.p8"
+    "pets/hrs.p8"
+) do (
+    "%pico8%" "%%~F" -export "%temp_dir%\%%~F.png"
+    set "carts=!carts! %%~F.png"
+    set /a cart_count+=1
+)
+
 
 echo Additional carts: !cart_count!
 echo carts=[!carts!]
@@ -47,21 +67,15 @@ pushd "%temp_dir%"
     tar -a -c -f "..\%zipFile%" *
     popd
 popd
+
+set "dstFolder=%srcFolder:.bin=_bin%"
+
 if exist "%output_dir%\" (
-    if exist "%output_dir%\%srcFolder%" rmdir /s /q "%output_dir%\%srcFolder%"
-    move "%temp_dir%\%srcFolder%" "%output_dir%\"
+    if exist "%output_dir%\%dstFolder%" rmdir /s /q "%output_dir%\%dstFolder%"
+    move "%temp_dir%\%srcFolder%" "%output_dir%\%dstFolder%"
     move "%temp_dir%\%zipFile%" "%output_dir%\"
 )
 
-copy /Y "includes\IS_HTML_false.p8.lua" "includes\IS_HTML.p8.lua"
+copy /Y "includes\IS_DEMO_false.p8.lua" "includes\IS_DEMO.p8.lua"
 
 popd
-exit /b
-
-:export_folder
-for %%F in ("%~1\*.p8") do (
-    "%pico8%" "%%F" -export "%temp_dir%\%~1\%%~nF.p8.png"
-    set "carts=!carts! %~1/%%~nF.p8.png"
-    set /a cart_count+=1
-)
-exit /b

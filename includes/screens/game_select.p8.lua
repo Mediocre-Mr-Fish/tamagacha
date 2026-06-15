@@ -31,7 +31,7 @@ do
    switch_screen()
   elseif btnp(❎) then
    if settings.grim or not game.grim then
-    local file = (IS_HTML and "" or "games/") .. game.file
+    local file = (IS_DEMO and "" or "games/") .. game.file
     load(file, "exit")
     load(file .. ".png", "exit")
    else

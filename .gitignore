@@ -1,2 +1,4 @@
 _temp
-builds/*.zip
+*.zip
+
+builds/**/*_bin
