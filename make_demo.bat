@@ -70,11 +70,11 @@ popd
 
 set "dstFolder=%srcFolder:.bin=_bin%"
 
-if exist "%output_dir%\" (
-    if exist "%output_dir%\%dstFolder%" rmdir /s /q "%output_dir%\%dstFolder%"
-    move "%temp_dir%\%srcFolder%" "%output_dir%\%dstFolder%"
-    move "%temp_dir%\%zipFile%" "%output_dir%\"
-)
+if not exist "%output_dir%" mkdir "%output_dir%"
+
+if exist "%output_dir%\%dstFolder%" rmdir /s /q "%output_dir%\%dstFolder%"
+move "%temp_dir%\%srcFolder%" "%output_dir%\%dstFolder%"
+move "%temp_dir%\%zipFile%" "%output_dir%\"
 
 copy /Y "includes\IS_DEMO_false.p8.lua" "includes\IS_DEMO.p8.lua"
 
