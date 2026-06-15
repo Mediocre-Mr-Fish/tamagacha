@@ -27,6 +27,11 @@ call :export_folder pets
 call :export_folder games
 call :export_folder assets
 
+pushd "%output%"
+tar -a -c -f "png.zip" *
+popd
+move "%output%\png.zip" "%output%.zip" 
+
 popd
 exit /b
 
