@@ -2,3 +2,5 @@ _temp
 *.zip
 
 builds/**/*_bin
+builds/**/*_html
+builds/**/*_png
