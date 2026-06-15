@@ -27,6 +27,7 @@ call :export_folder pets
 call :export_folder games
 call :export_folder assets
 
+popd
 exit /b
 
 :export_folder

@@ -27,7 +27,7 @@ do
    elseif selection == 2 then
     switch_screen(screens.settings)
    elseif selection == 3 then
-    if IS_HTML then
+    if IS_DEMO then
      reset_data()
      run()
     else
@@ -65,7 +65,7 @@ do
   print_centered("play", 64, 96, selection == 1 and 10 or 0)
   print_centered("settings", 64, 102, selection == 2 and 10 or 0)
   local opt3 = "gallery"
-  if IS_HTML then
+  if IS_DEMO then
    print_centered("demo ver.", 102, 48, 8)
    opt3 = "reset data"
   end

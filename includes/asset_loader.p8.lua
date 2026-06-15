@@ -2,7 +2,7 @@
 --  helper_functions
 asset_loader = {}
 root = root or ""
-if IS_HTML then root = "" end
+if IS_DEMO then root = "" end
 do
  local _ENV = rescope(asset_loader, _ENV)
 

@@ -3,7 +3,7 @@ version 43
 __lua__
 -- tama-gatcha! add-on
 -- save editor
-#include includes/IS_HTML.p8.lua
+#include includes/IS_DEMO.p8.lua
 #include includes/helper_functions.p8.lua
 #include includes/asset_loader.p8.lua
 #include includes/byte_streamer.p8.lua
@@ -50,7 +50,7 @@ local tabs = {
   },
   ["save data"] = {
    type = "button",
-   desc = "save changes",
+   desc = "save changes\nbe sure to check if\ndata_is_valid is true",
    set = function()
     contigify_pets()
     save_data()
@@ -337,8 +337,9 @@ function _draw()
 
  local tab_name = tabs[tab_sel]
  local tab = tabs[tab_name]
- print(tab_name, 6)
- print("")
+ print_centered(tab_name, 64, 6, 6)
+ print_centered("⬅️           ➡️", 64, 6, 6)
+ print("", 0, 12)
 
  local changing = c_val ~= nil
  for i, opt_name in ipairs(tab) do
@@ -363,6 +364,12 @@ function _draw()
 
  local _, b = hybrid_get(tab, opt_sel)
  if (b) print(b.desc, 0, 96, 6)
+ print(
+  b.type == "button" and "❎apply"
+    or c_val == nil and "❎change"
+    or "⬆️⬇️change ❎apply 🅾️cancel",
+  0, 120
+ )
 end
 
 function pet_menu()
