@@ -32,8 +32,8 @@ set "carts= collection.p8.png"
 set /a cart_count=1
 
 for %%F in ("assets\*.p8") do (
-    "%pico8%" "%%F" -export "%temp_dir%\assets\%%~nF.png"
-    set "carts=!carts! assets/%%~nF.png"
+    "%pico8%" "%%F" -export "%temp_dir%\assets\%%~nF.p8.png"
+    set "carts=!carts! assets/%%~nF.p8.png"
     set /a cart_count+=1
 )
 
